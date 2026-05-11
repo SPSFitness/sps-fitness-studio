@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SPS Fitness — Content Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --black:       #000000;
+  --surface:     #0d0d0d;
+  --surface2:    #161616;
+  --surface3:    #202020;
+  --border:      rgba(255,255,255,0.07);
+  --border-hover:rgba(255,255,255,0.16);
+  --blue:        #1a6fff;
+  --blue-bright: #3d8bff;
+  --blue-dark:   #1050cc;
+  --cyan:        #00e5ff;
+  --cyan-dim:    rgba(0,229,255,0.15);
+  --white:       #ffffff;
+  --text:        #f0f0f0;
+  --muted:       rgba(255,255,255,0.45);
+  --faint:       rgba(255,255,255,0.18);
+  --motivation:  #1a6fff;
+  --myth:        #00e5ff;
+  --evidence:    #39d98a;
+  --quickwin:    #ffb800;
+  --radius:      14px;
+  --radius-sm:   9px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--black);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;min-height:100vh;overflow-x:hidden;}
+
+/* HEADER */
+.header{
+  height:62px;background:var(--surface);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;position:sticky;top:0;z-index:200;
+}
+.logo-wrap{display:flex;align-items:center;gap:12px;}
+.logo-img{width:38px;height:38px;border-radius:50%;}
+.logo-text{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:3px;color:var(--white);}
+.logo-text span{color:var(--blue-bright);}
+.conn-pill{
+  display:flex;align-items:center;gap:7px;
+  font-size:12px;font-weight:600;letter-spacing:0.04em;
+  padding:6px 14px;border-radius:20px;transition:all .2s;
+}
+.conn-pill.off{background:var(--surface3);color:var(--muted);}
+.conn-pill.on{background:rgba(57,217,138,0.12);color:#39d98a;border:1px solid rgba(57,217,138,0.25);}
+.conn-dot{width:7px;height:7px;border-radius:50%;}
+.conn-pill.off .conn-dot{background:var(--faint);}
+.conn-pill.on .conn-dot{background:#39d98a;box-shadow:0 0 7px #39d98a;}
+
+/* APP SHELL */
+.app{display:flex;min-height:calc(100vh - 62px);}
+
+/* SIDEBAR */
+.sidebar{
+  width:210px;flex-shrink:0;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  padding:20px 0;
+  display:flex;flex-direction:column;
+}
+.nav-section{
+  font-size:10px;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--faint);
+  padding:18px 24px 7px;
+}
+.nav-item{
+  display:flex;align-items:center;gap:11px;
+  padding:11px 24px;font-size:14px;font-weight:500;
+  color:var(--muted);cursor:pointer;
+  border-left:3px solid transparent;
+  transition:all .15s;
+  user-select:none;
+}
+.nav-item:hover{color:var(--text);background:rgba(255,255,255,0.03);}
+.nav-item.active{color:var(--white);border-left-color:var(--blue-bright);background:rgba(26,111,255,0.1);}
+.nav-item svg{width:17px;height:17px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2;}
+.nav-badge{
+  margin-left:auto;background:var(--blue);
+  color:white;font-size:10px;font-weight:700;
+  padding:2px 7px;border-radius:10px;min-width:18px;text-align:center;
+}
+
+/* MAIN */
+.main{flex:1;padding:36px 36px 60px;overflow-y:auto;max-width:900px;}
+.panel{display:none;}
+.panel.active{display:block;}
+
+/* HEADINGS */
+.page-title{
+  font-family:'Bebas Neue',sans-serif;font-size:38px;
+  letter-spacing:2px;line-height:1;margin-bottom:4px;
+  background:linear-gradient(90deg,var(--white) 0%,var(--blue-bright) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.page-sub{font-size:14px;color:var(--muted);margin-bottom:28px;}
+
+/* CARDS */
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:24px;margin-bottom:16px;
+}
+.card-label{
+  font-size:10px;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:12px;
+}
+
+/* TYPE GRID */
+.type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
+.type-btn{
+  padding:18px 8px 14px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--surface2);cursor:pointer;text-align:center;
+  transition:all .15s;color:var(--muted);
+}
+.type-btn:hover{border-color:var(--border-hover);color:var(--text);transform:translateY(-1px);}
+.type-icon{font-size:26px;margin-bottom:7px;}
+.type-label{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;}
+.type-btn[data-type="motivation"].selected{border-color:var(--motivation);background:rgba(26,111,255,0.14);color:var(--white);}
+.type-btn[data-type="myth"].selected{border-color:var(--myth);background:rgba(0,229,255,0.1);color:var(--white);}
+.type-btn[data-type="evidence"].selected{border-color:var(--evidence);background:rgba(57,217,138,0.1);color:var(--white);}
+.type-btn[data-type="quickwin"].selected{border-color:var(--quickwin);background:rgba(255,184,0,0.1);color:var(--white);}
+
+/* INPUTS */
+input,textarea,select{
+  width:100%;background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius-sm);color:var(--text);
+  font-family:'DM Sans',sans-serif;font-size:14px;
+  padding:12px 16px;outline:none;transition:border-color .15s;
+}
+input:focus,textarea:focus{border-color:var(--blue-bright);}
+input::placeholder,textarea::placeholder{color:var(--faint);}
+textarea{min-height:50px;resize:vertical;line-height:1.75;}
+
+/* BUTTONS */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  gap:7px;padding:11px 18px;border-radius:var(--radius-sm);
+  font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;
+  cursor:pointer;transition:all .15s;border:none;letter-spacing:.02em;
+  white-space:nowrap;
+}
+.btn-primary{
+  background:var(--blue);color:white;width:100%;
+  font-family:'Bebas Neue',sans-serif;font-size:19px;
+  letter-spacing:3px;padding:14px;
+  box-shadow:0 0 30px rgba(26,111,255,0.3);
+}
+.btn-primary:hover{background:var(--blue-bright);box-shadow:0 0 40px rgba(61,139,255,0.45);transform:translateY(-1px);}
+.btn-primary:active{transform:translateY(0);}
+.btn-ghost{
+  background:var(--surface2);color:var(--muted);
+  border:1px solid var(--border);
+}
+.btn-ghost:hover{color:var(--text);border-color:var(--border-hover);background:var(--surface3);}
+.btn-cyan{background:rgba(0,229,255,0.12);color:var(--cyan);border:1px solid rgba(0,229,255,0.25);}
+.btn-cyan:hover{background:rgba(0,229,255,0.2);}
+.btn-green{background:rgba(57,217,138,0.12);color:#39d98a;border:1px solid rgba(57,217,138,0.25);}
+.btn-green:hover{background:rgba(57,217,138,0.2);}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+
+/* POST BOX */
+.post-box{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:20px;
+  font-size:15px;line-height:1.8;color:var(--text);
+  white-space:pre-wrap;min-height:100px;
+}
+.post-box.loading{color:var(--faint);font-style:italic;}
+
+/* STATUS */
+.status-bar{
+  padding:12px 16px;border-radius:var(--radius-sm);
+  font-size:13px;font-weight:500;margin-top:12px;display:none;
+}
+.status-bar.success{background:rgba(57,217,138,0.1);color:#39d98a;border:1px solid rgba(57,217,138,0.2);}
+.status-bar.error{background:rgba(255,60,60,0.1);color:#ff6b6b;border:1px solid rgba(255,60,60,0.2);}
+.status-bar.info{background:rgba(26,111,255,0.1);color:var(--blue-bright);border:1px solid rgba(26,111,255,0.2);}
+
+/* SCHEDULE DROP */
+.schedule-drop{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:20px;margin-top:14px;display:none;
+}
+.sched-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.setting-label{font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;}
+.setting-hint{font-size:12px;color:var(--faint);margin-top:5px;line-height:1.55;}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:18px 20px;
+}
+.stat-num{font-family:'Bebas Neue',sans-serif;font-size:36px;line-height:1;margin-bottom:4px;}
+.stat-label{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+
+/* QUEUE ITEMS */
+.queue-item{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:16px;margin-bottom:10px;
+  display:flex;align-items:flex-start;gap:14px;transition:border-color .15s;
+}
+.queue-item:hover{border-color:var(--border-hover);}
+.q-icon{width:42px;height:42px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.q-body{flex:1;min-width:0;}
+.q-meta{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+.q-preview{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.q-time{font-size:11px;color:var(--faint);margin-top:5px;display:flex;align-items:center;gap:5px;}
+.q-actions{display:flex;gap:6px;margin-top:9px;}
+.q-actions .btn{padding:5px 12px;font-size:12px;}
+.q-del{background:none;border:none;color:var(--faint);cursor:pointer;padding:2px 4px;font-size:20px;line-height:1;flex-shrink:0;transition:color .15s;}
+.q-del:hover{color:#ff6b6b;}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:4px;}
+.badge-motivation{background:rgba(26,111,255,0.2);color:var(--blue-bright);}
+.badge-myth{background:rgba(0,229,255,0.15);color:var(--cyan);}
+.badge-evidence{background:rgba(57,217,138,0.15);color:#39d98a;}
+.badge-quickwin{background:rgba(255,184,0,0.15);color:#ffb800;}
+.badge-due{background:rgba(255,184,0,0.15);color:#ffb800;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.6;}}
+
+/* CALENDAR */
+.cal-nav-row{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.cal-nav-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 16px;border-radius:var(--radius-sm);cursor:pointer;font-size:16px;transition:all .15s;}
+.cal-nav-btn:hover{border-color:var(--blue-bright);color:var(--blue-bright);}
+.cal-range-label{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;flex:1;text-align:center;color:var(--white);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+.cal-day-head{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);text-align:center;padding:5px 0;}
+.cal-cell{min-height:72px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;transition:all .15s;}
+.cal-cell.has-post{border-color:rgba(26,111,255,0.35);background:rgba(26,111,255,0.06);}
+.cal-cell.today{border-color:var(--blue-bright);box-shadow:0 0 12px rgba(26,111,255,0.2);}
+.cal-num{font-size:13px;font-weight:600;margin-bottom:5px;color:var(--muted);}
+.cal-cell.today .cal-num{color:var(--blue-bright);}
+.cal-dot{width:8px;height:8px;border-radius:50%;margin:2px 0;}
+.cal-dot.motivation{background:var(--motivation);}
+.cal-dot.myth{background:var(--myth);}
+.cal-dot.evidence{background:var(--evidence);}
+.cal-dot.quickwin{background:var(--quickwin);}
+.cal-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:16px;}
+.cal-legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);}
+
+/* EMPTY */
+.empty{text-align:center;padding:52px 24px;color:var(--faint);}
+.empty-icon{font-size:42px;margin-bottom:12px;}
+.empty p{font-size:14px;line-height:1.6;}
+
+/* HOW-TO CARD */
+.howto-step{display:flex;gap:12px;margin-bottom:14px;align-items:flex-start;}
+.howto-num{width:28px;height:28px;border-radius:50%;background:var(--blue);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+.howto-text{font-size:13px;color:var(--muted);line-height:1.6;}
+.howto-text strong{color:var(--text);}
+.howto-text a{color:var(--blue-bright);text-decoration:none;}
+.howto-text a:hover{text-decoration:underline;}
+
+/* GLOW ACCENT LINE */
+.accent-line{height:2px;background:linear-gradient(90deg,var(--blue) 0%,var(--cyan) 100%);border-radius:2px;margin-bottom:28px;opacity:0.6;}
+
+@media(max-width:680px){
+  .sidebar{display:none;}
+  .type-grid{grid-template-columns:repeat(2,1fr);}
+  .stats-row{grid-template-columns:1fr 1fr;}
+  .main{padding:20px 16px 48px;}
+  .page-title{font-size:28px;}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo-wrap">
+    <img class="logo-img" src="https://i.imgur.com/placeholder.png" alt="SPS Fitness" onerror="this.style.display='none'" />
+    <div class="logo-text">SPS <span>FITNESS</span></div>
+  </div>
+  <div class="conn-pill off" id="conn-pill">
+    <div class="conn-dot"></div>
+    <span id="conn-label">Not connected</span>
+  </div>
+</header>
+
+<div class="app">
+  <nav class="sidebar">
+    <div class="nav-section">Content</div>
+    <div class="nav-item active" onclick="showPanel('generate')" id="nav-generate">
+      <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Generate
+    </div>
+    <div class="nav-item" onclick="showPanel('queue')" id="nav-queue">
+      <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      Queue
+      <span class="nav-badge" id="queue-badge">0</span>
+    </div>
+    <div class="nav-item" onclick="showPanel('calendar')" id="nav-calendar">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      Calendar
+    </div>
+    <div class="nav-section">App</div>
+    <div class="nav-item" onclick="showPanel('settings')" id="nav-settings">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Settings
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <!-- GENERATE -->
+    <div class="panel active" id="panel-generate">
+      <div class="page-title">Create a post</div>
+      <div class="page-sub">AI-written content for your over 30s fitness community</div>
+      <div class="accent-line"></div>
+
+      <div class="card">
+        <div class="card-label">Post type</div>
+        <div class="type-grid">
+          <div class="type-btn selected" data-type="motivation" onclick="selectType(this)">
+            <div class="type-icon">🔥</div><div class="type-label">Motivation</div>
+          </div>
+          <div class="type-btn" data-type="myth" onclick="selectType(this)">
+            <div class="type-icon">💡</div><div class="type-label">Myth bust</div>
+          </div>
+          <div class="type-btn" data-type="evidence" onclick="selectType(this)">
+            <div class="type-icon">🔬</div><div class="type-label">Evidence</div>
+          </div>
+          <div class="type-btn" data-type="quickwin" onclick="selectType(this)">
+            <div class="type-icon">⚡</div><div class="type-label">Quick win</div>
+          </div>
+        </div>
+        <div class="card-label">Focus <span style="font-weight:400;text-transform:none;font-size:12px;color:var(--faint);">(optional — e.g. "Monday energy", "sleep", "protein")</span></div>
+        <input type="text" id="extra-context" placeholder="Add a specific topic or angle..." style="margin-bottom:18px;" />
+        <button class="btn btn-primary" onclick="generatePost()">✦ GENERATE POST</button>
+      </div>
+
+      <div class="card" id="output-card" style="display:none;">
+        <div class="card-label">Your post</div>
+        <div class="post-box" id="post-output"></div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="generatePost()">↺ Regenerate</button>
+          <button class="btn btn-ghost" onclick="editPost()">✎ Edit</button>
+          <button class="btn btn-cyan" onclick="openScheduleForm()">📅 Schedule</button>
+          <button class="btn btn-ghost" onclick="copyPost()">⎘ Copy</button>
+        </div>
+        <div class="status-bar" id="output-status"></div>
+      </div>
+
+      <div class="schedule-drop" id="schedule-form">
+        <div class="card-label" style="margin-bottom:14px;">Schedule this post</div>
+        <div class="sched-row">
+          <div><div class="setting-label">Date</div><input type="date" id="sched-date" /></div>
+          <div><div class="setting-label">Time</div><input type="time" id="sched-time" value="09:00" /></div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-green" style="flex:1;" onclick="addToQueue()">✓ Add to queue</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('schedule-form').style.display='none'">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUEUE -->
+    <div class="panel" id="panel-queue">
+      <div class="page-title">Scheduled queue</div>
+      <div class="page-sub">Your upcoming posts — copy each one into Meta Business Suite to schedule</div>
+      <div class="accent-line"></div>
+
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-num" id="stat-total" style="color:var(--blue-bright);">0</div><div class="stat-label">Scheduled</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-due" style="color:var(--quickwin);">0</div><div class="stat-label">Due now</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-week" style="color:var(--cyan);">0</div><div class="stat-label">This week</div></div>
+      </div>
+
+      <div class="btn-row" style="margin-bottom:20px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="generateWeek()">✦ AUTO-FILL NEXT 7 DAYS</button>
+        <button class="btn btn-ghost" onclick="clearQueue()">🗑 Clear all</button>
+      </div>
+      <div id="queue-status" class="status-bar" style="margin-bottom:12px;"></div>
+      <div id="queue-list"></div>
+    </div>
+
+    <!-- CALENDAR -->
+    <div class="panel" id="panel-calendar">
+      <div class="page-title">Content calendar</div>
+      <div class="page-sub">Your weekly content at a glance</div>
+      <div class="accent-line"></div>
+      <div class="cal-nav-row">
+        <button class="cal-nav-btn" onclick="shiftWeek(-1)">‹</button>
+        <div class="cal-range-label" id="cal-range"></div>
+        <button class="cal-nav-btn" onclick="shiftWeek(1)">›</button>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="cal-legend">
+        <div class="cal-legend-item"><div class="cal-dot motivation"></div>Motivation</div>
+        <div class="cal-legend-item"><div class="cal-dot myth"></div>Myth busting</div>
+        <div class="cal-legend-item"><div class="cal-dot evidence"></div>Evidence based</div>
+        <div class="cal-legend-item"><div class="cal-dot quickwin"></div>Quick win</div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="panel" id="panel-settings">
+      <div class="page-title">Settings</div>
+      <div class="page-sub">Connect your Facebook page and configure defaults</div>
+      <div class="accent-line"></div>
+
+      <div class="card">
+        <div class="card-label">Facebook page connection</div>
+        <div style="margin-bottom:16px;">
+          <div class="setting-label">Page access token</div>
+          <input type="password" id="fb-token" placeholder="Paste your Page Access Token..." />
+          <div class="setting-hint">Graph API Explorer → User or Page dropdown → select your page name</div>
+        </div>
+        <div style="margin-bottom:18px;">
+          <div class="setting-label">Page ID</div>
+          <input type="text" id="fb-page-id" placeholder="e.g. 10154224424799682" />
+          <div class="setting-hint">Facebook Page → About → scroll to bottom</div>
+        </div>
+        <button class="btn btn-primary" style="max-width:280px;" onclick="saveAndTest()">SAVE & TEST CONNECTION</button>
+        <div class="status-bar" id="settings-status"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Default post time</div>
+        <input type="time" id="default-time" value="09:00" style="max-width:180px;margin-bottom:6px;" />
+        <div class="setting-hint">Auto-fill posts will use this time daily</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">How to publish posts</div>
+        <div class="howto-step"><div class="howto-num">1</div><div class="howto-text">Generate your post here and click <strong>Copy</strong></div></div>
+        <div class="howto-step"><div class="howto-num">2</div><div class="howto-text">Go to <a href="https://business.facebook.com" target="_blank">business.facebook.com</a> → <strong>Planner</strong> → <strong>Create post</strong></div></div>
+        <div class="howto-step"><div class="howto-num">3</div><div class="howto-text">Paste your post, click the arrow next to "Post now" → <strong>Schedule</strong> → pick date and time</div></div>
+        <div class="howto-step"><div class="howto-num">4</div><div class="howto-text">Use <strong>Auto-fill 7 days</strong> in Queue to batch your whole week in one go — every Monday takes about 10 minutes</div></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const SYSTEM = `You are a content writer for an over-30s women's fitness Facebook page in the UK called SPS Fitness. Tone: bold, warm, straight-talking — never condescending, never preachy, never toxic-positive. These are busy women with full lives. Posts feel like a knowledgeable friend, not a coach lecturing. Keep under 200 words. Punchy, conversational. End with an engaging question or CTA. Max 3 hashtags. Never use "ladies", "girls", "you need to", "you should". Use "we" or "you" warmly. British English.`;
+
+const PROMPTS = {
+  motivation: c=>`Write a motivational post${c?` — focus: ${c}`:''}.  Real and grounding, not cheesy. Acknowledge busy lives. Celebrate small wins. Reference relatable scenarios — hectic weeks, fitting movement around a packed schedule, early mornings.`,
+  myth: c=>`Write a myth-busting post${c?` about: ${c}`:''}.  Pick one fitness myth affecting women over 30 — e.g. "lifting makes you bulky", "you need an hour minimum", "cardio only for weight loss", "your metabolism crashes after 40". Bust it with punchy evidence-backed explanation.`,
+  evidence: c=>`Write an evidence-based post${c?` about: ${c}`:''}.  One science-backed insight for women over 30 — strength training and bone density, sleep and recovery, hormones and exercise, protein and muscle retention, benefits of low-intensity movement. Interesting and accessible, no jargon.`,
+  quickwin: c=>`Write a quick win post${c?` about: ${c}`:''}.  One practical, immediately actionable tip a busy woman could do today — under 10 mins, no equipment needed, fits into existing routine. Habit stacking, desk stretches, protein swaps, walking meetings. Doable not overwhelming.`
+};
+
+const CYCLE=['motivation','myth','evidence','quickwin','motivation','myth','quickwin'];
+const BADGE_CLASS={motivation:'badge-motivation',myth:'badge-myth',evidence:'badge-evidence',quickwin:'badge-quickwin'};
+const ICONS={motivation:'🔥',myth:'💡',evidence:'🔬',quickwin:'⚡'};
+const ICON_BG={motivation:'rgba(26,111,255,0.15)',myth:'rgba(0,229,255,0.12)',evidence:'rgba(57,217,138,0.1)',quickwin:'rgba(255,184,0,0.12)'};
+const DOT={motivation:'motivation',myth:'myth',evidence:'evidence',quickwin:'quickwin'};
+
+let selType='motivation', curPost='', queue=[], calOff=0, fbToken='', fbPageId='';
+
+function showPanel(n){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+  document.getElementById('panel-'+n).classList.add('active');
+  document.getElementById('nav-'+n).classList.add('active');
+  if(n==='calendar')renderCalendar();
+  if(n==='queue')renderQueue();
+}
+
+function selectType(el){
+  document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+  selType=el.dataset.type;
+}
+
+async function generatePost(){
+  const ctx=document.getElementById('extra-context').value.trim();
+  document.getElementById('output-card').style.display='block';
+  document.getElementById('schedule-form').style.display='none';
+  hideStatus('output-status');
+  const out=document.getElementById('post-output');
+  out.className='post-box loading';
+  out.textContent='Writing your post...';
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:SYSTEM,messages:[{role:'user',content:PROMPTS[selType](ctx)}]})
+    });
+    const d=await r.json();
+    if(d.error)throw new Error(d.error.message);
+    curPost=d.content.map(b=>b.text||'').join('').trim();
+    out.className='post-box';
+    out.textContent=curPost;
+  }catch(e){
+    out.className='post-box';
+    out.textContent='Could not generate post — please try again.';
+  }
+}
+
+function editPost(){
+  const out=document.getElementById('post-output');
+  const ta=document.createElement('textarea');
+  ta.value=out.textContent||out.value||'';
+  ta.className='post-box';ta.id='post-output';
+  ta.oninput=()=>curPost=ta.value;
+  out.replaceWith(ta);
+}
+
+function getPostText(){
+  const el=document.getElementById('post-output');
+  return el.value!==undefined?el.value:el.textContent;
+}
+
+function openScheduleForm(){
+  if(!curPost)return;
+  document.getElementById('schedule-form').style.display='block';
+  document.getElementById('sched-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('sched-time').value=document.getElementById('default-time').value||'09:00';
+}
+
+function addToQueue(){
+  const date=document.getElementById('sched-date').value;
+  const time=document.getElementById('sched-time').value;
+  if(!date||!time||!curPost)return;
+  queue.push({id:Date.now(),type:selType,text:curPost,date,time});
+  queue.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  document.getElementById('schedule-form').style.display='none';
+  updateBadge();
+  showStatus('output-status','✓ Added to queue for '+fmtDate(date)+' at '+time,'success');
+  setTimeout(()=>hideStatus('output-status'),3000);
+}
+
+function removeFromQueue(id){
+  queue=queue.filter(q=>q.id!==id);
+  renderQueue();updateBadge();
+}
+
+function copyPost(){
+  const t=getPostText();
+  if(!t)return;
+  navigator.clipboard.writeText(t).then(()=>{
+    showStatus('output-status','⎘ Copied! Now paste into Meta Business Suite.','success');
+    setTimeout(()=>hideStatus('output-status'),3000);
+  });
+}
+
+function copyQueueItem(id){
+  const item=queue.find(q=>q.id===id);
+  if(!item)return;
+  navigator.clipboard.writeText(item.text).then(()=>{
+    alert('Copied!\n\nNow go to business.facebook.com → Planner → Create post → paste → Schedule');
+  });
+}
+
+function renderQueue(){
+  const list=document.getElementById('queue-list');
+  const now=new Date();
+  const thisWeekEnd=new Date(now);thisWeekEnd.setDate(now.getDate()+7);
+  document.getElementById('stat-total').textContent=queue.length;
+  document.getElementById('stat-due').textContent=queue.filter(q=>new Date(q.date+'T'+q.time)<=now).length;
+  document.getElementById('stat-week').textContent=queue.filter(q=>{const d=new Date(q.date+'T'+q.time);return d>=now&&d<=thisWeekEnd;}).length;
+  if(!queue.length){
+    list.innerHTML='<div class="empty"><div class="empty-icon">📋</div><p>No posts scheduled yet.<br/>Generate posts or use auto-fill!</p></div>';
+    return;
+  }
+  list.innerHTML=queue.map(q=>{
+    const due=new Date(q.date+'T'+q.time)<=now;
+    const preview=q.text.replace(/\n/g,' ').substring(0,100)+(q.text.length>100?'...':'');
+    return `<div class="queue-item">
+      <div class="q-icon" style="background:${ICON_BG[q.type]}">${ICONS[q.type]}</div>
+      <div class="q-body">
+        <div class="q-meta">
+          <span class="badge ${BADGE_CLASS[q.type]}">${q.type}</span>
+          ${due?'<span class="badge badge-due">● Due now</span>':''}
+        </div>
+        <div class="q-preview">${preview}</div>
+        <div class="q-time">🕐 ${fmtDate(q.date)} · ${q.time}</div>
+        <div class="q-actions">
+          <button class="btn btn-cyan" onclick="copyQueueItem(${q.id})">⎘ Copy to clipboard</button>
+        </div>
+      </div>
+      <button class="q-del" onclick="removeFromQueue(${q.id})" title="Remove">×</button>
+    </div>`;
+  }).join('');
+}
+
+async function generateWeek(){
+  const defTime=document.getElementById('default-time').value||'09:00';
+  const today=new Date();
+  showPanel('queue');
+  document.getElementById('queue-list').innerHTML='<div class="empty"><div class="empty-icon">✦</div><p>Generating 7 posts...<br/>About 30 seconds — hang tight!</p></div>';
+  for(let i=0;i<7;i++){
+    const d=new Date(today);d.setDate(today.getDate()+i);
+    const ds=d.toISOString().split('T')[0];
+    const type=CYCLE[i%CYCLE.length];
+    try{
+      const r=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:SYSTEM,messages:[{role:'user',content:PROMPTS[type]('')}]})
+      });
+      const data=await r.json();
+      if(data.error)throw new Error(data.error.message);
+      const text=data.content.map(b=>b.text||'').join('').trim();
+      queue.push({id:Date.now()+i,type,text,date:ds,time:defTime});
+    }catch(e){console.error(e);}
+    queue.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+    renderQueue();updateBadge();
+  }
+  showQueueStatus('✓ 7 posts generated and queued! Copy each one into Meta Business Suite.','success');
+}
+
+function clearQueue(){
+  if(!queue.length)return;
+  if(confirm('Clear all scheduled posts?')){queue=[];renderQueue();updateBadge();}
+}
+
+function updateBadge(){
+  document.getElementById('queue-badge').textContent=queue.length;
+}
+
+function fmtDate(d){
+  return new Date(d+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+}
+
+function showQueueStatus(msg,type){
+  const el=document.getElementById('queue-status');
+  el.className='status-bar '+type;el.textContent=msg;el.style.display='block';
+  setTimeout(()=>el.style.display='none',5000);
+}
+
+async function saveAndTest(){
+  fbToken=document.getElementById('fb-token').value.trim();
+  fbPageId=document.getElementById('fb-page-id').value.trim();
+  if(!fbToken||!fbPageId){showStatus('settings-status','Please enter both token and page ID.','error');return;}
+  showStatus('settings-status','Testing connection...','info');
+  try{
+    const r=await fetch(`https://graph.facebook.com/v19.0/${fbPageId}?fields=name,fan_count&access_token=${fbToken}`);
+    const d=await r.json();
+    if(d.error)throw new Error(d.error.message);
+    showStatus('settings-status',`✓ Connected to "${d.name}"${d.fan_count?' · '+d.fan_count.toLocaleString()+' followers':''}','success');
+    const pill=document.getElementById('conn-pill');
+    pill.className='conn-pill on';
+    document.getElementById('conn-label').textContent=d.name||'Connected';
+  }catch(e){
+    showStatus('settings-status','✕ '+e.message,'error');
+  }
+}
+
+function showStatus(id,msg,type){
+  const el=document.getElementById(id);
+  el.className='status-bar '+type;el.textContent=msg;el.style.display='block';
+}
+function hideStatus(id){
+  const el=document.getElementById(id);if(el)el.style.display='none';
+}
+
+let calWeekOff=0;
+function shiftWeek(d){calWeekOff+=d;renderCalendar();}
+function renderCalendar(){
+  const today=new Date();
+  const ws=new Date(today);
+  ws.setDate(today.getDate()-((today.getDay()+6)%7)+calWeekOff*7);
+  const we=new Date(ws);we.setDate(ws.getDate()+6);
+  const fmt=d=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+  document.getElementById('cal-range').textContent=fmt(ws)+' — '+fmt(we);
+  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  let html=days.map(d=>`<div class="cal-day-head">${d}</div>`).join('');
+  for(let i=0;i<7;i++){
+    const d=new Date(ws);d.setDate(ws.getDate()+i);
+    const ds=d.toISOString().split('T')[0];
+    const isToday=ds===today.toISOString().split('T')[0];
+    const dp=queue.filter(q=>q.date===ds);
+    const dots=dp.map(p=>`<div class="cal-dot ${DOT[p.type]}"></div>`).join('');
+    html+=`<div class="cal-cell${dp.length?' has-post':''}${isToday?' today':''}"><div class="cal-num">${d.getDate()}</div>${dots}</div>`;
+  }
+  document.getElementById('cal-grid').innerHTML=html;
+}
+
+renderQueue();
+renderCalendar();
+</script>
+</body>
+</html>
