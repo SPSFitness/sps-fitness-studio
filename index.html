@@ -9,8 +9,7 @@
 :root {
   --black:#000;--surface:#0d0d0d;--surface2:#161616;--surface3:#202020;
   --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14);
-  --blue:#1a6fff;--blue2:#3d8bff;--blue3:#1050cc;
-  --cyan:#00e5ff;--green:#39d98a;--gold:#ffb800;
+  --blue:#1a6fff;--blue2:#3d8bff;--cyan:#00e5ff;--green:#39d98a;--gold:#ffb800;
   --text:#f0f0f0;--muted:rgba(255,255,255,0.45);--faint:rgba(255,255,255,0.18);
   --r:14px;--rs:9px;
 }
@@ -120,45 +119,31 @@ textarea{min-height:50px;resize:vertical;line-height:1.75;}
 .ht{font-size:13px;color:var(--muted);line-height:1.6;}
 .ht strong{color:var(--text);}
 .ht a{color:var(--blue2);text-decoration:none;}
-.ht a:hover{text-decoration:underline;}
-.img-box{margin-top:16px;display:none;}
-.img-box img{width:100%;border-radius:var(--rs);border:1px solid var(--border);display:block;}
-.img-loading{background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:20px;text-align:center;color:var(--faint);font-size:13px;}
 @media(max-width:680px){.sidebar{display:none;}.tg{grid-template-columns:repeat(2,1fr);}.stats{grid-template-columns:1fr 1fr;}.main{padding:20px 16px 48px;}.pt{font-size:28px;}}
 </style>
 </head>
 <body>
-
 <header class="header">
   <div class="logo">SPS <span>FITNESS</span></div>
-  <div class="pill off" id="connPill">
-    <div class="dot"></div>
-    <span id="connLabel">Not connected</span>
-  </div>
+  <div class="pill off" id="connPill"><div class="dot"></div><span id="connLabel">Not connected</span></div>
 </header>
-
 <div class="app">
   <nav class="sidebar">
     <div class="ns">Content</div>
     <div class="ni active" id="nav-generate" onclick="showPanel('generate')">
-      <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-      Generate
+      <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Generate
     </div>
     <div class="ni" id="nav-queue" onclick="showPanel('queue')">
-      <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-      Queue <span class="nb" id="queueBadge">0</span>
+      <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>Queue<span class="nb" id="queueBadge">0</span>
     </div>
     <div class="ni" id="nav-calendar" onclick="showPanel('calendar')">
-      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-      Calendar
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Calendar
     </div>
     <div class="ns">App</div>
     <div class="ni" id="nav-settings" onclick="showPanel('settings')">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-      Settings
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Settings
     </div>
   </nav>
-
   <main class="main">
 
     <div class="panel active" id="panel-generate">
@@ -175,20 +160,11 @@ textarea{min-height:50px;resize:vertical;line-height:1.75;}
         </div>
         <div class="cl">Focus <span style="font-weight:400;text-transform:none;font-size:12px;color:var(--faint)">(optional)</span></div>
         <input type="text" id="extraCtx" placeholder="e.g. Monday energy, sleep, protein..." style="margin-bottom:18px" />
-        <button class="btn bp" id="genBtn" onclick="generatePost()">&#x2726; GENERATE POST</button>
+        <button class="btn bp" onclick="generatePost()">&#x2726; GENERATE POST</button>
       </div>
-
       <div class="card" id="outputCard" style="display:none">
         <div class="cl">Your post</div>
         <div class="pb" id="postOutput"></div>
-        <div class="img-box" id="imgBox">
-          <div class="cl" style="margin-top:16px;margin-bottom:8px">Suggested image</div>
-          <div id="imgContent"></div>
-          <div class="br" style="margin-top:8px">
-            <button class="btn bg" onclick="fetchImage()">&#x21BA; New image</button>
-            <a id="imgDownload" class="btn bc" style="text-decoration:none" download="sps-post-image.jpg">&#x2913; Download image</a>
-          </div>
-        </div>
         <div class="br">
           <button class="btn bg" onclick="generatePost()">&#x21BA; Regenerate</button>
           <button class="btn bg" onclick="editPost()">&#x270E; Edit</button>
@@ -197,7 +173,6 @@ textarea{min-height:50px;resize:vertical;line-height:1.75;}
         </div>
         <div class="sb" id="outputStatus"></div>
       </div>
-
       <div class="sf" id="schedForm">
         <div class="cl" style="margin-bottom:14px">Schedule this post</div>
         <div class="sr">
@@ -260,7 +235,6 @@ textarea{min-height:50px;resize:vertical;line-height:1.75;}
         <div style="margin-bottom:18px">
           <div class="sl">Page ID</div>
           <input type="text" id="fbPageId" placeholder="e.g. 10154224424799682" />
-          <div class="sh">Facebook Page &rarr; About &rarr; scroll to bottom</div>
         </div>
         <button class="btn bp" style="max-width:280px" onclick="saveAndTest()">SAVE &amp; TEST CONNECTION</button>
         <div class="sb" id="settingsStatus"></div>
@@ -274,8 +248,8 @@ textarea{min-height:50px;resize:vertical;line-height:1.75;}
         <div class="cl">How to publish posts</div>
         <div class="hs"><div class="hn">1</div><div class="ht">Generate your post and click <strong>Copy</strong></div></div>
         <div class="hs"><div class="hn">2</div><div class="ht">Go to <a href="https://business.facebook.com" target="_blank">business.facebook.com</a> &rarr; <strong>Planner</strong> &rarr; <strong>Create post</strong></div></div>
-        <div class="hs"><div class="hn">3</div><div class="ht">Paste, click the arrow next to "Post now" &rarr; <strong>Schedule</strong> &rarr; pick date and time</div></div>
-        <div class="hs"><div class="hn">4</div><div class="ht">Use <strong>Auto-fill 7 days</strong> to batch your whole week every Monday — takes about 10 minutes</div></div>
+        <div class="hs"><div class="hn">3</div><div class="ht">Paste, click arrow next to "Post now" &rarr; <strong>Schedule</strong> &rarr; pick date and time</div></div>
+        <div class="hs"><div class="hn">4</div><div class="ht">Use <strong>Auto-fill 7 days</strong> to batch your whole week every Monday</div></div>
       </div>
     </div>
 
@@ -296,7 +270,6 @@ var CYCLE = ["motivation","myth","evidence","quickwin","motivation","myth","quic
 var BADGE = { motivation:"bm", myth:"bmyth", evidence:"be", quickwin:"bq" };
 var ICONS = { motivation:"&#x1F525;", myth:"&#x1F4A1;", evidence:"&#x1F52C;", quickwin:"&#x26A1;" };
 var IBGS = { motivation:"rgba(26,111,255,0.15)", myth:"rgba(0,229,255,0.12)", evidence:"rgba(57,217,138,0.1)", quickwin:"rgba(255,184,0,0.12)" };
-var IMG_QUERIES = { motivation:"woman fitness workout motivation", myth:"fitness myth strength training women", evidence:"women strength training science", quickwin:"quick workout busy women" };
 
 var selType = "motivation";
 var curPost = "";
@@ -321,62 +294,35 @@ function selectType(el) {
   selType = el.getAttribute("data-type");
 }
 
+function callAPI(system, prompt, callback) {
+  fetch("/.netlify/functions/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ system: system, messages: [{ role: "user", content: prompt }] })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.error) throw new Error(d.error.message || d.error);
+    var text = d.content.map(function(b) { return b.text || ""; }).join("").trim();
+    callback(null, text);
+  })
+  .catch(function(e) { callback(e.message, null); });
+}
+
 function generatePost() {
   var ctx = document.getElementById("extraCtx").value.trim();
   var card = document.getElementById("outputCard");
   var out = document.getElementById("postOutput");
-  var imgBox = document.getElementById("imgBox");
   card.style.display = "block";
   document.getElementById("schedForm").style.display = "none";
-  imgBox.style.display = "none";
   hideStatus("outputStatus");
   out.className = "pb loading";
   out.textContent = "Writing your post...";
-  fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json",
-    "x-api-key": "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",
-    "anthropic-version": "2023-06-01",
-    "anthropic-dangerous-direct-browser-access": "true" },
-    body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system: SYS, messages: [{ role: "user", content: PROMPTS[selType](ctx) }] })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(d) {
-    if (d.error) throw new Error(d.error.message);
-    curPost = d.content.map(function(b) { return b.text || ""; }).join("").trim();
+  callAPI(SYS, PROMPTS[selType](ctx), function(err, text) {
     out.className = "pb";
-    out.textContent = curPost;
-    fetchImage();
-  })
-  .catch(function(e) {
-    out.className = "pb";
-    out.textContent = "Could not generate post. Please try again.";
-  });
-}
-
-function fetchImage() {
-  var imgBox = document.getElementById("imgBox");
-  var imgContent = document.getElementById("imgContent");
-  imgBox.style.display = "block";
-  imgContent.innerHTML = '<div class="img-loading">Finding a matching image...</div>';
-  var query = encodeURIComponent(IMG_QUERIES[selType] || "fitness women workout");
-  var url = "https://api.unsplash.com/photos/random?query=" + query + "&orientation=landscape&client_id=your_unsplash_key";
-  fetch(url)
-  .then(function(r) { return r.json(); })
-  .then(function(d) {
-    if (d.errors || !d.urls) throw new Error("No image");
-    var imgUrl = d.urls.regular;
-    imgContent.innerHTML = '<img src="' + imgUrl + '" alt="Post image" />';
-    var dl = document.getElementById("imgDownload");
-    dl.href = d.urls.full;
-    dl.style.display = "inline-flex";
-  })
-  .catch(function() {
-    var fallback = "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80";
-    imgContent.innerHTML = '<img src="' + fallback + '" alt="Fitness image" />';
-    var dl = document.getElementById("imgDownload");
-    dl.href = fallback;
-    dl.style.display = "inline-flex";
+    if (err) { out.textContent = "Could not generate post. Please try again."; return; }
+    curPost = text;
+    out.textContent = text;
   });
 }
 
@@ -398,15 +344,12 @@ function getPostText() {
 function openSchedForm() {
   if (!curPost) return;
   document.getElementById("schedForm").style.display = "block";
-  var today = new Date().toISOString().split("T")[0];
-  document.getElementById("schedDate").value = today;
+  document.getElementById("schedDate").value = new Date().toISOString().split("T")[0];
   var t = document.getElementById("defaultTime");
   document.getElementById("schedTime").value = t ? t.value : "09:00";
 }
 
-function closeSchedForm() {
-  document.getElementById("schedForm").style.display = "none";
-}
+function closeSchedForm() { document.getElementById("schedForm").style.display = "none"; }
 
 function addToQueue() {
   var date = document.getElementById("schedDate").value;
@@ -422,8 +365,7 @@ function addToQueue() {
 
 function removeFromQueue(id) {
   queue = queue.filter(function(q) { return q.id !== id; });
-  renderQueue();
-  updateBadge();
+  renderQueue(); updateBadge();
 }
 
 function copyPost() {
@@ -449,10 +391,8 @@ function renderQueue() {
   var now = new Date();
   var weekEnd = new Date(now); weekEnd.setDate(now.getDate() + 7);
   document.getElementById("statTotal").textContent = queue.length;
-  var due = queue.filter(function(q) { return new Date(q.date + "T" + q.time) <= now; });
-  var week = queue.filter(function(q) { var d = new Date(q.date + "T" + q.time); return d >= now && d <= weekEnd; });
-  document.getElementById("statDue").textContent = due.length;
-  document.getElementById("statWeek").textContent = week.length;
+  document.getElementById("statDue").textContent = queue.filter(function(q) { return new Date(q.date + "T" + q.time) <= now; }).length;
+  document.getElementById("statWeek").textContent = queue.filter(function(q) { var d = new Date(q.date + "T" + q.time); return d >= now && d <= weekEnd; }).length;
   if (!queue.length) {
     list.innerHTML = '<div class="empty"><div style="font-size:42px">&#x1F4CB;</div><p>No posts scheduled yet.<br/>Generate posts or use auto-fill!</p></div>';
     return;
@@ -462,17 +402,13 @@ function renderQueue() {
     var q = queue[i];
     var isDue = new Date(q.date + "T" + q.time) <= now;
     var preview = q.text.replace(/\n/g, " ").substring(0, 100) + (q.text.length > 100 ? "..." : "");
-    html += '<div class="qi">';
-    html += '<div class="qicon" style="background:' + IBGS[q.type] + '">' + ICONS[q.type] + '</div>';
-    html += '<div class="qb">';
-    html += '<span class="badge ' + BADGE[q.type] + '">' + q.type + '</span>';
+    html += '<div class="qi"><div class="qicon" style="background:' + IBGS[q.type] + '">' + ICONS[q.type] + '</div>';
+    html += '<div class="qb"><span class="badge ' + BADGE[q.type] + '">' + q.type + '</span>';
     if (isDue) html += ' <span class="badge bdue">Due now</span>';
     html += '<div class="qp">' + preview + '</div>';
     html += '<div class="qt">&#x1F550; ' + fmtDate(q.date) + ' &middot; ' + q.time + '</div>';
     html += '<div class="qa"><button class="btn bc" onclick="copyQueueItem(' + q.id + ')">&#x2398; Copy</button></div>';
-    html += '</div>';
-    html += '<button class="qdel" onclick="removeFromQueue(' + q.id + ')">&times;</button>';
-    html += '</div>';
+    html += '</div><button class="qdel" onclick="removeFromQueue(' + q.id + ')">&times;</button></div>';
   }
   list.innerHTML = html;
 }
@@ -493,25 +429,15 @@ function generateWeek() {
     var d = new Date(today); d.setDate(today.getDate() + i);
     var ds = d.toISOString().split("T")[0];
     var type = CYCLE[i % CYCLE.length];
-    fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json",
-    "x-api-key": "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",
-    "anthropic-version": "2023-06-01",
-    "anthropic-dangerous-direct-browser-access": "true" },
-      body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system: SYS, messages: [{ role: "user", content: PROMPTS[type]("") }] })
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (!data.error) {
-        var text = data.content.map(function(b) { return b.text || ""; }).join("").trim();
-        queue.push({ id: Date.now() + i, type: type, text: text, date: ds, time: defTime });
+    var idx = i;
+    callAPI(SYS, PROMPTS[type](""), function(err, text) {
+      if (!err && text) {
+        queue.push({ id: Date.now() + idx, type: type, text: text, date: ds, time: defTime });
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         renderQueue(); updateBadge();
       }
       i++; genNext();
-    })
-    .catch(function() { i++; genNext(); });
+    });
   }
   genNext();
 }
@@ -521,9 +447,7 @@ function clearQueue() {
   if (confirm("Clear all scheduled posts?")) { queue = []; renderQueue(); updateBadge(); }
 }
 
-function updateBadge() {
-  document.getElementById("queueBadge").textContent = queue.length;
-}
+function updateBadge() { document.getElementById("queueBadge").textContent = queue.length; }
 
 function fmtDate(d) {
   return new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short" });
@@ -542,14 +466,6 @@ function hideStatus(id) {
   if (el) el.style.display = "none";
 }
 
-function showStatus(id, msg, type) {
-  var el = document.getElementById(id);
-  if (!el) return;
-  el.className = "sb " + type;
-  el.textContent = msg;
-  el.style.display = "block";
-}
-
 function saveAndTest() {
   var token = document.getElementById("fbToken").value.trim();
   var pageId = document.getElementById("fbPageId").value.trim();
@@ -559,8 +475,7 @@ function saveAndTest() {
   .then(function(r) { return r.json(); })
   .then(function(d) {
     if (d.error) throw new Error(d.error.message);
-    var msg = "Connected to " + d.name + (d.fan_count ? " - " + d.fan_count.toLocaleString() + " followers" : "");
-    showStatus("settingsStatus", msg, "success");
+    showStatus("settingsStatus", "Connected to " + d.name + (d.fan_count ? " - " + d.fan_count.toLocaleString() + " followers" : ""), "success");
     var pill = document.getElementById("connPill");
     pill.className = "pill on";
     document.getElementById("connLabel").textContent = d.name || "Connected";
@@ -586,8 +501,7 @@ function renderCalendar() {
     var isToday = ds === today.toISOString().split("T")[0];
     var dp = queue.filter(function(q) { return q.date === ds; });
     var dots = dp.map(function(p) { return '<div class="cdot ' + p.type + '"></div>'; }).join("");
-    html += '<div class="cc' + (dp.length ? " hp" : "") + (isToday ? " td" : "") + '">';
-    html += '<div class="cn">' + d.getDate() + '</div>' + dots + '</div>';
+    html += '<div class="cc' + (dp.length ? " hp" : "") + (isToday ? " td" : "") + '"><div class="cn">' + d.getDate() + '</div>' + dots + '</div>';
   }
   document.getElementById("calGrid").innerHTML = html;
 }
