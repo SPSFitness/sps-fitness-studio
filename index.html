@@ -565,28 +565,27 @@ function exportCSV() {
     return;
   }
 
-  var audLabels = {women:"Women 30+", men:"Men 40s/50s", everyone:"Everyone"};
-  var typeLabels = {motivation:"Motivation", myth:"Myth Bust", evidence:"Evidence", quickwin:"Quick Win", bodyblast:"Bodyblast"};
-
-  var headers = ["Date", "Time", "Post Content", "Post Type", "Audience", "Hashtags"];
+  // High Level Basic Format: postAtSpecificTime (YYYY-MM-DD HH:mm:ss),content,link,imageUrls,gifUrl,videoUrls,thumbnailUrl
+  var headers = ["postAtSpecificTime (YYYY-MM-DD HH:mm:ss)", "content", "link (OGmetaUrl)", "imageUrls", "gifUrl", "videoUrls", "thumbnailUrl"];
   var rows = [headers];
 
   for (var i = 0; i < queue.length; i++) {
     var q = queue[i];
-    var fullText = q.text;
-    var hashtagMatch = fullText.match(/(#[^\n]+)$/m);
-    var hashtags = hashtagMatch ? hashtagMatch[1].trim() : "";
-    var postText = hashtagMatch ? fullText.substring(0, fullText.lastIndexOf(hashtagMatch[1])).trim() : fullText;
-    var dateParts = q.date.split("-");
-    var formattedDate = dateParts[2] + "/" + dateParts[1] + "/" + dateParts[0];
-    var escaped = postText.replace(/"/g, '""');
+
+    // Combine date and time into YYYY-MM-DD HH:mm:ss format
+    var datetime = q.date + " " + q.time + ":00";
+
+    // Combine post text and hashtags into one content field
+    var fullText = q.text.replace(/"/g, '""');
+
     rows.push([
-      formattedDate,
-      q.time,
-      '"' + escaped + '"',
-      typeLabels[q.type] || q.type,
-      audLabels[q.aud] || q.aud,
-      '"' + hashtags + '"'
+      datetime,
+      '"' + fullText + '"',
+      "",
+      "",
+      "",
+      "",
+      ""
     ]);
   }
 
@@ -602,7 +601,7 @@ function exportCSV() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  showStatus("queueStatus", "Downloaded " + queue.length + " posts as CSV. Ready to upload to High Level!", "success");
+  showStatus("queueStatus", "Downloaded " + queue.length + " posts in High Level format. Ready to upload!", "success");
 }
 
 function doClearQueue() {
