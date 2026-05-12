@@ -38,6 +38,8 @@ body{background:var(--black);color:var(--text);font-family:'DM Sans',sans-serif;
 .tb[data-type="myth"].sel{border-color:var(--cyan);background:rgba(0,229,255,0.1);color:#fff;}
 .tb[data-type="evidence"].sel{border-color:var(--green);background:rgba(57,217,138,0.1);color:#fff;}
 .tb[data-type="quickwin"].sel{border-color:var(--gold);background:rgba(255,184,0,0.1);color:#fff;}
+.tb[data-type="bodyblast"].sel{border-color:#ff3c78;background:rgba(255,60,120,0.12);color:#fff;}
+.cdot.bodyblast{background:#ff3c78;}
 .ag{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;}
 .ab{padding:12px 8px;border:1px solid var(--border);border-radius:var(--rs);background:var(--surface2);cursor:pointer;text-align:center;transition:all .15s;color:var(--muted);font-size:12px;font-weight:600;}
 .ab:hover{border-color:var(--border2);color:var(--text);}
@@ -82,6 +84,7 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
 .bmyth{background:rgba(0,229,255,0.15);color:var(--cyan);}
 .be{background:rgba(57,217,138,0.15);color:var(--green);}
 .bq{background:rgba(255,184,0,0.15);color:var(--gold);}
+.bbb{background:rgba(255,60,120,0.2);color:#ff3c78;}
 .cnr{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
 .cnb{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 16px;border-radius:var(--rs);cursor:pointer;font-size:16px;}
 .cnb:hover{border-color:var(--blue2);color:var(--blue2);}
@@ -145,11 +148,12 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
           <div class="ab" id="aud-men" onclick="selectAud('men')">&#x1F468; Men 40s/50s</div>
         </div>
         <div class="cl">Post type</div>
-        <div class="tg">
+        <div class="tg" style="grid-template-columns:repeat(5,1fr)">
           <div class="tb sel" data-type="motivation" id="tb-motivation" onclick="selectType('motivation')"><div class="ti">&#x1F525;</div><div class="tl">Motivation</div></div>
           <div class="tb" data-type="myth" id="tb-myth" onclick="selectType('myth')"><div class="ti">&#x1F4A1;</div><div class="tl">Myth bust</div></div>
           <div class="tb" data-type="evidence" id="tb-evidence" onclick="selectType('evidence')"><div class="ti">&#x1F52C;</div><div class="tl">Evidence</div></div>
           <div class="tb" data-type="quickwin" id="tb-quickwin" onclick="selectType('quickwin')"><div class="ti">&#x26A1;</div><div class="tl">Quick win</div></div>
+          <div class="tb" data-type="bodyblast" id="tb-bodyblast" onclick="selectType('bodyblast')" style="border-color:rgba(255,60,120,0.4)"><div class="ti">&#x1F4AA;</div><div class="tl">Bodyblast</div></div>
         </div>
         <div class="cl">Focus <span style="font-weight:400;text-transform:none;font-size:12px;color:var(--faint)">(optional)</span></div>
         <input type="text" id="extraCtx" placeholder="e.g. Monday energy, strength training, sleep, stress..." style="margin-bottom:18px" />
@@ -189,8 +193,10 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
         <div class="sc"><div class="sn" id="statWeek" style="color:var(--cyan)">0</div><div class="sk">This week</div></div>
       </div>
       <div class="br" style="margin-bottom:20px">
-        <button class="btn bp" style="flex:1" onclick="doWeek()">&#x2726; AUTO-FILL NEXT 7 DAYS</button>
-        <button class="btn bg" onclick="doClearQueue()">&#x1F5D1; Clear all</button>
+        <button class="btn bp" style="flex:1" onclick="doWeek()">&#x2726; 7 DAYS</button>
+        <button class="btn bc" style="flex:1" onclick="do30Days()">&#x1F4C5; 30 DAYS</button>
+        <button class="btn bgreen" onclick="exportCSV()">&#x2B07; Export CSV</button>
+        <button class="btn bg" onclick="doClearQueue()">&#x1F5D1; Clear</button>
       </div>
       <div class="sb" id="queueStatus" style="margin-bottom:12px"></div>
       <div id="queueList"></div>
@@ -211,6 +217,7 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
         <div class="cli"><div class="cdot myth"></div>Myth busting</div>
         <div class="cli"><div class="cdot evidence"></div>Evidence based</div>
         <div class="cli"><div class="cdot quickwin"></div>Quick win</div>
+        <div class="cli"><div class="cdot bodyblast"></div>Bodyblast</div>
       </div>
     </div>
 
@@ -270,14 +277,19 @@ var PROMPTS = {
     women: "Write a quick win post for a woman over 30 who is genuinely time-poor. Give one specific, immediately usable tip she could do today — not just go for a walk but something clever and specific. Habit stacking onto something she already does, a 4-minute movement snack between school run and work, a protein swap that takes zero extra time, a sleep trick that costs nothing. Make it feel genuinely useful, not obvious.",
     men: "Write a quick win post for a man in his 40s or 50s with a busy life. Give one specific practical tip he could use today: a simple mobility routine for a stiff back that takes 5 minutes, a protein-rich lunch swap that does not require meal prep, a way to get effective exercise in under 20 minutes when the gym is not happening, a recovery hack that actually works. Practical and specific, not generic.",
     everyone: "Write a quick win post for busy adults over 30. Give one specific, immediately actionable tip anyone could do today regardless of gender or fitness level. Make it genuinely clever — not just drink more water or go to bed earlier. Think: habit stacking, movement snacks, simple nutrition swaps, recovery tricks. Something that makes them think why did I not think of that."
+  },
+  bodyblast: {
+    women: "Write a Facebook post promoting the SPS Fitness Bodyblast programme to women over 30 who are new to the gym or returning after a break. The Bodyblast programme is evergreen — it runs continuously so there is always a place available. Do NOT use urgency tactics like last chance or spaces filling up. Instead focus on what makes it genuinely right for a busy woman: it is structured so she does not have to think, it fits around real life, it is done with other people who get it, there is no experience needed. Make it feel like an invitation from someone who understands her life, not a sales pitch. End with a soft CTA like drop us a message or comment below if you want to know more.",
+    men: "Write a Facebook post promoting the SPS Fitness Bodyblast programme to men in their 40s and 50s who want to get back into training or try something structured for the first time in years. The programme is evergreen — always open, no waiting. Do NOT use pressure tactics. Instead speak to what a man at this life stage actually needs: a clear plan so he is not winging it, sessions that work around a busy schedule, training with people at a similar level, real results without destroying himself. Honest and direct. End with a low-pressure CTA like send us a message if you want the details.",
+    everyone: "Write a Facebook post promoting the SPS Fitness Bodyblast programme to a mixed audience of men and women over 30. The programme is evergreen — always running, always welcoming new people. Focus on what makes it different: it is structured, supportive, fits real life, and is designed for people who are busy not beginners at a specialist gym. No pressure tactics, no urgency. Speak to the shared desire to feel stronger, have more energy and actually stick to something. End with an open CTA like message us or drop a comment if you want to find out more."
   }
 };
 
 var CYCLE = ["motivation","myth","evidence","quickwin","motivation","myth","quickwin"];
 var CYCLE_AUD = ["women","men","everyone","women","men","everyone","everyone"];
-var BADGE = {motivation:"bm",myth:"bmyth",evidence:"be",quickwin:"bq"};
-var ICONS = {motivation:"&#x1F525;",myth:"&#x1F4A1;",evidence:"&#x1F52C;",quickwin:"&#x26A1;"};
-var IBGS = {motivation:"rgba(26,111,255,0.15)",myth:"rgba(0,229,255,0.12)",evidence:"rgba(57,217,138,0.1)",quickwin:"rgba(255,184,0,0.12)"};
+var BADGE = {motivation:"bm",myth:"bmyth",evidence:"be",quickwin:"bq",bodyblast:"bbb"};
+var ICONS = {motivation:"&#x1F525;",myth:"&#x1F4A1;",evidence:"&#x1F52C;",quickwin:"&#x26A1;",bodyblast:"&#x1F4AA;"};
+var IBGS = {motivation:"rgba(26,111,255,0.15)",myth:"rgba(0,229,255,0.12)",evidence:"rgba(57,217,138,0.1)",quickwin:"rgba(255,184,0,0.12)",bodyblast:"rgba(255,60,120,0.12)"};
 
 function showPanel(name) {
   var panels = document.querySelectorAll(".panel");
@@ -292,7 +304,7 @@ function showPanel(name) {
 
 function selectType(t) {
   selType = t;
-  var types = ["motivation","myth","evidence","quickwin"];
+  var types = ["motivation","myth","evidence","quickwin","bodyblast"];
   for (var i = 0; i < types.length; i++) {
     var el = document.getElementById("tb-" + types[i]);
     if (el) el.classList.remove("sel");
@@ -473,6 +485,140 @@ function doWeek() {
     });
   }
   next();
+}
+
+function do30Days() {
+  if (!confirm("This will generate 30 posts — about 3-4 minutes. Ready?")) return;
+  var defTime = document.getElementById("defaultTime").value || "09:00";
+  var today = new Date();
+  showPanel("queue");
+
+  // Structured 7-day pattern: type + audience
+  // Mon=motivation, Tue=quickwin, Wed=evidence, Thu=myth, Fri=motivation, Sat=quickwin, Sun=evidence
+  // Audience rotates to cover women, men, everyone across the month
+  var PLAN = [
+    {type:"motivation", aud:"women"},
+    {type:"bodyblast",  aud:"everyone"},
+    {type:"evidence",   aud:"women"},
+    {type:"myth",       aud:"everyone"},
+    {type:"motivation", aud:"men"},
+    {type:"quickwin",   aud:"women"},
+    {type:"evidence",   aud:"everyone"},
+    {type:"motivation", aud:"everyone"},
+    {type:"quickwin",   aud:"men"},
+    {type:"myth",       aud:"women"},
+    {type:"evidence",   aud:"men"},
+    {type:"motivation", aud:"women"},
+    {type:"quickwin",   aud:"everyone"},
+    {type:"myth",       aud:"men"},
+    {type:"motivation", aud:"everyone"},
+    {type:"evidence",   aud:"women"},
+    {type:"quickwin",   aud:"men"},
+    {type:"myth",       aud:"everyone"},
+    {type:"motivation", aud:"men"},
+    {type:"evidence",   aud:"everyone"},
+    {type:"bodyblast",  aud:"women"},
+    {type:"motivation", aud:"everyone"},
+    {type:"myth",       aud:"women"},
+    {type:"evidence",   aud:"men"},
+    {type:"bodyblast",  aud:"men"},
+    {type:"motivation", aud:"women"},
+    {type:"myth",       aud:"men"},
+    {type:"evidence",   aud:"everyone"},
+    {type:"quickwin",   aud:"women"},
+    {type:"motivation", aud:"men"}
+  ];
+
+  var total = PLAN.length;
+  var done = 0;
+  document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x1F4C5;</div><p>Generating 30 posts... <span id="prog30">0</span> of 30 done. This takes 3-4 minutes.</p></div>';
+
+  var i = 0;
+  function next() {
+    if (i >= total) {
+      queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
+      renderQueue(); updateBadge();
+      showStatus("queueStatus", "30 posts generated! Your full month is ready. Copy each into Meta Business Suite.", "success");
+      return;
+    }
+    var d = new Date(today); d.setDate(today.getDate() + i);
+    var ds = d.toISOString().split("T")[0];
+    var plan = PLAN[i];
+    var sys = plan.aud === "women" ? SYS_WOMEN : (plan.aud === "men" ? SYS_MEN : SYS_ALL);
+    var idx = i;
+    callAPI(sys, getPrompt(plan.type, plan.aud, ""), function(err, text) {
+      done++;
+      var prog = document.getElementById("prog30");
+      if (prog) prog.textContent = done;
+      if (!err && text) {
+        queue.push({id: Date.now()+idx, type: plan.type, aud: plan.aud, text: text, date: ds, time: defTime});
+        queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
+        renderQueue(); updateBadge();
+      }
+      i++; next();
+    });
+  }
+  next();
+}
+
+function exportCSV() {
+  if (!queue.length) {
+    alert("No posts in queue to export. Generate some posts first!");
+    return;
+  }
+
+  var audLabels = {women:"Women 30+", men:"Men 40s/50s", everyone:"Everyone"};
+  var typeLabels = {motivation:"Motivation", myth:"Myth Bust", evidence:"Evidence", quickwin:"Quick Win", bodyblast:"Bodyblast"};
+
+  // High Level compatible CSV headers
+  var headers = ["Date", "Time", "Post Content", "Post Type", "Audience", "Hashtags"];
+  var rows = [headers];
+
+  for (var i = 0; i < queue.length; i++) {
+    var q = queue[i];
+
+    // Split hashtags from post content
+    var fullText = q.text;
+    var hashtagMatch = fullText.match(/(#[^
+]+)$/m);
+    var hashtags = hashtagMatch ? hashtagMatch[1].trim() : "";
+    var postText = hashtagMatch ? fullText.substring(0, fullText.lastIndexOf(hashtagMatch[1])).trim() : fullText;
+
+    // Format date as DD/MM/YYYY for UK
+    var dateParts = q.date.split("-");
+    var formattedDate = dateParts[2] + "/" + dateParts[1] + "/" + dateParts[0];
+
+    // Escape any quotes or commas in text
+    var escaped = postText.replace(/"/g, '""');
+
+    rows.push([
+      formattedDate,
+      q.time,
+      '"' + escaped + '"',
+      typeLabels[q.type] || q.type,
+      audLabels[q.aud] || q.aud,
+      '"' + hashtags + '"'
+    ]);
+  }
+
+  // Build CSV string
+  var csv = rows.map(function(row) { return row.join(","); }).join("
+");
+
+  // Trigger download
+  var blob = new Blob([csv], {type: "text/csv;charset=utf-8;"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  var now = new Date();
+  var fname = "sps-fitness-posts-" + now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0") + ".csv";
+  a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  showStatus("queueStatus", "Downloaded " + queue.length + " posts as CSV. Ready to upload to High Level!", "success");
 }
 
 function doClearQueue() {
