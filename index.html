@@ -227,7 +227,7 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
       <div class="al"></div>
       <div class="card">
         <div class="cl">Default post time</div>
-        <input type="time" id="defaultTime" value="09:00" style="max-width:180px;margin-bottom:6px" />
+        <input type="time" id="defaultTime" value="19:00" style="max-width:180px;margin-bottom:6px" />
         <div class="sh">Auto-fill posts will use this time daily</div>
       </div>
       <div class="card">
@@ -249,7 +249,7 @@ var curPost = "";
 var queue = [];
 var calOff = 0;
 
-var SYS_BASE = "You write Facebook posts for SPS Fitness, a fitness community in the West Midlands UK. The tone is straight-talking, warm, specific and real — never generic, never preachy, never corporate. Posts feel like they come from a knowledgeable friend who gets real life. Short sentences. Direct. Occasionally dry or funny. Never waffy. Vary the CTA — sometimes a question, sometimes invite a comment, sometimes just make them think. Max 3 hashtags. Under 180 words. British English. STRICT FORMATTING RULES: Never use dash symbols (-) or em dashes to start lines or separate ideas — use full stops or line breaks instead. Never end with meta-commentary like 'That is it. That is the post.' or 'Simple as that.' or any self-referential closing line. Just end the post naturally on the message itself.";
+var SYS_BASE = "You write Facebook posts for SPS Fitness, a fitness community in the West Midlands UK. The tone is straight-talking, warm, specific and real — never generic, never preachy, never corporate. Posts feel like they come from a knowledgeable friend who gets real life. Short sentences. Direct. Occasionally dry or funny. Never waffy. Vary the CTA — sometimes a question, sometimes invite a comment, sometimes just make them think. Max 3 hashtags. Under 180 words. British English. STRICT FORMATTING RULES: Never use dash symbols (-) or em dashes to start lines or separate ideas — use full stops or line breaks instead. Never end with meta-commentary like 'That is it. That is the post.' or 'Simple as that.' or any self-referential closing line. Just end the post naturally on the message itself. Never use markdown formatting — no asterisks, no bold, no bullet points with asterisks, no **text**. Plain text only.";
 
 var SYS_WOMEN = SYS_BASE + " This post is specifically for women over 30. These women are juggling full-time work, kids, partners, school runs, and not enough hours in the day. They are time-poor, often exhausted, and have probably tried and failed at fitness before. They are smart and do not need lecturing. Be specific about the reality of life over 30 for women: hormones, perimenopause, metabolism changes, guilt about not doing enough, fitting exercise around chaos. Never use these phrases: ladies, girls, you need to, you should, your future self, no judgement, no judgment, no pressure, we are all in the same boat, most of us are in the same boat, honestly, and honestly, just curious, just putting it out there.";
 
@@ -349,6 +349,10 @@ function callAPI(sys, prompt, cb) {
     for (var i = 0; i < d.content.length; i++) {
       if (d.content[i].text) text += d.content[i].text;
     }
+    // Strip any markdown formatting the AI might have added
+    text = text.replace(/\*\*(.*?)\*\*/g, '$1');
+    text = text.replace(/\*(.*?)\*/g, '$1');
+    text = text.replace(/#{1,6} /g, '');
     cb(null, text.trim());
   })
   .catch(function(e) { cb("Network error: " + e.message); });
@@ -397,7 +401,7 @@ function doSchedOpen() {
   if (!curPost) return;
   document.getElementById("schedForm").style.display = "block";
   document.getElementById("schedDate").value = new Date().toISOString().split("T")[0];
-  document.getElementById("schedTime").value = "09:00";
+  document.getElementById("schedTime").value = "19:00";
 }
 
 function doSchedClose() { document.getElementById("schedForm").style.display = "none"; }
