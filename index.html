@@ -174,7 +174,7 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
         <div class="cl" style="margin-bottom:14px">Schedule this post</div>
         <div class="sr">
           <div><div class="sl">Date</div><input type="date" id="schedDate" /></div>
-          <div><div class="sl">Time</div><input type="time" id="schedTime" value="09:00" /></div>
+          <div><div class="sl">Time</div><input type="time" id="schedTime" value="19:00" /></div>
         </div>
         <div style="display:flex;gap:8px">
           <button class="btn bgreen" style="flex:1" onclick="doAddQueue()">&#x2713; Add to queue</button>
@@ -349,9 +349,7 @@ function callAPI(sys, prompt, cb) {
     for (var i = 0; i < d.content.length; i++) {
       if (d.content[i].text) text += d.content[i].text;
     }
-    // Strip markdown
-    text = text.split("**").join("");
-    text = text.split("*").join("");
+    text = text.split("**").join("").split("*").join("");
     cb(null, text.trim());
   })
   .catch(function(e) { cb("Network error: " + e.message); });
@@ -460,10 +458,10 @@ function renderQueue() {
 }
 
 function doWeek() {
-  var defTime = document.getElementById("defaultTime").value || "09:00";
+  var defTime = document.getElementById("defaultTime").value || "19:00";
   var today = new Date();
   showPanel("queue");
-  document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x2726;</div><p>Generating 7 posts for your whole community... about 30 seconds!</p></div>';
+  document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x2726;</div><p>Generating 7 posts... about 30 seconds!</p></div>';
   var i = 0;
   function next() {
     if (i >= 7) {
@@ -492,13 +490,10 @@ function doWeek() {
 
 function do30Days() {
   if (!confirm("This will generate 30 posts — about 3-4 minutes. Ready?")) return;
-  var defTime = document.getElementById("defaultTime").value || "09:00";
+  var defTime = document.getElementById("defaultTime").value || "19:00";
   var today = new Date();
   showPanel("queue");
 
-  // Structured 7-day pattern: type + audience
-  // Mon=motivation, Tue=quickwin, Wed=evidence, Thu=myth, Fri=motivation, Sat=quickwin, Sun=evidence
-  // Audience rotates to cover women, men, everyone across the month
   var PLAN = [
     {type:"motivation", aud:"women"},
     {type:"bodyblast",  aud:"everyone"},
@@ -541,7 +536,7 @@ function do30Days() {
     if (i >= total) {
       queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
       renderQueue(); updateBadge();
-      showStatus("queueStatus", "30 posts generated! Your full month is ready. Copy each into Meta Business Suite.", "success");
+      showStatus("queueStatus", "30 posts generated! Your full month is ready. Export CSV to upload to High Level.", "success");
       return;
     }
     var d = new Date(today); d.setDate(today.getDate() + i);
@@ -573,27 +568,18 @@ function exportCSV() {
   var audLabels = {women:"Women 30+", men:"Men 40s/50s", everyone:"Everyone"};
   var typeLabels = {motivation:"Motivation", myth:"Myth Bust", evidence:"Evidence", quickwin:"Quick Win", bodyblast:"Bodyblast"};
 
-  // High Level compatible CSV headers
   var headers = ["Date", "Time", "Post Content", "Post Type", "Audience", "Hashtags"];
   var rows = [headers];
 
   for (var i = 0; i < queue.length; i++) {
     var q = queue[i];
-
-    // Split hashtags from post content
     var fullText = q.text;
-    var hashtagMatch = fullText.match(/(#[^
-]+)$/m);
+    var hashtagMatch = fullText.match(/(#[^\n]+)$/m);
     var hashtags = hashtagMatch ? hashtagMatch[1].trim() : "";
     var postText = hashtagMatch ? fullText.substring(0, fullText.lastIndexOf(hashtagMatch[1])).trim() : fullText;
-
-    // Format date as DD/MM/YYYY for UK
     var dateParts = q.date.split("-");
     var formattedDate = dateParts[2] + "/" + dateParts[1] + "/" + dateParts[0];
-
-    // Escape any quotes or commas in text
     var escaped = postText.replace(/"/g, '""');
-
     rows.push([
       formattedDate,
       q.time,
@@ -604,11 +590,7 @@ function exportCSV() {
     ]);
   }
 
-  // Build CSV string
-  var csv = rows.map(function(row) { return row.join(","); }).join("
-");
-
-  // Trigger download
+  var csv = rows.map(function(row) { return row.join(","); }).join("\n");
   var blob = new Blob([csv], {type: "text/csv;charset=utf-8;"});
   var url = URL.createObjectURL(blob);
   var a = document.createElement("a");
@@ -620,7 +602,6 @@ function exportCSV() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-
   showStatus("queueStatus", "Downloaded " + queue.length + " posts as CSV. Ready to upload to High Level!", "success");
 }
 
