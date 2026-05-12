@@ -29,7 +29,7 @@ body{background:var(--black);color:var(--text);font-family:'DM Sans',sans-serif;
 .al{height:2px;background:linear-gradient(90deg,var(--blue),var(--cyan));border-radius:2px;margin-bottom:28px;opacity:.6;}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px;margin-bottom:16px;}
 .cl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
-.tg{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
+.tg{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
 .tb{padding:18px 8px 14px;border:1px solid var(--border);border-radius:var(--rs);background:var(--surface2);cursor:pointer;text-align:center;transition:all .15s;color:var(--muted);}
 .tb:hover{border-color:var(--border2);color:var(--text);}
 .ti{font-size:26px;margin-bottom:7px;}
@@ -38,6 +38,10 @@ body{background:var(--black);color:var(--text);font-family:'DM Sans',sans-serif;
 .tb[data-type="myth"].sel{border-color:var(--cyan);background:rgba(0,229,255,0.1);color:#fff;}
 .tb[data-type="evidence"].sel{border-color:var(--green);background:rgba(57,217,138,0.1);color:#fff;}
 .tb[data-type="quickwin"].sel{border-color:var(--gold);background:rgba(255,184,0,0.1);color:#fff;}
+.ag{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;}
+.ab{padding:12px 8px;border:1px solid var(--border);border-radius:var(--rs);background:var(--surface2);cursor:pointer;text-align:center;transition:all .15s;color:var(--muted);font-size:12px;font-weight:600;}
+.ab:hover{border-color:var(--border2);color:var(--text);}
+.ab.sel{border-color:var(--blue2);background:rgba(61,139,255,0.12);color:#fff;}
 input,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:12px 16px;outline:none;transition:border-color .15s;}
 input:focus,textarea:focus{border-color:var(--blue2);}
 input::placeholder,textarea::placeholder{color:var(--faint);}
@@ -103,7 +107,7 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
 .ht{font-size:13px;color:var(--muted);line-height:1.6;}
 .ht strong{color:var(--text);}
 .ht a{color:var(--blue2);text-decoration:none;}
-@media(max-width:680px){.sidebar{display:none;}.tg{grid-template-columns:repeat(2,1fr);}.stats{grid-template-columns:1fr 1fr;}.main{padding:20px 16px 48px;}.pt{font-size:28px;}}
+@media(max-width:680px){.sidebar{display:none;}.tg{grid-template-columns:repeat(2,1fr);}.ag{grid-template-columns:repeat(3,1fr);}.stats{grid-template-columns:1fr 1fr;}.main{padding:20px 16px 48px;}.pt{font-size:28px;}}
 </style>
 </head>
 <body>
@@ -131,9 +135,15 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
 
     <div class="panel active" id="panel-generate">
       <div class="pt">Create a <span>post</span></div>
-      <div class="ps">AI-written content for your over 30s fitness community</div>
+      <div class="ps">Sharp, specific content for your SPS community</div>
       <div class="al"></div>
       <div class="card">
+        <div class="cl">Who is this post for?</div>
+        <div class="ag">
+          <div class="ab sel" id="aud-everyone" onclick="selectAud('everyone')">&#x1F465; Everyone</div>
+          <div class="ab" id="aud-women" onclick="selectAud('women')">&#x1F469; Women 30+</div>
+          <div class="ab" id="aud-men" onclick="selectAud('men')">&#x1F468; Men 40s/50s</div>
+        </div>
         <div class="cl">Post type</div>
         <div class="tg">
           <div class="tb sel" data-type="motivation" id="tb-motivation" onclick="selectType('motivation')"><div class="ti">&#x1F525;</div><div class="tl">Motivation</div></div>
@@ -142,7 +152,7 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
           <div class="tb" data-type="quickwin" id="tb-quickwin" onclick="selectType('quickwin')"><div class="ti">&#x26A1;</div><div class="tl">Quick win</div></div>
         </div>
         <div class="cl">Focus <span style="font-weight:400;text-transform:none;font-size:12px;color:var(--faint)">(optional)</span></div>
-        <input type="text" id="extraCtx" placeholder="e.g. Monday energy, sleep, protein..." style="margin-bottom:18px" />
+        <input type="text" id="extraCtx" placeholder="e.g. Monday energy, strength training, sleep, stress..." style="margin-bottom:18px" />
         <button class="btn bp" id="genBtn" onclick="doGenerate()">&#x2726; GENERATE POST</button>
       </div>
       <div class="card" id="outputCard" style="display:none">
@@ -227,20 +237,44 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
 
 <script>
 var selType = "motivation";
+var selAud = "everyone";
 var curPost = "";
 var queue = [];
 var calOff = 0;
 
-var SYS = "You are a content writer for an over-30s women's fitness Facebook page in the UK called SPS Fitness. Tone: bold, warm, straight-talking, never condescending, never preachy. These are busy women with full lives. Posts feel like a knowledgeable friend. Under 200 words. Punchy and conversational. End with an engaging question or CTA. Max 3 hashtags. Never say ladies, girls, you need to, or you should. Use we or you warmly. British English.";
+var SYS_BASE = "You write Facebook posts for SPS Fitness, a fitness community in the West Midlands UK. The tone is straight-talking, warm, specific and real — never generic, never preachy, never corporate. Posts feel like they come from a knowledgeable friend who gets real life. Short sentences. Direct. Occasionally dry or funny. Never waffy. Vary the CTA — sometimes a question, sometimes invite a comment, sometimes just make them think. Max 3 hashtags. Under 180 words. British English.";
+
+var SYS_WOMEN = SYS_BASE + " This post is specifically for women over 30. These women are juggling full-time work, kids, partners, school runs, and not enough hours in the day. They are time-poor, often exhausted, and have probably tried and failed at fitness before. They are smart and do not need lecturing. Be specific about the reality of life over 30 for women: hormones, perimenopause, metabolism changes, guilt about not doing enough, fitting exercise around chaos. Never say: ladies, girls, you need to, you should, your future self, no judgement, no pressure.";
+
+var SYS_MEN = SYS_BASE + " This post is specifically for men in their 40s and 50s. These men are dealing with things their younger selves did not expect: testosterone decline, belly fat that appeared from nowhere, joints that creak, slower recovery, back pain from a desk job, less energy than they used to have, and maybe some embarrassment about how far their fitness has slipped. They are often busy with career and family. They do not want to be talked down to or sold miracle solutions. Be direct, practical and honest about what is actually going on in a male body at this life stage. Never say: you need to, you should, it is never too late, you have got this.";
+
+var SYS_ALL = SYS_BASE + " This post is for the whole SPS Fitness community — women over 30 and men in their 40s and 50s. Write something that resonates with anyone who is busy, time-poor, and trying to get fit or stay fit around a full life. Be inclusive without being vague. Speak to real shared experiences: not having enough time, feeling like fitness keeps slipping down the priority list, wanting to feel stronger and have more energy.";
 
 var PROMPTS = {
-  motivation: "Write a motivational post. Real and grounding, not cheesy. Acknowledge busy lives. Celebrate small wins.",
-  myth: "Write a myth-busting post. Pick one fitness myth affecting women over 30 and bust it with evidence.",
-  evidence: "Write an evidence-based post with one science-backed insight for women over 30. Accessible, no jargon.",
-  quickwin: "Write a quick win post. One practical tip a busy woman could do today. Under 10 minutes, no equipment."
+  motivation: {
+    women: "Write a motivational post for busy women over 30. Make it feel real and earned — not cheesy. Name a specific struggle they face: school run chaos, 4pm energy crash, feeling like everyone else has their life together, not having trained in weeks. Celebrate the messy imperfect reality of fitting fitness in. End with something that makes her feel seen, not lectured.",
+    men: "Write a motivational post for men in their 40s and 50s. Be honest and grounded — not laddish, not overly intense. Acknowledge a specific reality they face: noticing their body has changed, feeling slower than they used to, fitting training around work and family, the quiet embarrassment of being unfit when they used to be active. Make it feel like permission to start from where they actually are.",
+    everyone: "Write a motivational post for a mixed community of busy adults — women over 30 and men in their 40s and 50s. Acknowledge the shared reality: life is full, fitness keeps slipping, they want to feel better but time and energy are limited. Make it feel real and grounding, not cheerleader-ish. End with something that makes them feel understood."
+  },
+  myth: {
+    women: "Write a myth-busting post for women over 30. Pick one harmful fitness myth specific to this age group: lifting weights makes you bulky, you need cardio every day to lose weight, your metabolism is broken after 40, you need to earn food through exercise, soreness means a good workout, you need hours in the gym to see results. Bust it clearly with one or two evidence-backed sentences. Make her feel informed and a bit annoyed she was ever told otherwise.",
+    men: "Write a myth-busting post for men in their 40s and 50s. Pick one fitness myth that holds men back at this life stage: you need to train like you did in your 20s, high intensity is the only way to get results, testosterone decline means you cannot build muscle, cardio will make you lose muscle, supplements are essential. Bust it with clear evidence. Make it feel like a lightbulb moment.",
+    everyone: "Write a myth-busting post for a mixed fitness community. Pick one universal fitness myth that affects everyone: spot reduction, no pain no gain, you need to be sore after every workout, more exercise is always better, you need to cut carbs to lose fat. Bust it clearly with evidence. Keep it punchy and satisfying."
+  },
+  evidence: {
+    women: "Write an evidence-based post for women over 30. Choose one genuinely interesting science-backed insight specific to this life stage: perimenopause and strength training, cortisol and belly fat, sleep and muscle recovery, protein needs increasing after 35, short walks and blood sugar after meals, resistance training and bone density. Make it feel like a revelation, not a lecture. One insight, explained simply, with why it matters for her specifically.",
+    men: "Write an evidence-based post for men in their 40s and 50s. Choose one science-backed insight relevant to this life stage: testosterone and strength training, visceral fat and resistance exercise, sleep and recovery in older men, protein synthesis slowing with age and how to counter it, the cardiovascular benefits of moderate exercise over intense training. Make it genuinely interesting and practical — not a biology lecture.",
+    everyone: "Write an evidence-based post for a mixed adult fitness community. Choose one science-backed insight that is genuinely useful for anyone over 30 trying to stay fit: the importance of strength training for longevity, sleep and performance, protein and muscle retention, the underrated benefits of walking, how stress affects body composition. One insight, clearly explained, with a practical takeaway."
+  },
+  quickwin: {
+    women: "Write a quick win post for a woman over 30 who is genuinely time-poor. Give one specific, immediately usable tip she could do today — not just go for a walk but something clever and specific. Habit stacking onto something she already does, a 4-minute movement snack between school run and work, a protein swap that takes zero extra time, a sleep trick that costs nothing. Make it feel genuinely useful, not obvious.",
+    men: "Write a quick win post for a man in his 40s or 50s with a busy life. Give one specific practical tip he could use today: a simple mobility routine for a stiff back that takes 5 minutes, a protein-rich lunch swap that does not require meal prep, a way to get effective exercise in under 20 minutes when the gym is not happening, a recovery hack that actually works. Practical and specific, not generic.",
+    everyone: "Write a quick win post for busy adults over 30. Give one specific, immediately actionable tip anyone could do today regardless of gender or fitness level. Make it genuinely clever — not just drink more water or go to bed earlier. Think: habit stacking, movement snacks, simple nutrition swaps, recovery tricks. Something that makes them think why did I not think of that."
+  }
 };
 
 var CYCLE = ["motivation","myth","evidence","quickwin","motivation","myth","quickwin"];
+var CYCLE_AUD = ["women","men","everyone","women","men","everyone","everyone"];
 var BADGE = {motivation:"bm",myth:"bmyth",evidence:"be",quickwin:"bq"};
 var ICONS = {motivation:"&#x1F525;",myth:"&#x1F4A1;",evidence:"&#x1F52C;",quickwin:"&#x26A1;"};
 var IBGS = {motivation:"rgba(26,111,255,0.15)",myth:"rgba(0,229,255,0.12)",evidence:"rgba(57,217,138,0.1)",quickwin:"rgba(255,184,0,0.12)"};
@@ -267,14 +301,34 @@ function selectType(t) {
   if (sel) sel.classList.add("sel");
 }
 
-function callAPI(prompt, cb) {
+function selectAud(a) {
+  selAud = a;
+  var auds = ["everyone","women","men"];
+  for (var i = 0; i < auds.length; i++) {
+    var el = document.getElementById("aud-" + auds[i]);
+    if (el) el.classList.remove("sel");
+  }
+  var sel = document.getElementById("aud-" + a);
+  if (sel) sel.classList.add("sel");
+}
+
+function getSys() {
+  if (selAud === "women") return SYS_WOMEN;
+  if (selAud === "men") return SYS_MEN;
+  return SYS_ALL;
+}
+
+function getPrompt(type, aud, ctx) {
+  var p = PROMPTS[type][aud];
+  if (ctx) p = p + " Specific focus for this post: " + ctx + ".";
+  return p;
+}
+
+function callAPI(sys, prompt, cb) {
   fetch("/.netlify/functions/generate", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({
-      system: SYS,
-      messages: [{role: "user", content: prompt}]
-    })
+    body: JSON.stringify({system: sys, messages: [{role: "user", content: prompt}]})
   })
   .then(function(r) { return r.json(); })
   .then(function(d) {
@@ -290,7 +344,8 @@ function callAPI(prompt, cb) {
 
 function doGenerate() {
   var ctx = document.getElementById("extraCtx").value.trim();
-  var prompt = PROMPTS[selType] + (ctx ? " Focus on: " + ctx : "");
+  var sys = getSys();
+  var prompt = getPrompt(selType, selAud, ctx);
   var card = document.getElementById("outputCard");
   var out = document.getElementById("postOutput");
   card.style.display = "block";
@@ -298,12 +353,9 @@ function doGenerate() {
   hideStatus("outStatus");
   out.className = "pb loading";
   out.textContent = "Writing your post...";
-  callAPI(prompt, function(err, text) {
+  callAPI(sys, prompt, function(err, text) {
     out.className = "pb";
-    if (err) {
-      out.textContent = "Error: " + err;
-      return;
-    }
+    if (err) { out.textContent = "Error: " + err; return; }
     curPost = text;
     out.textContent = text;
   });
@@ -342,7 +394,7 @@ function doAddQueue() {
   var date = document.getElementById("schedDate").value;
   var time = document.getElementById("schedTime").value;
   if (!date || !time || !curPost) return;
-  queue.push({id: Date.now(), type: selType, text: curPost, date: date, time: time});
+  queue.push({id: Date.now(), type: selType, aud: selAud, text: curPost, date: date, time: time});
   queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
   doSchedClose();
   updateBadge();
@@ -375,6 +427,7 @@ function renderQueue() {
     list.innerHTML = '<div class="empty"><div style="font-size:42px">&#x1F4CB;</div><p>No posts yet. Generate some or use auto-fill!</p></div>';
     return;
   }
+  var audLabels = {women:"Women 30+", men:"Men 40s/50s", everyone:"Everyone"};
   var html = "";
   for (var i = 0; i < queue.length; i++) {
     var q = queue[i];
@@ -382,6 +435,7 @@ function renderQueue() {
     var prev = q.text.replace(/\n/g," ").substring(0,100) + (q.text.length > 100 ? "..." : "");
     html += '<div class="qi"><div class="qicon" style="background:'+IBGS[q.type]+'">'+ICONS[q.type]+'</div>';
     html += '<div class="qb"><span class="badge '+BADGE[q.type]+'">'+q.type+'</span>';
+    html += ' <span class="badge" style="background:rgba(61,139,255,0.15);color:var(--blue2)">'+(audLabels[q.aud]||q.aud)+'</span>';
     if (due) html += ' <span class="badge" style="background:rgba(255,184,0,0.15);color:#ffb800">Due</span>';
     html += '<div class="qp">'+prev+'</div><div class="qt">'+fmtDate(q.date)+' at '+q.time+'</div>';
     html += '<div class="qa"><button class="btn bc" onclick="copyQ('+q.id+')">&#x2398; Copy</button></div>';
@@ -394,7 +448,7 @@ function doWeek() {
   var defTime = document.getElementById("defaultTime").value || "09:00";
   var today = new Date();
   showPanel("queue");
-  document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x2726;</div><p>Generating 7 posts... about 30 seconds!</p></div>';
+  document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x2726;</div><p>Generating 7 posts for your whole community... about 30 seconds!</p></div>';
   var i = 0;
   function next() {
     if (i >= 7) {
@@ -406,10 +460,12 @@ function doWeek() {
     var d = new Date(today); d.setDate(today.getDate() + i);
     var ds = d.toISOString().split("T")[0];
     var type = CYCLE[i % CYCLE.length];
+    var aud = CYCLE_AUD[i % CYCLE_AUD.length];
+    var sys = aud === "women" ? SYS_WOMEN : (aud === "men" ? SYS_MEN : SYS_ALL);
     var idx = i;
-    callAPI(PROMPTS[type], function(err, text) {
+    callAPI(sys, getPrompt(type, aud, ""), function(err, text) {
       if (!err && text) {
-        queue.push({id: Date.now()+idx, type: type, text: text, date: ds, time: defTime});
+        queue.push({id: Date.now()+idx, type: type, aud: aud, text: text, date: ds, time: defTime});
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         renderQueue(); updateBadge();
       }
@@ -427,7 +483,7 @@ function doClearQueue() {
 function updateBadge() { document.getElementById("queueBadge").textContent = queue.length; }
 
 function fmtDate(d) {
-  return new Date(d+"T12:00:00").toLocaleDateString("en-GB", {weekday:"short",day:"numeric",month:"short"});
+  return new Date(d+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
 }
 
 function showStatus(id, msg, type) {
