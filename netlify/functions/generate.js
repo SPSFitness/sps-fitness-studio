@@ -1,5 +1,5 @@
 exports.handler = async function(event, context) {
-  const headers = {
+  var headers = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -7,27 +7,27 @@ exports.handler = async function(event, context) {
   };
 
   if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers, body: "" };
+    return { statusCode: 200, headers: headers, body: "" };
   }
 
   if (event.httpMethod !== "POST") {
-    return { statusCode: 405, headers, body: JSON.stringify({ error: "Method Not Allowed" }) };
+    return { statusCode: 405, headers: headers, body: JSON.stringify({ error: "Method Not Allowed" }) };
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  var apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: "ANTHROPIC_API_KEY not set in environment variables" }) };
+    return { statusCode: 500, headers: headers, body: JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }) };
   }
 
-  let body;
+  var body;
   try {
     body = JSON.parse(event.body);
   } catch(e) {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: "Invalid JSON body" }) };
+    return { statusCode: 400, headers: headers, body: JSON.stringify({ error: "Invalid JSON" }) };
   }
 
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    var response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -35,15 +35,15 @@ exports.handler = async function(event, context) {
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-5",
         max_tokens: 1000,
         system: body.system,
         messages: body.messages
       })
     });
-    const data = await response.json();
-    return { statusCode: 200, headers, body: JSON.stringify(data) };
+    var data = await response.json();
+    return { statusCode: 200, headers: headers, body: JSON.stringify(data) };
   } catch(err) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
+    return { statusCode: 500, headers: headers, body: JSON.stringify({ error: err.message }) };
   }
 };
