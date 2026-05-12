@@ -6,28 +6,16 @@
 <title>SPS Fitness Content Studio</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
-:root {
-  --black:#000;--surface:#0d0d0d;--surface2:#161616;--surface3:#202020;
-  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14);
-  --blue:#1a6fff;--blue2:#3d8bff;--cyan:#00e5ff;--green:#39d98a;--gold:#ffb800;
-  --text:#f0f0f0;--muted:rgba(255,255,255,0.45);--faint:rgba(255,255,255,0.18);
-  --r:14px;--rs:9px;
-}
+:root{--black:#000;--surface:#0d0d0d;--surface2:#161616;--surface3:#202020;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14);--blue:#1a6fff;--blue2:#3d8bff;--cyan:#00e5ff;--green:#39d98a;--gold:#ffb800;--text:#f0f0f0;--muted:rgba(255,255,255,0.45);--faint:rgba(255,255,255,0.18);--r:14px;--rs:9px;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--black);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;min-height:100vh;}
 .header{height:62px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:200;}
 .logo{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:3px;color:#fff;}
 .logo span{color:var(--blue2);}
-.pill{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;padding:6px 14px;border-radius:20px;}
-.pill.off{background:var(--surface3);color:var(--muted);}
-.pill.on{background:rgba(57,217,138,0.12);color:var(--green);border:1px solid rgba(57,217,138,0.25);}
-.dot{width:7px;height:7px;border-radius:50%;}
-.pill.off .dot{background:var(--faint);}
-.pill.on .dot{background:var(--green);box-shadow:0 0 7px var(--green);}
 .app{display:flex;min-height:calc(100vh - 62px);}
 .sidebar{width:210px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:20px 0;}
 .ns{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);padding:18px 24px 7px;}
-.ni{display:flex;align-items:center;gap:11px;padding:11px 24px;font-size:14px;font-weight:500;color:var(--muted);cursor:pointer;border-left:3px solid transparent;transition:all .15s;user-select:none;}
+.ni{display:flex;align-items:center;gap:11px;padding:11px 24px;font-size:14px;font-weight:500;color:var(--muted);cursor:pointer;border-left:3px solid transparent;transition:all .15s;}
 .ni:hover{color:var(--text);background:rgba(255,255,255,0.03);}
 .ni.active{color:#fff;border-left-color:var(--blue2);background:rgba(26,111,255,0.1);}
 .ni svg{width:17px;height:17px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2;}
@@ -43,7 +31,7 @@ body{background:var(--black);color:var(--text);font-family:'DM Sans',sans-serif;
 .cl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
 .tg{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
 .tb{padding:18px 8px 14px;border:1px solid var(--border);border-radius:var(--rs);background:var(--surface2);cursor:pointer;text-align:center;transition:all .15s;color:var(--muted);}
-.tb:hover{border-color:var(--border2);color:var(--text);transform:translateY(-1px);}
+.tb:hover{border-color:var(--border2);color:var(--text);}
 .ti{font-size:26px;margin-bottom:7px;}
 .tl{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;}
 .tb[data-type="motivation"].sel{border-color:var(--blue);background:rgba(26,111,255,0.14);color:#fff;}
@@ -53,16 +41,14 @@ body{background:var(--black);color:var(--text);font-family:'DM Sans',sans-serif;
 input,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:12px 16px;outline:none;transition:border-color .15s;}
 input:focus,textarea:focus{border-color:var(--blue2);}
 input::placeholder,textarea::placeholder{color:var(--faint);}
-textarea{min-height:50px;resize:vertical;line-height:1.75;}
+textarea{min-height:120px;resize:vertical;line-height:1.75;}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:11px 18px;border-radius:var(--rs);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;border:none;letter-spacing:.02em;white-space:nowrap;}
 .bp{background:var(--blue);color:#fff;width:100%;font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:3px;padding:14px;box-shadow:0 0 30px rgba(26,111,255,0.3);}
-.bp:hover{background:var(--blue2);box-shadow:0 0 40px rgba(61,139,255,0.45);transform:translateY(-1px);}
+.bp:hover{background:var(--blue2);}
 .bg{background:var(--surface2);color:var(--muted);border:1px solid var(--border);}
-.bg:hover{color:var(--text);border-color:var(--border2);background:var(--surface3);}
+.bg:hover{color:var(--text);border-color:var(--border2);}
 .bc{background:rgba(0,229,255,0.12);color:var(--cyan);border:1px solid rgba(0,229,255,0.25);}
-.bc:hover{background:rgba(0,229,255,0.2);}
 .bgreen{background:rgba(57,217,138,0.12);color:var(--green);border:1px solid rgba(57,217,138,0.25);}
-.bgreen:hover{background:rgba(57,217,138,0.2);}
 .br{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
 .pb{background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:20px;font-size:15px;line-height:1.8;color:var(--text);white-space:pre-wrap;min-height:100px;}
 .pb.loading{color:var(--faint);font-style:italic;}
@@ -78,31 +64,29 @@ textarea{min-height:50px;resize:vertical;line-height:1.75;}
 .sc{background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:18px 20px;}
 .sn{font-family:'Bebas Neue',sans-serif;font-size:36px;line-height:1;margin-bottom:4px;}
 .sk{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
-.qi{background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:14px;transition:border-color .15s;}
-.qi:hover{border-color:var(--border2);}
+.qi{background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:14px;}
 .qicon{width:42px;height:42px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
 .qb{flex:1;min-width:0;}
 .qp{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px;}
-.qt{font-size:11px;color:var(--faint);margin-top:5px;display:flex;align-items:center;gap:5px;}
+.qt{font-size:11px;color:var(--faint);margin-top:5px;}
 .qa{display:flex;gap:6px;margin-top:9px;}
 .qa .btn{padding:5px 12px;font-size:12px;}
-.qdel{background:none;border:none;color:var(--faint);cursor:pointer;padding:2px 4px;font-size:22px;line-height:1;flex-shrink:0;transition:color .15s;}
+.qdel{background:none;border:none;color:var(--faint);cursor:pointer;padding:2px 4px;font-size:22px;line-height:1;flex-shrink:0;}
 .qdel:hover{color:#ff6b6b;}
 .badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:4px;}
 .bm{background:rgba(26,111,255,0.2);color:var(--blue2);}
 .bmyth{background:rgba(0,229,255,0.15);color:var(--cyan);}
 .be{background:rgba(57,217,138,0.15);color:var(--green);}
 .bq{background:rgba(255,184,0,0.15);color:var(--gold);}
-.bdue{background:rgba(255,184,0,0.15);color:var(--gold);}
 .cnr{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
-.cnb{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 16px;border-radius:var(--rs);cursor:pointer;font-size:16px;transition:all .15s;}
+.cnb{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 16px;border-radius:var(--rs);cursor:pointer;font-size:16px;}
 .cnb:hover{border-color:var(--blue2);color:var(--blue2);}
 .crl{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;flex:1;text-align:center;color:#fff;}
 .cgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
 .cdh{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);text-align:center;padding:5px 0;}
-.cc{min-height:72px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:8px;transition:all .15s;}
+.cc{min-height:72px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:8px;}
 .cc.hp{border-color:rgba(26,111,255,0.35);background:rgba(26,111,255,0.06);}
-.cc.td{border-color:var(--blue2);box-shadow:0 0 12px rgba(26,111,255,0.2);}
+.cc.td{border-color:var(--blue2);}
 .cn{font-size:13px;font-weight:600;margin-bottom:5px;color:var(--muted);}
 .cc.td .cn{color:var(--blue2);}
 .cdot{width:8px;height:8px;border-radius:50%;margin:2px 0;}
@@ -125,7 +109,6 @@ textarea{min-height:50px;resize:vertical;line-height:1.75;}
 <body>
 <header class="header">
   <div class="logo">SPS <span>FITNESS</span></div>
-  <div class="pill off" id="connPill"><div class="dot"></div><span id="connLabel">Not connected</span></div>
 </header>
 <div class="app">
   <nav class="sidebar">
@@ -153,25 +136,25 @@ textarea{min-height:50px;resize:vertical;line-height:1.75;}
       <div class="card">
         <div class="cl">Post type</div>
         <div class="tg">
-          <div class="tb sel" data-type="motivation" onclick="selectType(this)"><div class="ti">&#x1F525;</div><div class="tl">Motivation</div></div>
-          <div class="tb" data-type="myth" onclick="selectType(this)"><div class="ti">&#x1F4A1;</div><div class="tl">Myth bust</div></div>
-          <div class="tb" data-type="evidence" onclick="selectType(this)"><div class="ti">&#x1F52C;</div><div class="tl">Evidence</div></div>
-          <div class="tb" data-type="quickwin" onclick="selectType(this)"><div class="ti">&#x26A1;</div><div class="tl">Quick win</div></div>
+          <div class="tb sel" data-type="motivation" id="tb-motivation" onclick="selectType('motivation')"><div class="ti">&#x1F525;</div><div class="tl">Motivation</div></div>
+          <div class="tb" data-type="myth" id="tb-myth" onclick="selectType('myth')"><div class="ti">&#x1F4A1;</div><div class="tl">Myth bust</div></div>
+          <div class="tb" data-type="evidence" id="tb-evidence" onclick="selectType('evidence')"><div class="ti">&#x1F52C;</div><div class="tl">Evidence</div></div>
+          <div class="tb" data-type="quickwin" id="tb-quickwin" onclick="selectType('quickwin')"><div class="ti">&#x26A1;</div><div class="tl">Quick win</div></div>
         </div>
         <div class="cl">Focus <span style="font-weight:400;text-transform:none;font-size:12px;color:var(--faint)">(optional)</span></div>
         <input type="text" id="extraCtx" placeholder="e.g. Monday energy, sleep, protein..." style="margin-bottom:18px" />
-        <button class="btn bp" onclick="generatePost()">&#x2726; GENERATE POST</button>
+        <button class="btn bp" id="genBtn" onclick="doGenerate()">&#x2726; GENERATE POST</button>
       </div>
       <div class="card" id="outputCard" style="display:none">
         <div class="cl">Your post</div>
-        <div class="pb" id="postOutput"></div>
+        <div class="pb" id="postOutput">...</div>
         <div class="br">
-          <button class="btn bg" onclick="generatePost()">&#x21BA; Regenerate</button>
-          <button class="btn bg" onclick="editPost()">&#x270E; Edit</button>
-          <button class="btn bc" onclick="openSchedForm()">&#x1F4C5; Schedule</button>
-          <button class="btn bg" onclick="copyPost()">&#x2398; Copy</button>
+          <button class="btn bg" onclick="doGenerate()">&#x21BA; Regenerate</button>
+          <button class="btn bg" onclick="doEdit()">&#x270E; Edit</button>
+          <button class="btn bc" onclick="doSchedOpen()">&#x1F4C5; Schedule</button>
+          <button class="btn bg" onclick="doCopy()">&#x2398; Copy</button>
         </div>
-        <div class="sb" id="outputStatus"></div>
+        <div class="sb" id="outStatus"></div>
       </div>
       <div class="sf" id="schedForm">
         <div class="cl" style="margin-bottom:14px">Schedule this post</div>
@@ -180,8 +163,8 @@ textarea{min-height:50px;resize:vertical;line-height:1.75;}
           <div><div class="sl">Time</div><input type="time" id="schedTime" value="09:00" /></div>
         </div>
         <div style="display:flex;gap:8px">
-          <button class="btn bgreen" style="flex:1" onclick="addToQueue()">&#x2713; Add to queue</button>
-          <button class="btn bg" onclick="closeSchedForm()">Cancel</button>
+          <button class="btn bgreen" style="flex:1" onclick="doAddQueue()">&#x2713; Add to queue</button>
+          <button class="btn bg" onclick="doSchedClose()">Cancel</button>
         </div>
       </div>
     </div>
@@ -196,8 +179,8 @@ textarea{min-height:50px;resize:vertical;line-height:1.75;}
         <div class="sc"><div class="sn" id="statWeek" style="color:var(--cyan)">0</div><div class="sk">This week</div></div>
       </div>
       <div class="br" style="margin-bottom:20px">
-        <button class="btn bp" style="flex:1" onclick="generateWeek()">&#x2726; AUTO-FILL NEXT 7 DAYS</button>
-        <button class="btn bg" onclick="clearQueue()">&#x1F5D1; Clear all</button>
+        <button class="btn bp" style="flex:1" onclick="doWeek()">&#x2726; AUTO-FILL NEXT 7 DAYS</button>
+        <button class="btn bg" onclick="doClearQueue()">&#x1F5D1; Clear all</button>
       </div>
       <div class="sb" id="queueStatus" style="margin-bottom:12px"></div>
       <div id="queueList"></div>
@@ -208,9 +191,9 @@ textarea{min-height:50px;resize:vertical;line-height:1.75;}
       <div class="ps">Your weekly content at a glance</div>
       <div class="al"></div>
       <div class="cnr">
-        <button class="cnb" onclick="shiftWeek(-1)">&#x2039;</button>
+        <button class="cnb" onclick="shiftCal(-1)">&#x2039;</button>
         <div class="crl" id="calRange"></div>
-        <button class="cnb" onclick="shiftWeek(1)">&#x203A;</button>
+        <button class="cnb" onclick="shiftCal(1)">&#x203A;</button>
       </div>
       <div class="cgrid" id="calGrid"></div>
       <div class="cleg">
@@ -223,22 +206,8 @@ textarea{min-height:50px;resize:vertical;line-height:1.75;}
 
     <div class="panel" id="panel-settings">
       <div class="pt">Settings</div>
-      <div class="ps">Connect your Facebook page and configure defaults</div>
+      <div class="ps">Configure defaults</div>
       <div class="al"></div>
-      <div class="card">
-        <div class="cl">Facebook page connection</div>
-        <div style="margin-bottom:16px">
-          <div class="sl">Page access token</div>
-          <input type="password" id="fbToken" placeholder="Paste your Page Access Token..." />
-          <div class="sh">Graph API Explorer &rarr; User or Page &rarr; select your page name</div>
-        </div>
-        <div style="margin-bottom:18px">
-          <div class="sl">Page ID</div>
-          <input type="text" id="fbPageId" placeholder="e.g. 10154224424799682" />
-        </div>
-        <button class="btn bp" style="max-width:280px" onclick="saveAndTest()">SAVE &amp; TEST CONNECTION</button>
-        <div class="sb" id="settingsStatus"></div>
-      </div>
       <div class="card">
         <div class="cl">Default post time</div>
         <input type="time" id="defaultTime" value="09:00" style="max-width:180px;margin-bottom:6px" />
@@ -248,7 +217,7 @@ textarea{min-height:50px;resize:vertical;line-height:1.75;}
         <div class="cl">How to publish posts</div>
         <div class="hs"><div class="hn">1</div><div class="ht">Generate your post and click <strong>Copy</strong></div></div>
         <div class="hs"><div class="hn">2</div><div class="ht">Go to <a href="https://business.facebook.com" target="_blank">business.facebook.com</a> &rarr; <strong>Planner</strong> &rarr; <strong>Create post</strong></div></div>
-        <div class="hs"><div class="hn">3</div><div class="ht">Paste, click arrow next to "Post now" &rarr; <strong>Schedule</strong> &rarr; pick date and time</div></div>
+        <div class="hs"><div class="hn">3</div><div class="ht">Paste, click arrow next to Post now &rarr; <strong>Schedule</strong> &rarr; pick date and time</div></div>
         <div class="hs"><div class="hn">4</div><div class="ht">Use <strong>Auto-fill 7 days</strong> to batch your whole week every Monday</div></div>
       </div>
     </div>
@@ -257,24 +226,24 @@ textarea{min-height:50px;resize:vertical;line-height:1.75;}
 </div>
 
 <script>
-var SYS = "You are a content writer for an over-30s women's fitness Facebook page in the UK called SPS Fitness. Tone: bold, warm, straight-talking, never condescending, never preachy, never toxic-positive. These are busy women with full lives. Posts feel like a knowledgeable friend not a coach lecturing. Under 200 words. Punchy and conversational. End with an engaging question or CTA. Max 3 hashtags. Never say ladies, girls, you need to, or you should. Use we or you warmly. British English.";
-
-var PROMPTS = {
-  motivation: function(c) { return "Write a motivational post" + (c ? " focused on: " + c : "") + ". Real and grounding, not cheesy. Acknowledge busy lives. Celebrate small wins. Reference relatable scenarios like hectic weeks or fitting movement around a packed schedule."; },
-  myth: function(c) { return "Write a myth-busting post" + (c ? " about: " + c : "") + ". Pick one fitness myth affecting women over 30 such as lifting makes you bulky, you need an hour minimum, or cardio is the only way to lose weight. Bust it with a punchy evidence-backed explanation."; },
-  evidence: function(c) { return "Write an evidence-based post" + (c ? " about: " + c : "") + ". One science-backed insight for women over 30 such as strength training and bone density, sleep and recovery, hormones and exercise, or protein and muscle retention. Interesting and accessible, no jargon."; },
-  quickwin: function(c) { return "Write a quick win post" + (c ? " about: " + c : "") + ". One practical tip a busy woman could do today. Under 10 minutes, no equipment needed, fits into existing routine. Think habit stacking, desk stretches, protein swaps. Doable not overwhelming."; }
-};
-
-var CYCLE = ["motivation","myth","evidence","quickwin","motivation","myth","quickwin"];
-var BADGE = { motivation:"bm", myth:"bmyth", evidence:"be", quickwin:"bq" };
-var ICONS = { motivation:"&#x1F525;", myth:"&#x1F4A1;", evidence:"&#x1F52C;", quickwin:"&#x26A1;" };
-var IBGS = { motivation:"rgba(26,111,255,0.15)", myth:"rgba(0,229,255,0.12)", evidence:"rgba(57,217,138,0.1)", quickwin:"rgba(255,184,0,0.12)" };
-
 var selType = "motivation";
 var curPost = "";
 var queue = [];
 var calOff = 0;
+
+var SYS = "You are a content writer for an over-30s women's fitness Facebook page in the UK called SPS Fitness. Tone: bold, warm, straight-talking, never condescending, never preachy. These are busy women with full lives. Posts feel like a knowledgeable friend. Under 200 words. Punchy and conversational. End with an engaging question or CTA. Max 3 hashtags. Never say ladies, girls, you need to, or you should. Use we or you warmly. British English.";
+
+var PROMPTS = {
+  motivation: "Write a motivational post. Real and grounding, not cheesy. Acknowledge busy lives. Celebrate small wins.",
+  myth: "Write a myth-busting post. Pick one fitness myth affecting women over 30 and bust it with evidence.",
+  evidence: "Write an evidence-based post with one science-backed insight for women over 30. Accessible, no jargon.",
+  quickwin: "Write a quick win post. One practical tip a busy woman could do today. Under 10 minutes, no equipment."
+};
+
+var CYCLE = ["motivation","myth","evidence","quickwin","motivation","myth","quickwin"];
+var BADGE = {motivation:"bm",myth:"bmyth",evidence:"be",quickwin:"bq"};
+var ICONS = {motivation:"&#x1F525;",myth:"&#x1F4A1;",evidence:"&#x1F52C;",quickwin:"&#x26A1;"};
+var IBGS = {motivation:"rgba(26,111,255,0.15)",myth:"rgba(0,229,255,0.12)",evidence:"rgba(57,217,138,0.1)",quickwin:"rgba(255,184,0,0.12)"};
 
 function showPanel(name) {
   var panels = document.querySelectorAll(".panel");
@@ -283,166 +252,174 @@ function showPanel(name) {
   for (var i = 0; i < navs.length; i++) navs[i].classList.remove("active");
   document.getElementById("panel-" + name).classList.add("active");
   document.getElementById("nav-" + name).classList.add("active");
-  if (name === "calendar") renderCalendar();
+  if (name === "calendar") renderCal();
   if (name === "queue") renderQueue();
 }
 
-function selectType(el) {
-  var btns = document.querySelectorAll(".tb");
-  for (var i = 0; i < btns.length; i++) btns[i].classList.remove("sel");
-  el.classList.add("sel");
-  selType = el.getAttribute("data-type");
+function selectType(t) {
+  selType = t;
+  var types = ["motivation","myth","evidence","quickwin"];
+  for (var i = 0; i < types.length; i++) {
+    var el = document.getElementById("tb-" + types[i]);
+    if (el) el.classList.remove("sel");
+  }
+  var sel = document.getElementById("tb-" + t);
+  if (sel) sel.classList.add("sel");
 }
 
-function callAPI(system, prompt, callback) {
+function callAPI(prompt, cb) {
   fetch("/.netlify/functions/generate", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ system: system, messages: [{ role: "user", content: prompt }] })
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      system: SYS,
+      messages: [{role: "user", content: prompt}]
+    })
   })
   .then(function(r) { return r.json(); })
   .then(function(d) {
-    if (d.error) throw new Error(d.error.message || d.error);
-    var text = d.content.map(function(b) { return b.text || ""; }).join("").trim();
-    callback(null, text);
+    if (d.error) { cb("Error: " + JSON.stringify(d.error)); return; }
+    var text = "";
+    for (var i = 0; i < d.content.length; i++) {
+      if (d.content[i].text) text += d.content[i].text;
+    }
+    cb(null, text.trim());
   })
-  .catch(function(e) { callback(e.message, null); });
+  .catch(function(e) { cb("Network error: " + e.message); });
 }
 
-function generatePost() {
+function doGenerate() {
   var ctx = document.getElementById("extraCtx").value.trim();
+  var prompt = PROMPTS[selType] + (ctx ? " Focus on: " + ctx : "");
   var card = document.getElementById("outputCard");
   var out = document.getElementById("postOutput");
   card.style.display = "block";
   document.getElementById("schedForm").style.display = "none";
-  hideStatus("outputStatus");
+  hideStatus("outStatus");
   out.className = "pb loading";
   out.textContent = "Writing your post...";
-  callAPI(SYS, PROMPTS[selType](ctx), function(err, text) {
+  callAPI(prompt, function(err, text) {
     out.className = "pb";
-    if (err) { out.textContent = "Could not generate post. Please try again."; return; }
+    if (err) {
+      out.textContent = "Error: " + err;
+      return;
+    }
     curPost = text;
     out.textContent = text;
   });
 }
 
-function editPost() {
+function doEdit() {
   var out = document.getElementById("postOutput");
   var ta = document.createElement("textarea");
-  ta.value = out.textContent || out.value || "";
   ta.className = "pb";
   ta.id = "postOutput";
+  ta.value = out.textContent || out.value || "";
   ta.addEventListener("input", function() { curPost = ta.value; });
   out.parentNode.replaceChild(ta, out);
 }
 
-function getPostText() {
+function doCopy() {
   var el = document.getElementById("postOutput");
-  return el.value !== undefined ? el.value : el.textContent;
+  var t = el.value || el.textContent;
+  if (!t) return;
+  navigator.clipboard.writeText(t).then(function() {
+    showStatus("outStatus", "Copied! Paste into Meta Business Suite.", "success");
+    setTimeout(function() { hideStatus("outStatus"); }, 3000);
+  });
 }
 
-function openSchedForm() {
+function doSchedOpen() {
   if (!curPost) return;
   document.getElementById("schedForm").style.display = "block";
   document.getElementById("schedDate").value = new Date().toISOString().split("T")[0];
-  var t = document.getElementById("defaultTime");
-  document.getElementById("schedTime").value = t ? t.value : "09:00";
+  document.getElementById("schedTime").value = "09:00";
 }
 
-function closeSchedForm() { document.getElementById("schedForm").style.display = "none"; }
+function doSchedClose() { document.getElementById("schedForm").style.display = "none"; }
 
-function addToQueue() {
+function doAddQueue() {
   var date = document.getElementById("schedDate").value;
   var time = document.getElementById("schedTime").value;
   if (!date || !time || !curPost) return;
-  queue.push({ id: Date.now(), type: selType, text: curPost, date: date, time: time });
+  queue.push({id: Date.now(), type: selType, text: curPost, date: date, time: time});
   queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
-  closeSchedForm();
+  doSchedClose();
   updateBadge();
-  showStatus("outputStatus", "Added to queue for " + fmtDate(date) + " at " + time, "success");
-  setTimeout(function() { hideStatus("outputStatus"); }, 3000);
+  showStatus("outStatus", "Added to queue for " + fmtDate(date) + " at " + time, "success");
+  setTimeout(function() { hideStatus("outStatus"); }, 3000);
 }
 
-function removeFromQueue(id) {
+function removeQ(id) {
   queue = queue.filter(function(q) { return q.id !== id; });
   renderQueue(); updateBadge();
 }
 
-function copyPost() {
-  var t = getPostText();
-  if (!t) return;
-  navigator.clipboard.writeText(t).then(function() {
-    showStatus("outputStatus", "Copied! Now paste into Meta Business Suite.", "success");
-    setTimeout(function() { hideStatus("outputStatus"); }, 3000);
-  });
-}
-
-function copyQueueItem(id) {
+function copyQ(id) {
   var item = null;
   for (var i = 0; i < queue.length; i++) { if (queue[i].id === id) { item = queue[i]; break; } }
   if (!item) return;
   navigator.clipboard.writeText(item.text).then(function() {
-    alert("Copied!\n\nGo to business.facebook.com > Planner > Create post > paste > Schedule");
+    alert("Copied! Go to business.facebook.com > Planner > Create post > paste > Schedule");
   });
 }
 
 function renderQueue() {
   var list = document.getElementById("queueList");
   var now = new Date();
-  var weekEnd = new Date(now); weekEnd.setDate(now.getDate() + 7);
+  var we = new Date(now); we.setDate(now.getDate() + 7);
   document.getElementById("statTotal").textContent = queue.length;
-  document.getElementById("statDue").textContent = queue.filter(function(q) { return new Date(q.date + "T" + q.time) <= now; }).length;
-  document.getElementById("statWeek").textContent = queue.filter(function(q) { var d = new Date(q.date + "T" + q.time); return d >= now && d <= weekEnd; }).length;
+  document.getElementById("statDue").textContent = queue.filter(function(q) { return new Date(q.date+"T"+q.time) <= now; }).length;
+  document.getElementById("statWeek").textContent = queue.filter(function(q) { var d = new Date(q.date+"T"+q.time); return d >= now && d <= we; }).length;
   if (!queue.length) {
-    list.innerHTML = '<div class="empty"><div style="font-size:42px">&#x1F4CB;</div><p>No posts scheduled yet.<br/>Generate posts or use auto-fill!</p></div>';
+    list.innerHTML = '<div class="empty"><div style="font-size:42px">&#x1F4CB;</div><p>No posts yet. Generate some or use auto-fill!</p></div>';
     return;
   }
   var html = "";
   for (var i = 0; i < queue.length; i++) {
     var q = queue[i];
-    var isDue = new Date(q.date + "T" + q.time) <= now;
-    var preview = q.text.replace(/\n/g, " ").substring(0, 100) + (q.text.length > 100 ? "..." : "");
-    html += '<div class="qi"><div class="qicon" style="background:' + IBGS[q.type] + '">' + ICONS[q.type] + '</div>';
-    html += '<div class="qb"><span class="badge ' + BADGE[q.type] + '">' + q.type + '</span>';
-    if (isDue) html += ' <span class="badge bdue">Due now</span>';
-    html += '<div class="qp">' + preview + '</div>';
-    html += '<div class="qt">&#x1F550; ' + fmtDate(q.date) + ' &middot; ' + q.time + '</div>';
-    html += '<div class="qa"><button class="btn bc" onclick="copyQueueItem(' + q.id + ')">&#x2398; Copy</button></div>';
-    html += '</div><button class="qdel" onclick="removeFromQueue(' + q.id + ')">&times;</button></div>';
+    var due = new Date(q.date+"T"+q.time) <= now;
+    var prev = q.text.replace(/\n/g," ").substring(0,100) + (q.text.length > 100 ? "..." : "");
+    html += '<div class="qi"><div class="qicon" style="background:'+IBGS[q.type]+'">'+ICONS[q.type]+'</div>';
+    html += '<div class="qb"><span class="badge '+BADGE[q.type]+'">'+q.type+'</span>';
+    if (due) html += ' <span class="badge" style="background:rgba(255,184,0,0.15);color:#ffb800">Due</span>';
+    html += '<div class="qp">'+prev+'</div><div class="qt">'+fmtDate(q.date)+' at '+q.time+'</div>';
+    html += '<div class="qa"><button class="btn bc" onclick="copyQ('+q.id+')">&#x2398; Copy</button></div>';
+    html += '</div><button class="qdel" onclick="removeQ('+q.id+')">&times;</button></div>';
   }
   list.innerHTML = html;
 }
 
-function generateWeek() {
-  var defTime = document.getElementById("defaultTime") ? document.getElementById("defaultTime").value : "09:00";
+function doWeek() {
+  var defTime = document.getElementById("defaultTime").value || "09:00";
   var today = new Date();
   showPanel("queue");
-  document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x2726;</div><p>Generating 7 posts...<br/>About 30 seconds, hang tight!</p></div>';
+  document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x2726;</div><p>Generating 7 posts... about 30 seconds!</p></div>';
   var i = 0;
-  function genNext() {
+  function next() {
     if (i >= 7) {
       queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
       renderQueue(); updateBadge();
-      showStatus("queueStatus", "7 posts generated! Copy each into Meta Business Suite.", "success");
+      showStatus("queueStatus", "7 posts ready! Copy each into Meta Business Suite.", "success");
       return;
     }
     var d = new Date(today); d.setDate(today.getDate() + i);
     var ds = d.toISOString().split("T")[0];
     var type = CYCLE[i % CYCLE.length];
     var idx = i;
-    callAPI(SYS, PROMPTS[type](""), function(err, text) {
+    callAPI(PROMPTS[type], function(err, text) {
       if (!err && text) {
-        queue.push({ id: Date.now() + idx, type: type, text: text, date: ds, time: defTime });
+        queue.push({id: Date.now()+idx, type: type, text: text, date: ds, time: defTime});
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         renderQueue(); updateBadge();
       }
-      i++; genNext();
+      i++; next();
     });
   }
-  genNext();
+  next();
 }
 
-function clearQueue() {
+function doClearQueue() {
   if (!queue.length) return;
   if (confirm("Clear all scheduled posts?")) { queue = []; renderQueue(); updateBadge(); }
 }
@@ -450,7 +427,7 @@ function clearQueue() {
 function updateBadge() { document.getElementById("queueBadge").textContent = queue.length; }
 
 function fmtDate(d) {
-  return new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short" });
+  return new Date(d+"T12:00:00").toLocaleDateString("en-GB", {weekday:"short",day:"numeric",month:"short"});
 }
 
 function showStatus(id, msg, type) {
@@ -466,48 +443,32 @@ function hideStatus(id) {
   if (el) el.style.display = "none";
 }
 
-function saveAndTest() {
-  var token = document.getElementById("fbToken").value.trim();
-  var pageId = document.getElementById("fbPageId").value.trim();
-  if (!token || !pageId) { showStatus("settingsStatus", "Please enter both token and page ID.", "error"); return; }
-  showStatus("settingsStatus", "Testing connection...", "info");
-  fetch("https://graph.facebook.com/v19.0/" + pageId + "?fields=name,fan_count&access_token=" + token)
-  .then(function(r) { return r.json(); })
-  .then(function(d) {
-    if (d.error) throw new Error(d.error.message);
-    showStatus("settingsStatus", "Connected to " + d.name + (d.fan_count ? " - " + d.fan_count.toLocaleString() + " followers" : ""), "success");
-    var pill = document.getElementById("connPill");
-    pill.className = "pill on";
-    document.getElementById("connLabel").textContent = d.name || "Connected";
-  })
-  .catch(function(e) { showStatus("settingsStatus", "Failed: " + e.message, "error"); });
-}
+function shiftCal(d) { calOff += d; renderCal(); }
 
-function shiftWeek(d) { calOff += d; renderCalendar(); }
-
-function renderCalendar() {
+function renderCal() {
   var today = new Date();
   var ws = new Date(today);
-  ws.setDate(today.getDate() - ((today.getDay() + 6) % 7) + calOff * 7);
-  var we = new Date(ws); we.setDate(ws.getDate() + 6);
-  function fmt(d) { return d.toLocaleDateString("en-GB", { day:"numeric", month:"short" }); }
+  ws.setDate(today.getDate() - ((today.getDay()+6)%7) + calOff*7);
+  var we = new Date(ws); we.setDate(ws.getDate()+6);
+  function fmt(d) { return d.toLocaleDateString("en-GB",{day:"numeric",month:"short"}); }
   document.getElementById("calRange").textContent = fmt(ws) + " - " + fmt(we);
   var days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
   var html = "";
-  for (var i = 0; i < 7; i++) html += '<div class="cdh">' + days[i] + '</div>';
+  for (var i = 0; i < 7; i++) html += '<div class="cdh">'+days[i]+'</div>';
   for (var i = 0; i < 7; i++) {
-    var d = new Date(ws); d.setDate(ws.getDate() + i);
+    var d = new Date(ws); d.setDate(ws.getDate()+i);
     var ds = d.toISOString().split("T")[0];
     var isToday = ds === today.toISOString().split("T")[0];
     var dp = queue.filter(function(q) { return q.date === ds; });
-    var dots = dp.map(function(p) { return '<div class="cdot ' + p.type + '"></div>'; }).join("");
-    html += '<div class="cc' + (dp.length ? " hp" : "") + (isToday ? " td" : "") + '"><div class="cn">' + d.getDate() + '</div>' + dots + '</div>';
+    var dots = "";
+    for (var j = 0; j < dp.length; j++) dots += '<div class="cdot '+dp[j].type+'"></div>';
+    html += '<div class="cc'+(dp.length?" hp":"")+(isToday?" td":"")+'"><div class="cn">'+d.getDate()+'</div>'+dots+'</div>';
   }
   document.getElementById("calGrid").innerHTML = html;
 }
 
 renderQueue();
-renderCalendar();
+renderCal();
 </script>
 </body>
 </html>
