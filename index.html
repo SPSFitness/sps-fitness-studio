@@ -349,10 +349,9 @@ function callAPI(sys, prompt, cb) {
     for (var i = 0; i < d.content.length; i++) {
       if (d.content[i].text) text += d.content[i].text;
     }
-    // Strip any markdown formatting the AI might have added
-    text = text.replace(/\*\*(.*?)\*\*/g, '$1');
-    text = text.replace(/\*(.*?)\*/g, '$1');
-    text = text.replace(/#{1,6} /g, '');
+    // Strip markdown
+    text = text.split("**").join("");
+    text = text.split("*").join("");
     cb(null, text.trim());
   })
   .catch(function(e) { cb("Network error: " + e.message); });
