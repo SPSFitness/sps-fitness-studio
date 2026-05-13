@@ -284,7 +284,8 @@ var selAud = "everyone";
 var curPost = "";
 var queue = [];
 var calOff = 0;
-var imageLibrary = []; // {id, dataUrl, filename, tags, tagString}
+var imageLibrary = []; // {id, dataUrl, filename, tags, tagString, hostedUrl}
+var IMGBB_KEY = "5a592f502043d2b621f51c19310a7cbe";
 
 var SYS_BASE = "You write Facebook posts for SPS Fitness, a fitness community in the West Midlands UK. The tone is straight-talking, warm, specific and real — never generic, never preachy, never corporate. Posts feel like they come from a knowledgeable friend who gets real life. Short sentences. Direct. Occasionally dry or funny. Never waffy. Vary the CTA — sometimes a question, sometimes invite a comment, sometimes just make them think. Max 3 hashtags. Under 180 words. British English. STRICT FORMATTING RULES: Never use dash symbols (-) or em dashes to start lines or separate ideas — use full stops or line breaks instead. Never end with meta-commentary like 'That is it. That is the post.' or 'Simple as that.' or any self-referential closing line. Just end the post naturally on the message itself. Never use markdown formatting — no asterisks, no bold, no bullet points with asterisks, no **text**. Plain text only. Never use the phrase your future self will thank you or any variation of it.";
 
@@ -491,21 +492,46 @@ function processImageFiles(files) {
       var dataUrl = e.target.result;
       var base64 = dataUrl.split(",")[1];
       var id = Date.now() + Math.random();
-      // Add to library immediately so user sees it
-      imageLibrary.push({id: id, dataUrl: dataUrl, filename: file.name, tags: [], tagString: "analysing...", analyzing: true});
+      imageLibrary.push({id: id, dataUrl: dataUrl, filename: file.name, tags: [], tagString: "uploading...", analyzing: true, hostedUrl: ""});
       renderImgLibrary();
-      // Analyse with Claude vision
-      analyseImage(id, base64, function() {
-        done++;
-        if (done === files.length) {
-          showStatus("imgStatus", files.length + " photo" + (files.length !== 1 ? "s" : "") + " added and tagged!", "success");
-          setTimeout(function() { hideStatus("imgStatus"); }, 3000);
-        }
-        renderImgLibrary();
+      // Upload to ImgBB for permanent URL
+      uploadToImgBB(id, base64, file.name, function() {
+        // Then analyse with Claude vision
+        analyseImage(id, base64, function() {
+          done++;
+          if (done === files.length) {
+            showStatus("imgStatus", files.length + " photo" + (files.length !== 1 ? "s" : "") + " added, tagged and hosted!", "success");
+            setTimeout(function() { hideStatus("imgStatus"); }, 3000);
+          }
+          renderImgLibrary();
+        });
       });
     };
     reader.readAsDataURL(file);
   });
+}
+
+function uploadToImgBB(id, base64, filename, cb) {
+  var formData = new FormData();
+  formData.append("key", IMGBB_KEY);
+  formData.append("image", base64);
+  formData.append("name", filename);
+  fetch("https://api.imgbb.com/1/upload", {method: "POST", body: formData})
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.success && d.data && d.data.url) {
+      for (var i = 0; i < imageLibrary.length; i++) {
+        if (imageLibrary[i].id === id) {
+          imageLibrary[i].hostedUrl = d.data.url;
+          imageLibrary[i].tagString = "hosted + analysing...";
+          break;
+        }
+      }
+    }
+    renderImgLibrary();
+    cb();
+  })
+  .catch(function() { cb(); });
 }
 
 function analyseImage(id, base64, cb) {
@@ -566,7 +592,7 @@ function renderImgLibrary() {
   grid.innerHTML = imageLibrary.map(function(img) {
     return '<div class="img-card' + (img.analyzing ? " analyzing" : "") + '" id="imgcard-' + img.id + '">' +
       '<img src="' + img.dataUrl + '" alt="' + img.filename + '" />' +
-      '<div class="img-overlay">' + (img.analyzing ? "Analysing..." : img.tagString) + '</div>' +
+      '<div class="img-overlay">' + (img.analyzing ? img.tagString : (img.hostedUrl ? "&#x2713; hosted | " : "") + img.tagString) + '</div>' +
       '<button class="img-del" onclick="removeImg(' + img.id + ')" title="Remove">&times;</button>' +
       '</div>';
   }).join("");
@@ -601,9 +627,10 @@ function renderMatchedImage(postType) {
   var box = document.createElement("div");
   box.id = "matchedImgBox";
   box.className = "matched-img";
+  var hostedBadge = img.hostedUrl ? ' <span style="font-size:10px;background:rgba(57,217,138,0.2);color:#39d98a;padding:2px 7px;border-radius:4px;font-weight:700">HOSTED</span>' : '';
   box.innerHTML = '<img src="' + img.dataUrl + '" alt="Matched photo" />' +
     '<div class="matched-img-info">' +
-    '<span>Suggested photo: <strong>' + img.filename + '</strong></span>' +
+    '<span>' + img.filename + hostedBadge + '</span>' +
     '<a href="' + img.dataUrl + '" download="' + img.filename + '" class="btn bc" style="padding:5px 12px;font-size:12px;text-decoration:none">&#x2913; Download</a>' +
     '</div>';
   card.appendChild(box);
@@ -758,11 +785,17 @@ function exportCSV() {
     // Combine post text and hashtags into one content field
     var fullText = q.text.replace(/"/g, '""');
 
+    // Find best matched image URL for this post
+    var imgUrl = "";
+    if (imageLibrary.length) {
+      var bestImg = findBestImage(q.type);
+      if (bestImg && bestImg.hostedUrl) imgUrl = bestImg.hostedUrl;
+    }
     rows.push([
       datetime,
       '"' + fullText + '"',
       "",
-      "",
+      imgUrl,
       "",
       "",
       ""
