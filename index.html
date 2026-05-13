@@ -240,19 +240,23 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
 
     <div class="panel" id="panel-images">
       <div class="pt">Image <span>library</span></div>
-      <div class="ps">Upload your SPS photos — AI will match them to posts automatically</div>
+      <div class="ps">Syncs automatically from your SPS Fitness Google Drive folder. Drop photos in the folder — they appear here.</div>
       <div class="al"></div>
       <div class="card">
-        <div class="drop-zone" id="dropZone" onclick="document.getElementById('imgFileInput').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
-          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          <div style="font-size:15px;font-weight:600;margin-bottom:4px">Drop photos here or click to upload</div>
-          <div style="font-size:13px;color:var(--faint)">JPG, PNG — AI will tag each photo automatically</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px">Google Drive sync</div>
+            <div style="font-size:13px;color:var(--muted)">Add photos to your <a href="https://drive.google.com/drive/folders/1611vCEdMo-ikeYBzhjv0LqYtTqo3ewnG" target="_blank" style="color:var(--blue2)">SPS Fitness Photos</a> folder on Google Drive</div>
+          </div>
+          <button class="btn bp" style="width:auto;font-size:14px;letter-spacing:1px;padding:10px 20px" onclick="syncDrive()">&#x21BA; SYNC NOW</button>
         </div>
-        <input type="file" id="imgFileInput" accept="image/*" multiple style="display:none" onchange="handleImageFiles(event)" />
-        <div class="sb" id="imgStatus" style="margin-top:12px"></div>
+        <div class="sb" id="imgStatus"></div>
       </div>
       <div class="card" id="imgLibraryCard" style="display:none">
-        <div class="cl">Your photos (<span id="imgCount">0</span>)</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="cl" style="margin-bottom:0">Your photos (<span id="imgCount">0</span>)</div>
+          <button class="btn bg" style="font-size:12px;padding:5px 12px" onclick="clearAllImages()">Clear all</button>
+        </div>
         <div class="img-grid" id="imgGrid"></div>
       </div>
     </div>
@@ -469,78 +473,69 @@ function copyQ(id) {
   });
 }
 
-function handleDrop(e) {
-  e.preventDefault();
-  document.getElementById("dropZone").classList.remove("drag");
-  var files = Array.from(e.dataTransfer.files).filter(function(f) { return f.type.startsWith("image/"); });
-  processImageFiles(files);
-}
+var GDRIVE_FOLDER = "1611vCEdMo-ikeYBzhjv0LqYtTqo3ewnG";
+var GDRIVE_KEY = "AIzaSyDZQK_0tzhKKoNMMvjlmMs_LnfBxCM9v1I";
 
-function handleImageFiles(e) {
-  var files = Array.from(e.target.files);
-  processImageFiles(files);
-  e.target.value = "";
-}
-
-function processImageFiles(files) {
-  if (!files.length) return;
-  showStatus("imgStatus", "Uploading and analysing " + files.length + " photo" + (files.length !== 1 ? "s" : "") + "...", "info");
-  var done = 0;
-  files.forEach(function(file) {
-    var reader = new FileReader();
-    reader.onload = function(e) {
-      var dataUrl = e.target.result;
-      var base64 = dataUrl.split(",")[1];
+function syncDrive() {
+  showStatus("imgStatus", "Syncing with Google Drive...", "info");
+  var url = "https://www.googleapis.com/drive/v3/files?q=%27" + GDRIVE_FOLDER + "%27+in+parents+and+mimeType+contains+%27image%27+and+trashed%3Dfalse&fields=files(id,name,mimeType)&key=" + GDRIVE_KEY;
+  fetch(url)
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.error) {
+      showStatus("imgStatus", "Drive error: " + d.error.message, "error");
+      return;
+    }
+    var files = d.files || [];
+    if (!files.length) {
+      showStatus("imgStatus", "No photos found in Drive folder. Add some photos and sync again!", "info");
+      return;
+    }
+    // Find new files not already in library
+    var existingIds = imageLibrary.map(function(img) { return img.driveId; });
+    var newFiles = files.filter(function(f) { return existingIds.indexOf(f.id) === -1; });
+    if (!newFiles.length) {
+      showStatus("imgStatus", "All " + files.length + " photos already synced!", "success");
+      setTimeout(function() { hideStatus("imgStatus"); }, 3000);
+      return;
+    }
+    showStatus("imgStatus", "Found " + newFiles.length + " new photo" + (newFiles.length !== 1 ? "s" : "") + " — tagging...", "info");
+    var done = 0;
+    newFiles.forEach(function(file) {
       var id = Date.now() + Math.random();
-      imageLibrary.push({id: id, dataUrl: dataUrl, filename: file.name, tags: [], tagString: "uploading...", analyzing: true, hostedUrl: ""});
+      var hostedUrl = "https://drive.google.com/uc?export=view&id=" + file.id;
+      var thumbUrl = "https://drive.google.com/thumbnail?id=" + file.id + "&sz=w400";
+      imageLibrary.push({id: id, driveId: file.id, dataUrl: thumbUrl, filename: file.name, tags: [], tagString: "analysing...", analyzing: true, hostedUrl: hostedUrl});
       renderImgLibrary();
-      uploadToImgBB(id, base64, file.name, function() {
-        // Then analyse with Claude vision
-        analyseImage(id, base64, function() {
-          done++;
-          if (done === files.length) {
-            showStatus("imgStatus", files.length + " photo" + (files.length !== 1 ? "s" : "") + " added, tagged and hosted!", "success");
-            setTimeout(function() { hideStatus("imgStatus"); }, 3000);
-          }
-          renderImgLibrary();
-        });
+      saveImageLibrary();
+      analyseImageByUrl(id, hostedUrl, function() {
+        done++;
+        if (done === newFiles.length) {
+          showStatus("imgStatus", newFiles.length + " new photo" + (newFiles.length !== 1 ? "s" : "") + " added and tagged! Total: " + imageLibrary.length, "success");
+          setTimeout(function() { hideStatus("imgStatus"); }, 4000);
+        }
+        renderImgLibrary();
+        saveImageLibrary();
       });
-    };
-    reader.readAsDataURL(file);
+    });
+  })
+  .catch(function(e) {
+    showStatus("imgStatus", "Sync failed: " + e.message, "error");
   });
 }
 
-function uploadToImgBB(id, base64, filename, cb) {
-  fetch("/.netlify/functions/upload", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({image: base64, name: filename})
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(d) {
-    if (d.url) {
-      for (var i = 0; i < imageLibrary.length; i++) {
-        if (imageLibrary[i].id === id) {
-          imageLibrary[i].hostedUrl = d.url;
-          imageLibrary[i].tagString = "hosted + analysing...";
-          break;
-        }
-      }
-    }
-    renderImgLibrary();
-    cb();
-  })
-  .catch(function() { cb(); });
+function addImageUrls() {
+  // Legacy function kept for compatibility
 }
 
-function analyseImage(id, base64, cb) {
+function analyseImageByUrl(id, url, cb) {
   var sys = "You are an image tagger for a fitness gym called SPS Fitness. Look at this photo and return ONLY a JSON object with these fields: tags (array of 3-5 short lowercase tags like: group-session, lifting, cardio, equipment, outdoor, stretching, motivation, bodyblast, women, men, mixed, smiling, intense, relaxed), bestFor (one of: motivation, myth, evidence, quickwin, bodyblast, any). Return only valid JSON, nothing else.";
   fetch("/.netlify/functions/generate", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({
       system: sys,
-      messages: [{role: "user", content: [{type: "image", source: {type: "base64", media_type: "image/jpeg", data: base64}}, {type: "text", text: "Tag this fitness photo."}]}]
+      messages: [{role: "user", content: [{type: "image", source: {type: "url", url: url}}, {type: "text", text: "Tag this fitness photo."}]}]
     })
   })
   .then(function(r) { return r.json(); })
@@ -581,6 +576,31 @@ function analyseImage(id, base64, cb) {
   });
 }
 
+function saveImageLibrary() {
+  try {
+    var toSave = imageLibrary.map(function(img) {
+      return {id: img.id, dataUrl: img.hostedUrl, filename: img.filename, tags: img.tags || [], tagString: img.tagString || "", analyzing: false, hostedUrl: img.hostedUrl, bestFor: img.bestFor || "any"};
+    });
+    localStorage.setItem("sps_image_library", JSON.stringify(toSave));
+  } catch(e) {}
+}
+
+function loadImageLibrary() {
+  try {
+    var saved = localStorage.getItem("sps_image_library");
+    if (saved) { imageLibrary = JSON.parse(saved); }
+  } catch(e) {}
+}
+
+function clearAllImages() {
+  if (!confirm("Clear all saved photos?")) return;
+  imageLibrary = [];
+  localStorage.removeItem("sps_image_library");
+  renderImgLibrary();
+}
+
+
+
 function renderImgLibrary() {
   var card = document.getElementById("imgLibraryCard");
   var grid = document.getElementById("imgGrid");
@@ -590,8 +610,8 @@ function renderImgLibrary() {
   count.textContent = imageLibrary.length;
   grid.innerHTML = imageLibrary.map(function(img) {
     return '<div class="img-card' + (img.analyzing ? " analyzing" : "") + '" id="imgcard-' + img.id + '">' +
-      '<img src="' + img.dataUrl + '" alt="' + img.filename + '" />' +
-      '<div class="img-overlay">' + (img.analyzing ? img.tagString : (img.hostedUrl ? "&#x2713; hosted | " : "") + img.tagString) + '</div>' +
+      '<img src="' + img.hostedUrl + '" alt="' + img.filename + '" crossorigin="anonymous" />' +
+      '<div class="img-overlay">' + (img.analyzing ? "analysing..." : img.tagString) + '</div>' +
       '<button class="img-del" onclick="removeImg(' + img.id + ')" title="Remove">&times;</button>' +
       '</div>';
   }).join("");
@@ -600,6 +620,7 @@ function renderImgLibrary() {
 function removeImg(id) {
   imageLibrary = imageLibrary.filter(function(img) { return img.id !== id; });
   renderImgLibrary();
+  saveImageLibrary();
 }
 
 function findBestImage(postType) {
@@ -627,7 +648,7 @@ function renderMatchedImage(postType) {
   box.id = "matchedImgBox";
   box.className = "matched-img";
   var hostedBadge = img.hostedUrl ? ' <span style="font-size:10px;background:rgba(57,217,138,0.2);color:#39d98a;padding:2px 7px;border-radius:4px;font-weight:700">HOSTED</span>' : '';
-  box.innerHTML = '<img src="' + img.dataUrl + '" alt="Matched photo" />' +
+  box.innerHTML = '<img src="' + img.hostedUrl + '" alt="Matched photo" crossorigin="anonymous" />' +
     '<div class="matched-img-info">' +
     '<span>' + img.filename + hostedBadge + '</span>' +
     '<a href="' + img.dataUrl + '" download="' + img.filename + '" class="btn bc" style="padding:5px 12px;font-size:12px;text-decoration:none">&#x2913; Download</a>' +
@@ -864,8 +885,10 @@ function renderCal() {
   document.getElementById("calGrid").innerHTML = html;
 }
 
+loadImageLibrary();
 renderQueue();
 renderCal();
+renderImgLibrary();
 </script>
 </body>
 </html>
