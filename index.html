@@ -285,7 +285,7 @@ var curPost = "";
 var queue = [];
 var calOff = 0;
 var imageLibrary = []; // {id, dataUrl, filename, tags, tagString, hostedUrl}
-var IMGBB_KEY = "5a592f502043d2b621f51c19310a7cbe";
+// ImgBB key is stored server-side
 
 var SYS_BASE = "You write Facebook posts for SPS Fitness, a fitness community in the West Midlands UK. The tone is straight-talking, warm, specific and real — never generic, never preachy, never corporate. Posts feel like they come from a knowledgeable friend who gets real life. Short sentences. Direct. Occasionally dry or funny. Never waffy. Vary the CTA — sometimes a question, sometimes invite a comment, sometimes just make them think. Max 3 hashtags. Under 180 words. British English. STRICT FORMATTING RULES: Never use dash symbols (-) or em dashes to start lines or separate ideas — use full stops or line breaks instead. Never end with meta-commentary like 'That is it. That is the post.' or 'Simple as that.' or any self-referential closing line. Just end the post naturally on the message itself. Never use markdown formatting — no asterisks, no bold, no bullet points with asterisks, no **text**. Plain text only. Never use the phrase your future self will thank you or any variation of it.";
 
@@ -512,17 +512,17 @@ function processImageFiles(files) {
 }
 
 function uploadToImgBB(id, base64, filename, cb) {
-  var formData = new FormData();
-  formData.append("key", IMGBB_KEY);
-  formData.append("image", base64);
-  formData.append("name", filename);
-  fetch("https://api.imgbb.com/1/upload", {method: "POST", body: formData})
+  fetch("/.netlify/functions/upload", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({image: base64, name: filename})
+  })
   .then(function(r) { return r.json(); })
   .then(function(d) {
-    if (d.success && d.data && d.data.url) {
+    if (d.url) {
       for (var i = 0; i < imageLibrary.length; i++) {
         if (imageLibrary[i].id === id) {
-          imageLibrary[i].hostedUrl = d.data.url;
+          imageLibrary[i].hostedUrl = d.url;
           imageLibrary[i].tagString = "hosted + analysing...";
           break;
         }
