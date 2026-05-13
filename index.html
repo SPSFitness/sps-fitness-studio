@@ -503,8 +503,8 @@ function syncDrive() {
     var done = 0;
     newFiles.forEach(function(file) {
       var id = Date.now() + Math.random();
-      var hostedUrl = "https://drive.google.com/uc?export=view&id=" + file.id;
-      var thumbUrl = "https://drive.google.com/thumbnail?id=" + file.id + "&sz=w400";
+      var hostedUrl = "https://lh3.googleusercontent.com/d/" + file.id;
+      var thumbUrl = "https://lh3.googleusercontent.com/d/" + file.id + "=w400";
       imageLibrary.push({id: id, driveId: file.id, dataUrl: thumbUrl, filename: file.name, tags: [], tagString: "analysing...", analyzing: true, hostedUrl: hostedUrl});
       renderImgLibrary();
       saveImageLibrary();
