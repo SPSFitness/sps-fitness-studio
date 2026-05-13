@@ -288,6 +288,7 @@ var selAud = "everyone";
 var curPost = "";
 var queue = [];
 var calOff = 0;
+var postHistory = []; // tracks recent posts to avoid repetition
 var imageLibrary = []; // {id, dataUrl, filename, tags, tagString, hostedUrl}
 // ImgBB key is stored server-side
 
@@ -376,6 +377,7 @@ function getSys() {
 function getPrompt(type, aud, ctx) {
   var p = PROMPTS[type][aud];
   if (ctx) p = p + " Specific focus for this post: " + ctx + ".";
+  p = p + getHistoryContext(type, aud);
   return p;
 }
 
@@ -414,6 +416,7 @@ function doGenerate() {
     if (err) { out.textContent = "Error: " + err; return; }
     curPost = text;
     out.textContent = text;
+    addToPostHistory(selType, selAud, text);
     renderMatchedImage(selType);
   });
 }
@@ -478,7 +481,7 @@ var GDRIVE_KEY = "AIzaSyDZQK_0tzhKKoNMMvjlmMs_LnfBxCM9v1I";
 
 function syncDrive() {
   showStatus("imgStatus", "Syncing with Google Drive...", "info");
-  var url = "https://www.googleapis.com/drive/v3/files?q=%27" + GDRIVE_FOLDER + "%27+in+parents+and+mimeType+contains+%27image%27+and+trashed%3Dfalse&fields=files(id,name,mimeType)&key=" + GDRIVE_KEY;
+  var url = "https://www.googleapis.com/drive/v3/files?q=%27" + GDRIVE_FOLDER + "%27+in+parents+and+(mimeType+contains+%27image%27+or+mimeType+contains+%27video%27)+and+trashed%3Dfalse&fields=files(id,name,mimeType)&key=" + GDRIVE_KEY;
   fetch(url)
   .then(function(r) { return r.json(); })
   .then(function(d) {
@@ -503,9 +506,11 @@ function syncDrive() {
     var done = 0;
     newFiles.forEach(function(file) {
       var id = Date.now() + Math.random();
-      var hostedUrl = "https://lh3.googleusercontent.com/d/" + file.id;
-      var thumbUrl = "https://lh3.googleusercontent.com/d/" + file.id + "=w400";
-      imageLibrary.push({id: id, driveId: file.id, dataUrl: thumbUrl, filename: file.name, tags: [], tagString: "analysing...", analyzing: true, hostedUrl: hostedUrl});
+      var isVideo = file.mimeType && file.mimeType.indexOf("video") !== -1;
+      var hostedUrl = "https://drive.google.com/uc?export=download&id=" + file.id;
+      var thumbUrl = isVideo ? "" : "https://lh3.googleusercontent.com/d/" + file.id + "=w400";
+      var displayUrl = isVideo ? "https://lh3.googleusercontent.com/d/" + file.id : "https://lh3.googleusercontent.com/d/" + file.id + "=w400";
+      imageLibrary.push({id: id, driveId: file.id, dataUrl: displayUrl, filename: file.name, tags: [], tagString: "analysing...", analyzing: true, hostedUrl: hostedUrl, isVideo: isVideo});
       renderImgLibrary();
       saveImageLibrary();
       analyseImageByUrl(id, hostedUrl, function() {
@@ -609,8 +614,12 @@ function renderImgLibrary() {
   card.style.display = "block";
   count.textContent = imageLibrary.length;
   grid.innerHTML = imageLibrary.map(function(img) {
-    return '<div class="img-card' + (img.analyzing ? " analyzing" : "") + '" id="imgcard-' + img.id + '">' +
-      '<img src="' + img.hostedUrl + '" alt="' + img.filename + '" crossorigin="anonymous" />' +
+    var mediaEl = img.isVideo
+        ? '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:var(--surface3);font-size:32px">&#x1F3A5;</div>'
+        : '<img src="' + img.dataUrl + '" alt="' + img.filename + '" crossorigin="anonymous" />';
+      var videoBadge = img.isVideo ? '<span style="position:absolute;top:4px;left:4px;background:var(--blue);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px">VIDEO</span>' : '';
+      return '<div class="img-card' + (img.analyzing ? " analyzing" : "") + '" id="imgcard-' + img.id + '">' +
+      mediaEl + videoBadge +
       '<div class="img-overlay">' + (img.analyzing ? "analysing..." : img.tagString + (img.usedCount ? " | used " + img.usedCount + "x" : "")) + '</div>' +
       '<button class="img-del" onclick="removeImg(' + img.id + ')" title="Remove">&times;</button>' +
       '</div>';
@@ -664,12 +673,46 @@ function renderMatchedImage(postType) {
   box.id = "matchedImgBox";
   box.className = "matched-img";
   var hostedBadge = img.hostedUrl ? ' <span style="font-size:10px;background:rgba(57,217,138,0.2);color:#39d98a;padding:2px 7px;border-radius:4px;font-weight:700">HOSTED</span>' : '';
-  box.innerHTML = '<img src="' + img.hostedUrl + '" alt="Matched photo" crossorigin="anonymous" />' +
+  var mediaPreview = img.isVideo
+    ? '<div style="display:flex;align-items:center;justify-content:center;height:200px;background:var(--surface2);font-size:48px;border-radius:var(--rs) var(--rs) 0 0">&#x1F3A5;</div>'
+    : '<img src="' + img.dataUrl + '" alt="Matched media" crossorigin="anonymous" />';
+  box.innerHTML = mediaPreview +
     '<div class="matched-img-info">' +
     '<span>' + img.filename + hostedBadge + '</span>' +
     '<a href="' + img.dataUrl + '" download="' + img.filename + '" class="btn bc" style="padding:5px 12px;font-size:12px;text-decoration:none">&#x2913; Download</a>' +
     '</div>';
   card.appendChild(box);
+}
+
+function savePostHistory() {
+  try {
+    localStorage.setItem("sps_post_history", JSON.stringify(postHistory.slice(-20)));
+  } catch(e) {}
+}
+
+function loadPostHistory() {
+  try {
+    var saved = localStorage.getItem("sps_post_history");
+    if (saved) postHistory = JSON.parse(saved);
+  } catch(e) {}
+}
+
+function addToPostHistory(type, aud, text) {
+  // Extract first sentence as summary
+  var summary = text.split(/[.!?]/)[0].trim().substring(0, 80);
+  postHistory.push({type: type, aud: aud, summary: summary, date: new Date().toISOString().split("T")[0]});
+  if (postHistory.length > 20) postHistory = postHistory.slice(-20);
+  savePostHistory();
+}
+
+function getHistoryContext(type, aud) {
+  // Get recent posts of same type and audience
+  var relevant = postHistory.filter(function(p) {
+    return (p.type === type || p.aud === aud);
+  }).slice(-8);
+  if (!relevant.length) return "";
+  var summaries = relevant.map(function(p) { return p.summary; }).join("; ");
+  return " IMPORTANT — avoid repeating these recently used angles and opening lines: " + summaries + ". Use a completely different angle, structure and opening line.";
 }
 
 function renderQueue() {
@@ -827,13 +870,23 @@ function exportCSV() {
       var bestImg = findBestImage(q.type);
       if (bestImg && bestImg.hostedUrl) imgUrl = bestImg.hostedUrl;
     }
+    // Separate image and video URLs
+    var imageUrl = "";
+    var videoUrl = "";
+    if (imageLibrary.length) {
+      var bestMedia = findBestImage(q.type);
+      if (bestMedia) {
+        if (bestMedia.isVideo) { videoUrl = bestMedia.hostedUrl; }
+        else { imageUrl = bestMedia.hostedUrl; }
+      }
+    }
     rows.push([
       datetime,
       '"' + fullText + '"',
       "",
-      imgUrl,
+      imageUrl,
       "",
-      "",
+      videoUrl,
       ""
     ]);
   }
@@ -902,6 +955,7 @@ function renderCal() {
 }
 
 loadImageLibrary();
+  loadPostHistory();
 renderQueue();
 renderCal();
 renderImgLibrary();
