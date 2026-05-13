@@ -10,33 +10,39 @@ exports.handler = async function(event, context) {
     return { statusCode: 200, headers: headers, body: "" };
   }
 
-  var imgbbKey = process.env.IMGBB_KEY;
-  if (!imgbbKey) {
-    return { statusCode: 500, headers: headers, body: JSON.stringify({ error: "IMGBB_KEY not configured" }) };
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, headers: headers, body: JSON.stringify({ error: "Method Not Allowed" }) };
+  }
+
+  var apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return { statusCode: 500, headers: headers, body: JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }) };
   }
 
   var body;
-  try { body = JSON.parse(event.body); } catch(e) {
+  try {
+    body = JSON.parse(event.body);
+  } catch(e) {
     return { statusCode: 400, headers: headers, body: JSON.stringify({ error: "Invalid JSON" }) };
   }
 
   try {
-    var params = new URLSearchParams();
-    params.append("key", imgbbKey);
-    params.append("image", body.image);
-    if (body.name) params.append("name", body.name);
-
-    var response = await fetch("https://api.imgbb.com/1/upload", {
+    var response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      body: params
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-5",
+        max_tokens: 1000,
+        system: body.system,
+        messages: body.messages
+      })
     });
     var data = await response.json();
-
-    if (data.success && data.data && data.data.url) {
-      return { statusCode: 200, headers: headers, body: JSON.stringify({ url: data.data.url }) };
-    } else {
-      return { statusCode: 500, headers: headers, body: JSON.stringify({ error: "Upload failed" }) };
-    }
+    return { statusCode: 200, headers: headers, body: JSON.stringify(data) };
   } catch(err) {
     return { statusCode: 500, headers: headers, body: JSON.stringify({ error: err.message }) };
   }
