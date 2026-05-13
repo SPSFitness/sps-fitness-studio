@@ -611,7 +611,7 @@ function renderImgLibrary() {
   grid.innerHTML = imageLibrary.map(function(img) {
     return '<div class="img-card' + (img.analyzing ? " analyzing" : "") + '" id="imgcard-' + img.id + '">' +
       '<img src="' + img.hostedUrl + '" alt="' + img.filename + '" crossorigin="anonymous" />' +
-      '<div class="img-overlay">' + (img.analyzing ? "analysing..." : img.tagString) + '</div>' +
+      '<div class="img-overlay">' + (img.analyzing ? "analysing..." : img.tagString + (img.usedCount ? " | used " + img.usedCount + "x" : "")) + '</div>' +
       '<button class="img-del" onclick="removeImg(' + img.id + ')" title="Remove">&times;</button>' +
       '</div>';
   }).join("");
@@ -625,16 +625,32 @@ function removeImg(id) {
 
 function findBestImage(postType) {
   if (!imageLibrary.length) return null;
-  // First try exact bestFor match
-  var exact = imageLibrary.filter(function(img) { return img.bestFor === postType && !img.analyzing; });
-  if (exact.length) return exact[Math.floor(Math.random() * exact.length)];
-  // Then try "any"
-  var any = imageLibrary.filter(function(img) { return img.bestFor === "any" && !img.analyzing; });
-  if (any.length) return any[Math.floor(Math.random() * any.length)];
-  // Fall back to random
   var ready = imageLibrary.filter(function(img) { return !img.analyzing; });
-  if (ready.length) return ready[Math.floor(Math.random() * ready.length)];
-  return null;
+  if (!ready.length) return null;
+  // Reset usage if all images have been used
+  var allUsed = ready.every(function(img) { return img.usedCount && img.usedCount > 0; });
+  if (allUsed) {
+    for (var i = 0; i < imageLibrary.length; i++) { imageLibrary[i].usedCount = 0; }
+    saveImageLibrary();
+  }
+  // Prefer unused first
+  var unused = ready.filter(function(img) { return !img.usedCount || img.usedCount === 0; });
+  var pool = unused.length ? unused : ready;
+  // Within pool prefer exact match
+  var exact = pool.filter(function(img) { return img.bestFor === postType; });
+  var picked = exact.length ? exact[Math.floor(Math.random() * exact.length)] : pool[Math.floor(Math.random() * pool.length)];
+  markImageUsed(picked.id);
+  return picked;
+}
+
+function markImageUsed(id) {
+  for (var i = 0; i < imageLibrary.length; i++) {
+    if (imageLibrary[i].id === id) {
+      imageLibrary[i].usedCount = (imageLibrary[i].usedCount || 0) + 1;
+      break;
+    }
+  }
+  saveImageLibrary();
 }
 
 function renderMatchedImage(postType) {
