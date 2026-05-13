@@ -79,6 +79,12 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
 .qa .btn{padding:5px 12px;font-size:12px;}
 .qdel{background:none;border:none;color:var(--faint);cursor:pointer;padding:2px 4px;font-size:22px;line-height:1;flex-shrink:0;}
 .qdel:hover{color:#ff6b6b;}
+.q-img{width:100%;border-radius:var(--rs);overflow:hidden;margin-top:8px;position:relative;}
+.q-img img{width:100%;max-height:160px;object-fit:cover;display:block;}
+.q-img-video{height:80px;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:32px;border-radius:var(--rs);}
+.q-img-none{height:60px;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--faint);border-radius:var(--rs);}
+.q-img-actions{display:flex;gap:6px;margin-top:6px;}
+.q-img-actions .btn{padding:4px 10px;font-size:11px;}
 .badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:4px;}
 .bm{background:rgba(26,111,255,0.2);color:var(--blue2);}
 .bmyth{background:rgba(0,229,255,0.15);color:var(--cyan);}
@@ -454,7 +460,8 @@ function doAddQueue() {
   var date = document.getElementById("schedDate").value;
   var time = document.getElementById("schedTime").value;
   if (!date || !time || !curPost) return;
-  queue.push({id: Date.now(), type: selType, aud: selAud, text: curPost, date: date, time: time});
+  var assignedMedia = imageLibrary.length ? findBestImage(selType) : null;
+  queue.push({id: Date.now(), type: selType, aud: selAud, text: curPost, date: date, time: time, mediaId: assignedMedia ? assignedMedia.id : null});
   queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
   doSchedClose();
   updateBadge();
@@ -715,6 +722,36 @@ function getHistoryContext(type, aud) {
   return " IMPORTANT — avoid repeating these recently used angles and opening lines: " + summaries + ". Use a completely different angle, structure and opening line.";
 }
 
+function swapQueueMedia(qid) {
+  // Find next unused image for this queue item
+  var item = null;
+  for (var i = 0; i < queue.length; i++) { if (queue[i].id === qid) { item = queue[i]; break; } }
+  if (!item) return;
+  var ready = imageLibrary.filter(function(img) { return !img.analyzing && img.id !== item.mediaId; });
+  if (!ready.length) { alert("No other photos available. Add more photos in the Images tab."); return; }
+  // Pick next one by type match or random
+  var exact = ready.filter(function(img) { return img.bestFor === item.type; });
+  var pool = exact.length ? exact : ready;
+  var picked = pool[Math.floor(Math.random() * pool.length)];
+  item.mediaId = picked.id;
+  renderQueue();
+}
+
+function removeQueueMedia(qid) {
+  for (var i = 0; i < queue.length; i++) {
+    if (queue[i].id === qid) { queue[i].mediaId = null; break; }
+  }
+  renderQueue();
+}
+
+function assignQueueMedia(qid) {
+  var item = null;
+  for (var i = 0; i < queue.length; i++) { if (queue[i].id === qid) { item = queue[i]; break; } }
+  if (!item) return;
+  var media = findBestImage(item.type);
+  if (media) { item.mediaId = media.id; renderQueue(); }
+}
+
 function renderQueue() {
   var list = document.getElementById("queueList");
   var now = new Date();
@@ -737,7 +774,26 @@ function renderQueue() {
     html += ' <span class="badge" style="background:rgba(61,139,255,0.15);color:var(--blue2)">'+(audLabels[q.aud]||q.aud)+'</span>';
     if (due) html += ' <span class="badge" style="background:rgba(255,184,0,0.15);color:#ffb800">Due</span>';
     html += '<div class="qp">'+prev+'</div><div class="qt">'+fmtDate(q.date)+' at '+q.time+'</div>';
+    // Find assigned media
+    var qMedia = null;
+    if (q.mediaId) {
+      for (var mi = 0; mi < imageLibrary.length; mi++) {
+        if (imageLibrary[mi].id === q.mediaId) { qMedia = imageLibrary[mi]; break; }
+      }
+    }
+    var mediaHtml = "";
+    if (qMedia) {
+      if (qMedia.isVideo) {
+        mediaHtml = '<div class="q-img"><div class="q-img-video">&#x1F3A5;</div>';
+      } else {
+        mediaHtml = '<div class="q-img"><img src="' + qMedia.dataUrl + '" alt="matched photo" crossorigin="anonymous" /></div>';
+      }
+      mediaHtml += '<div class="q-img-actions"><button class="btn bg" onclick="swapQueueMedia(' + q.id + ')">&#x21C4; Swap photo</button><button class="btn bg" onclick="removeQueueMedia(' + q.id + ')">&#x2715; Remove photo</button></div>';
+    } else if (imageLibrary.length) {
+      mediaHtml = '<div class="q-img-none">No photo assigned — <span style="cursor:pointer;color:var(--blue2)" onclick="assignQueueMedia(' + q.id + ')">click to assign</span></div>';
+    }
     html += '<div class="qa"><button class="btn bc" onclick="copyQ('+q.id+')">&#x2398; Copy</button></div>';
+    html += mediaHtml;
     html += '</div><button class="qdel" onclick="removeQ('+q.id+')">&times;</button></div>';
   }
   list.innerHTML = html;
@@ -764,7 +820,8 @@ function doWeek() {
     var idx = i;
     callAPI(sys, getPrompt(type, aud, ""), function(err, text) {
       if (!err && text) {
-        queue.push({id: Date.now()+idx, type: type, aud: aud, text: text, date: ds, time: defTime});
+        var wMedia = imageLibrary.length ? findBestImage(type) : null;
+        queue.push({id: Date.now()+idx, type: type, aud: aud, text: text, date: ds, time: defTime, mediaId: wMedia ? wMedia.id : null});
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         renderQueue(); updateBadge();
       }
@@ -835,7 +892,8 @@ function do30Days() {
       var prog = document.getElementById("prog30");
       if (prog) prog.textContent = done;
       if (!err && text) {
-        queue.push({id: Date.now()+idx, type: plan.type, aud: plan.aud, text: text, date: ds, time: defTime});
+        var pMedia = imageLibrary.length ? findBestImage(plan.type) : null;
+        queue.push({id: Date.now()+idx, type: plan.type, aud: plan.aud, text: text, date: ds, time: defTime, mediaId: pMedia ? pMedia.id : null});
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         renderQueue(); updateBadge();
       }
@@ -870,14 +928,16 @@ function exportCSV() {
       var bestImg = findBestImage(q.type);
       if (bestImg && bestImg.hostedUrl) imgUrl = bestImg.hostedUrl;
     }
-    // Separate image and video URLs
+    // Use pre-assigned media from queue item
     var imageUrl = "";
     var videoUrl = "";
-    if (imageLibrary.length) {
-      var bestMedia = findBestImage(q.type);
-      if (bestMedia) {
-        if (bestMedia.isVideo) { videoUrl = bestMedia.hostedUrl; }
-        else { imageUrl = bestMedia.hostedUrl; }
+    if (q.mediaId) {
+      for (var mi = 0; mi < imageLibrary.length; mi++) {
+        if (imageLibrary[mi].id === q.mediaId) {
+          if (imageLibrary[mi].isVideo) { videoUrl = imageLibrary[mi].hostedUrl; }
+          else { imageUrl = imageLibrary[mi].hostedUrl; }
+          break;
+        }
       }
     }
     rows.push([
