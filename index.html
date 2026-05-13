@@ -490,12 +490,22 @@ function processImageFiles(files) {
     var reader = new FileReader();
     reader.onload = function(e) {
       var dataUrl = e.target.result;
-      var base64 = dataUrl.split(",")[1];
       var id = Date.now() + Math.random();
-      imageLibrary.push({id: id, dataUrl: dataUrl, filename: file.name, tags: [], tagString: "uploading...", analyzing: true, hostedUrl: ""});
-      renderImgLibrary();
-      // Upload to ImgBB for permanent URL
-      uploadToImgBB(id, base64, file.name, function() {
+      // Resize to max 1200px wide at 90% quality for upload
+      var img = new Image();
+      img.onload = function() {
+        var canvas = document.createElement("canvas");
+        var maxW = 1200;
+        var scale = img.width > maxW ? maxW / img.width : 1;
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        var ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        var resized = canvas.toDataURL("image/jpeg", 0.92);
+        var base64 = resized.split(",")[1];
+        imageLibrary.push({id: id, dataUrl: resized, filename: file.name, tags: [], tagString: "uploading...", analyzing: true, hostedUrl: ""});
+        renderImgLibrary();
+        uploadToImgBB(id, base64, file.name, function() {
         // Then analyse with Claude vision
         analyseImage(id, base64, function() {
           done++;
@@ -506,6 +516,8 @@ function processImageFiles(files) {
           renderImgLibrary();
         });
       });
+      };
+      img.src = dataUrl;
     };
     reader.readAsDataURL(file);
   });
