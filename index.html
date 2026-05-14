@@ -982,9 +982,9 @@ function syncDrive() {
     newFiles.forEach(function(file) {
       var id = Date.now() + Math.random();
       var isVideo = file.mimeType && file.mimeType.indexOf("video") !== -1;
-      var hostedUrl = "https://drive.google.com/uc?export=download&id=" + file.id;
-      var thumbUrl = isVideo ? "" : "https://lh3.googleusercontent.com/d/" + file.id + "=w400";
-      var displayUrl = isVideo ? "https://lh3.googleusercontent.com/d/" + file.id : "https://lh3.googleusercontent.com/d/" + file.id + "=w400";
+      var hostedUrl = "https://lh3.googleusercontent.com/d/" + file.id;
+      var thumbUrl = "https://drive.google.com/thumbnail?id=" + file.id + "&sz=w400";
+      var displayUrl = isVideo ? "" : thumbUrl;
       imageLibrary.push({id: id, driveId: file.id, dataUrl: displayUrl, filename: file.name, tags: [], tagString: "analysing...", analyzing: true, hostedUrl: hostedUrl, isVideo: isVideo});
       renderImgLibrary();
       saveImageLibrary();
@@ -1135,31 +1135,6 @@ function markImageUsed(id) {
     }
   }
   saveImageLibrary();
-}
-
-function renderMatchedImage(postType) {
-  var existing = document.getElementById("matchedImgBox");
-  if (existing) existing.remove();
-  if (!imageLibrary.length) return;
-  var img = findBestImage(postType);
-  if (!img) return;
-  var card = document.getElementById("outputCard");
-  var box = document.createElement("div");
-  box.id = "matchedImgBox";
-  box.className = "matched-img";
-  var hostedBadge = img.hostedUrl ? ' <span style="font-size:10px;background:rgba(57,217,138,0.2);color:#39d98a;padding:2px 7px;border-radius:4px;font-weight:700">HOSTED</span>' : '';
-  var mediaPreview = img.isVideo
-    ? '<div style="display:flex;align-items:center;justify-content:center;height:200px;background:var(--surface2);font-size:48px;border-radius:var(--rs) var(--rs) 0 0">&#x1F3A5;</div>'
-    : '<img src="' + img.dataUrl + '" alt="Matched media" crossorigin="anonymous" />';
-  box.innerHTML = mediaPreview +
-    '<div class="matched-img-info">' +
-    '<span>' + img.filename + hostedBadge + '</span>' +
-    '<div style="display:flex;gap:6px">' +
-    '<button class="btn bg" style="padding:5px 12px;font-size:12px" onclick="swapMatchedImage()">&#x21C4; Swap</button>' +
-    '<button class="btn bg" style="padding:5px 12px;font-size:12px" onclick="removeMatchedImage()">&#x2715; Remove</button>' +
-    '</div>' +
-    '</div>';
-  card.appendChild(box);
 }
 
 function savePostHistory() {
