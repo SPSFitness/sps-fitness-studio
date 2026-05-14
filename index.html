@@ -130,6 +130,13 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
 .matched-img{margin-top:16px;border-radius:var(--rs);overflow:hidden;border:1px solid var(--border2);}
 .matched-img img{width:100%;max-height:280px;object-fit:cover;display:block;}
 .matched-img-info{padding:10px 14px;background:var(--surface2);font-size:13px;color:var(--muted);display:flex;align-items:center;justify-content:space-between;}
+.tb[data-type="tip"].sel{border-color:#a78bfa;background:rgba(167,139,250,0.12);color:#fff;}
+.tb[data-type="win"].sel{border-color:#f59e0b;background:rgba(245,158,11,0.12);color:#fff;}
+.tb[data-type="challenge"].sel{border-color:#10b981;background:rgba(16,185,129,0.12);color:#fff;}
+.tb[data-type="nutrition"].sel{border-color:#f97316;background:rgba(249,115,22,0.12);color:#fff;}
+.infographic-preview{margin-top:16px;border-radius:var(--rs);overflow:hidden;border:1px solid var(--border2);}
+.infographic-preview svg{display:block;width:100%;}
+.infographic-actions{padding:10px 14px;background:var(--surface2);display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--muted);}
 @media(max-width:680px){.sidebar{display:none;}.tg{grid-template-columns:repeat(2,1fr);}.ag{grid-template-columns:repeat(3,1fr);}.stats{grid-template-columns:1fr 1fr;}.main{padding:20px 16px 48px;}.pt{font-size:28px;}}
 </style>
 </head>
@@ -148,6 +155,9 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
     </div>
     <div class="ni" id="nav-calendar" onclick="showPanel('calendar')">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Calendar
+    </div>
+    <div class="ni" id="nav-members" onclick="showPanel('members')">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>Members
     </div>
     <div class="ns">App</div>
     <div class="ni" id="nav-images" onclick="showPanel('images')">
@@ -274,6 +284,40 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
       </div>
     </div>
 
+    <div class="panel" id="panel-members">
+      <div class="pt">Member <span>content</span></div>
+      <div class="ps">Posts for your existing members — warmer, more personal, community-focused</div>
+      <div class="al"></div>
+      <div class="card">
+        <div class="cl">Post type</div>
+        <div class="tg" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+          <div class="tb sel" data-type="tip" id="mtb-tip" onclick="selectMemberType('tip')"><div class="ti">&#x1F3CB;</div><div class="tl">Training tip</div></div>
+          <div class="tb" data-type="win" id="mtb-win" onclick="selectMemberType('win')"><div class="ti">&#x1F3C6;</div><div class="tl">Member win</div></div>
+          <div class="tb" data-type="challenge" id="mtb-challenge" onclick="selectMemberType('challenge')"><div class="ti">&#x26A1;</div><div class="tl">Challenge</div></div>
+          <div class="tb" data-type="nutrition" id="mtb-nutrition" onclick="selectMemberType('nutrition')"><div class="ti">&#x1F957;</div><div class="tl">Nutrition</div></div>
+        </div>
+        <div class="cl" style="margin-bottom:8px">Include infographic?</div>
+        <div class="ag" style="margin-bottom:16px">
+          <div class="ab sel" id="infog-no" onclick="selectInfographic('no')">Text post only</div>
+          <div class="ab" id="infog-yes" onclick="selectInfographic('yes')">&#x1F4CA; With infographic</div>
+        </div>
+        <div class="cl">Focus <span style="font-weight:400;text-transform:none;font-size:12px;color:var(--faint)">(optional)</span></div>
+        <input type="text" id="memberCtx" placeholder="e.g. sleep, recovery, leg day, protein, consistency..." style="margin-bottom:18px" />
+        <button class="btn bp" onclick="doGenerateMember()">&#x2726; GENERATE MEMBER POST</button>
+      </div>
+      <div class="card" id="memberOutputCard" style="display:none">
+        <div class="cl">Your post</div>
+        <div class="pb" id="memberPostOutput">...</div>
+        <div id="memberInfographicPreview"></div>
+        <div class="br">
+          <button class="btn bg" onclick="doGenerateMember()">&#x21BA; Regenerate</button>
+          <button class="btn bg" onclick="doMemberEdit()">&#x270E; Edit</button>
+          <button class="btn bg" onclick="doMemberCopy()">&#x2398; Copy</button>
+        </div>
+        <div class="sb" id="memberStatus"></div>
+      </div>
+    </div>
+
     <div class="panel" id="panel-settings">
       <div class="pt">Settings</div>
       <div class="ps">Configure defaults</div>
@@ -341,6 +385,149 @@ var PROMPTS = {
   }
 };
 
+var selMemberType = "tip";
+var selInfographic = "no";
+var curMemberPost = "";
+
+var MEMBER_SYS = "You write Facebook group posts for SPS Fitness members — people who already train with Sam and Kate at SPS Fitness in Halesowen. These are not prospects, they are existing members who know you, trust you and train regularly. The tone is warm, direct and coach-like — like a message from a knowledgeable friend who trains them. No selling, no CTAs pushing new programmes. Short sentences. Real. Occasionally funny. British English. Under 150 words. No markdown, no asterisks. No headers. Plain text only.";
+
+var MEMBER_PROMPTS = {
+  tip: "Write a training tip post for existing SPS Fitness members. Pick one specific, practical tip they can apply immediately: form cue, recovery hack, mindset shift, warm-up tip, how to get more from their sessions. Make it feel like advice from their coach, not a fitness influencer. Specific and real.",
+  win: "Write a member celebration post for the SPS Fitness members group. Celebrate the kind of wins that matter to this community — not just weight loss but: showing up consistently, lifting heavier than last month, recovering from injury, fitting training around chaos, feeling more energy, sleeping better. Keep it warm and genuine. No names — just the feeling. Make other members nod and think that could be me.",
+  challenge: "Write a community challenge post for SPS Fitness members. Make it something fun, achievable and specific they can do this week — not a fitness test but something that builds good habits: a daily movement snack, a sleep challenge, a protein goal, a mobility routine. Keep it light and encouraging.",
+  nutrition: "Write a nutrition tip post for existing SPS Fitness members. One specific, practical tip they can use this week. Not a diet plan — one small actionable thing: a protein swap, a meal timing tip, a hydration hack, how to handle the weekend without undoing the week. Practical, real, no lecturing."
+};
+
+var INFOGRAPHIC_PROMPTS = {
+  tip: "Create content for a fitness tip infographic for SPS Fitness members. Return ONLY a JSON object with: title (max 6 words, punchy), points (array of exactly 3 items, each max 10 words, practical and specific), style (either 'dark' or 'light', alternate randomly). No preamble, just JSON.",
+  win: "Create content for a motivation infographic for SPS Fitness members. Return ONLY a JSON object with: title (max 6 words, celebratory), points (array of exactly 3 short wins or affirmations, each max 10 words), style (either 'dark' or 'light'). No preamble, just JSON.",
+  challenge: "Create content for a weekly challenge infographic for SPS Fitness members. Return ONLY a JSON object with: title (max 6 words, action-oriented), points (array of exactly 3 challenge steps, each max 10 words), style (either 'dark' or 'light'). No preamble, just JSON.",
+  nutrition: "Create content for a nutrition tip infographic for SPS Fitness members. Return ONLY a JSON object with: title (max 6 words, clear and direct), points (array of exactly 3 practical tips, each max 10 words), style (either 'dark' or 'light'). No preamble, just JSON."
+};
+
+function selectMemberType(t) {
+  selMemberType = t;
+  var types = ["tip","win","challenge","nutrition"];
+  for (var i = 0; i < types.length; i++) {
+    var el = document.getElementById("mtb-" + types[i]);
+    if (el) el.classList.remove("sel");
+  }
+  var sel = document.getElementById("mtb-" + t);
+  if (sel) sel.classList.add("sel");
+}
+
+function selectInfographic(v) {
+  selInfographic = v;
+  document.getElementById("infog-no").classList.toggle("sel", v === "no");
+  document.getElementById("infog-yes").classList.toggle("sel", v === "yes");
+}
+
+function doGenerateMember() {
+  var ctx = document.getElementById("memberCtx").value.trim();
+  var prompt = MEMBER_PROMPTS[selMemberType];
+  if (ctx) prompt += " Focus on: " + ctx + ".";
+  var card = document.getElementById("memberOutputCard");
+  var out = document.getElementById("memberPostOutput");
+  var preview = document.getElementById("memberInfographicPreview");
+  card.style.display = "block";
+  preview.innerHTML = "";
+  hideStatus("memberStatus");
+  out.className = "pb loading";
+  out.textContent = "Writing your post...";
+  callAPI(MEMBER_SYS, prompt, function(err, text) {
+    out.className = "pb";
+    if (err) { out.textContent = "Error: " + err; return; }
+    curMemberPost = text;
+    out.textContent = text;
+    if (selInfographic === "yes") {
+      generateInfographic(selMemberType, ctx, preview);
+    }
+  });
+}
+
+function generateInfographic(type, ctx, container) {
+  container.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:13px">Generating infographic...</div>';
+  var prompt = INFOGRAPHIC_PROMPTS[type];
+  if (ctx) prompt += " Topic: " + ctx + ".";
+  callAPI("You generate infographic content. Return only valid JSON, no markdown, no backticks.", prompt, function(err, text) {
+    if (err) { container.innerHTML = ""; return; }
+    try {
+      var clean = text.replace(/```json|```/g, "").trim();
+      var data = JSON.parse(clean);
+      var svg = buildInfographic(data);
+      container.innerHTML = '<div class="infographic-preview">' + svg + '</div><div class="infographic-actions"><span>&#x1F4CA; Infographic ready</span><button class="btn bc" style="padding:5px 12px;font-size:12px" onclick="downloadInfographic()">&#x2913; Download</button></div>';
+    } catch(e) { container.innerHTML = ""; }
+  });
+}
+
+function buildInfographic(data) {
+  var dark = data.style !== "light";
+  var bg = dark ? "#0d0d0d" : "#ffffff";
+  var bg2 = dark ? "#161616" : "#f8f8f8";
+  var accent = "#1a6fff";
+  var text1 = dark ? "#ffffff" : "#111111";
+  var text2 = dark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.6)";
+  var border = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
+  var title = (data.title || "SPS Fitness Tip").toUpperCase();
+  var points = data.points || [];
+
+  var pointsHtml = points.map(function(p, i) {
+    var y = 200 + (i * 80);
+    return '<rect x="40" y="' + (y-2) + '" width="520" height="64" rx="10" fill="' + bg2 + '" stroke="' + border + '" stroke-width="1"/>' +
+      '<circle cx="72" cy="' + (y+30) + '" r="16" fill="' + accent + '"/>' +
+      '<text x="72" y="' + (y+36) + '" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="14" font-weight="900" fill="#fff">' + (i+1) + '</text>' +
+      '<text x="100" y="' + (y+24) + '" font-family="Arial,sans-serif" font-size="15" font-weight="600" fill="' + text1 + '" xml:space="preserve">' + escSvg(p) + '</text>';
+  }).join("");
+
+  return '<svg viewBox="0 0 600 480" xmlns="http://www.w3.org/2000/svg">' +
+    '<rect width="600" height="480" fill="' + bg + '"/>' +
+    '<rect x="0" y="0" width="600" height="6" fill="' + accent + '"/>' +
+    '<rect x="40" y="30" width="520" height="120" rx="12" fill="' + bg2 + '" stroke="' + border + '" stroke-width="1"/>' +
+    '<text x="300" y="80" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="22" font-weight="900" fill="' + text1 + '">' + escSvg(title) + '</text>' +
+    '<text x="300" y="115" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="' + text2 + '">SPS Fitness | Halesowen</text>' +
+    pointsHtml +
+    '<text x="300" y="460" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="' + text2 + '">spsfitness.co.uk</text>' +
+    '</svg>';
+}
+
+function escSvg(str) {
+  return (str || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function downloadInfographic() {
+  var svg = document.querySelector("#memberInfographicPreview svg");
+  if (!svg) return;
+  var blob = new Blob([svg.outerHTML], {type:"image/svg+xml"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = "sps-infographic-" + Date.now() + ".svg";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function doMemberEdit() {
+  var out = document.getElementById("memberPostOutput");
+  var ta = document.createElement("textarea");
+  ta.className = "pb";
+  ta.id = "memberPostOutput";
+  ta.value = out.textContent || out.value || "";
+  ta.addEventListener("input", function() { curMemberPost = ta.value; });
+  out.parentNode.replaceChild(ta, out);
+}
+
+function doMemberCopy() {
+  var el = document.getElementById("memberPostOutput");
+  var t = el.value || el.textContent;
+  if (!t) return;
+  navigator.clipboard.writeText(t).then(function() {
+    showStatus("memberStatus", "Copied! Paste into your members Facebook group.", "success");
+    setTimeout(function() { hideStatus("memberStatus"); }, 3000);
+  });
+}
+
 var CYCLE = ["motivation","myth","evidence","quickwin","motivation","myth","quickwin"];
 var CYCLE_AUD = ["women","men","everyone","women","men","everyone","everyone"];
 var BADGE = {motivation:"bm",myth:"bmyth",evidence:"be",quickwin:"bq",bodyblast:"bbb"};
@@ -355,6 +542,7 @@ function showPanel(name) {
   document.getElementById("panel-" + name).classList.add("active");
   document.getElementById("nav-" + name).classList.add("active");
   if (name === "calendar") renderCal();
+  if (name === "members") { /* members panel init */ }
   if (name === "queue") renderQueue();
   if (name === "images") renderImgLibrary();
 }
