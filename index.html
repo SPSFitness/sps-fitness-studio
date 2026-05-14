@@ -396,6 +396,7 @@ var PROMPTS = {
 var selMemberType = "tip";
 var selInfographic = "no";
 var curMemberPost = "";
+var curMediaId = null; // tracks currently displayed matched image
 
 var MEMBER_SYS = "You write Facebook group posts for SPS Fitness members — people who already train with their coach at SPS Fitness in Halesowen. These members are coached in every session — their coach tells them exactly what to do. They do not programme their own training. So posts should never give them generic gym tips or tell them what to do in sessions. Instead posts should: explain the thinking behind what they are already doing in sessions, help them understand why certain things are programmed, cover the lifestyle factors outside the gym that affect their results — sleep, nutrition, stress, recovery, hydration — and celebrate their progress as a community. The tone is warm, direct and coach-like — like a knowledgeable friend who knows them and their training. No selling, no CTAs pushing new programmes. Short sentences. Real. Occasionally funny. British English. Under 150 words. No markdown, no asterisks. No headers. Plain text only.";
 
@@ -978,6 +979,7 @@ function renderMatchedImage(postType, forceId) {
     : findBestImage(postType);
   if (!img) return;
   if (!forceId) markImageUsed(img.id);
+  curMediaId = img.id;
   var card = document.getElementById("outputCard");
   var box = document.createElement("div");
   box.id = "matchedImgBox";
@@ -1016,6 +1018,7 @@ function doGenerate() {
     if (err) { out.textContent = "Error: " + err; return; }
     curPost = text;
     out.textContent = text;
+    curMediaId = null;
     addToPostHistory(selType, selAud, text);
     renderMatchedImage(selType);
   });
@@ -1089,9 +1092,13 @@ function doAddQueue() {
   var date = document.getElementById("schedDate").value;
   var time = document.getElementById("schedTime").value;
   if (!date || !time || !curPost) return;
-  var assignedMedia = imageLibrary.length ? findBestImage(selType) : null;
-  if (assignedMedia) markImageUsed(assignedMedia.id);
-  queue.push({id: Date.now(), type: selType, aud: selAud, text: curPost, date: date, time: time, mediaId: assignedMedia ? assignedMedia.id : null});
+  // Use currently displayed image — don't pick a new one
+  var mediaIdToUse = curMediaId;
+  if (!mediaIdToUse && imageLibrary.length) {
+    var assignedMedia = findBestImage(selType);
+    if (assignedMedia) { markImageUsed(assignedMedia.id); mediaIdToUse = assignedMedia.id; }
+  }
+  queue.push({id: Date.now(), type: selType, aud: selAud, text: curPost, date: date, time: time, mediaId: mediaIdToUse});
   queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
   doSchedClose();
   updateBadge();
