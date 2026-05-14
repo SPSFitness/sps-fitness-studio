@@ -975,7 +975,7 @@ function renderMatchedImage(postType, forceId) {
   if (existing) existing.remove();
   if (!imageLibrary.length) return;
   var img = forceId
-    ? imageLibrary.filter(function(i) { return i.id === forceId; })[0]
+    ? imageLibrary.filter(function(i) { return String(i.id) === String(forceId); })[0]
     : findBestImage(postType);
   if (!img) return;
   if (!forceId) markImageUsed(img.id);
@@ -1149,7 +1149,7 @@ function syncDrive() {
     showStatus("imgStatus", "Found " + newFiles.length + " new photo" + (newFiles.length !== 1 ? "s" : "") + " — tagging...", "info");
     var done = 0;
     newFiles.forEach(function(file) {
-      var id = Date.now() + Math.random();
+      var id = Date.now() + "_" + Math.floor(Math.random() * 100000);
       var isVideo = file.mimeType && file.mimeType.indexOf("video") !== -1;
       var hostedUrl = "https://lh3.googleusercontent.com/d/" + file.id;
       var thumbUrl = isVideo ? "" : "https://lh3.googleusercontent.com/d/" + file.id + "=w400";
@@ -1227,7 +1227,7 @@ function analyseImageByUrl(id, url, cb) {
 function saveImageLibrary() {
   try {
     var toSave = imageLibrary.map(function(img) {
-      return {id: img.id, dataUrl: img.hostedUrl, filename: img.filename, tags: img.tags || [], tagString: img.tagString || "", analyzing: false, hostedUrl: img.hostedUrl, bestFor: img.bestFor || "any"};
+      return {id: String(img.id), dataUrl: img.hostedUrl, filename: img.filename, tags: img.tags || [], tagString: img.tagString || "", analyzing: false, hostedUrl: img.hostedUrl, bestFor: img.bestFor || "any", usedCount: img.usedCount || 0};
     });
     localStorage.setItem("sps_image_library", JSON.stringify(toSave));
   } catch(e) {}
@@ -1296,7 +1296,7 @@ function findBestImage(postType) {
 
 function markImageUsed(id) {
   for (var i = 0; i < imageLibrary.length; i++) {
-    if (imageLibrary[i].id === id) {
+    if (String(imageLibrary[i].id) === String(id)) {
       imageLibrary[i].usedCount = (imageLibrary[i].usedCount || 0) + 1;
       break;
     }
@@ -1391,7 +1391,7 @@ function renderQueue() {
     var qMedia = null;
     if (q.mediaId) {
       for (var mi = 0; mi < imageLibrary.length; mi++) {
-        if (imageLibrary[mi].id === q.mediaId) { qMedia = imageLibrary[mi]; break; }
+        if (String(imageLibrary[mi].id) === String(q.mediaId)) { qMedia = imageLibrary[mi]; break; }
       }
     }
     var mediaHtml = "";
@@ -1539,18 +1539,12 @@ function exportCSV() {
     // Combine post text and hashtags into one content field
     var fullText = q.text.replace(/"/g, '""');
 
-    // Find best matched image URL for this post
-    var imgUrl = "";
-    if (imageLibrary.length) {
-      var bestImg = findBestImage(q.type);
-      if (bestImg && bestImg.hostedUrl) imgUrl = bestImg.hostedUrl;
-    }
     // Use pre-assigned media from queue item
     var imageUrl = "";
     var videoUrl = "";
     if (q.mediaId) {
       for (var mi = 0; mi < imageLibrary.length; mi++) {
-        if (imageLibrary[mi].id === q.mediaId) {
+        if (String(imageLibrary[mi].id) === String(q.mediaId)) {
           if (imageLibrary[mi].isVideo) { videoUrl = imageLibrary[mi].hostedUrl; }
           else { imageUrl = imageLibrary[mi].hostedUrl; }
           break;
