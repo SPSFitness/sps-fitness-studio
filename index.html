@@ -983,9 +983,8 @@ function syncDrive() {
       var id = Date.now() + Math.random();
       var isVideo = file.mimeType && file.mimeType.indexOf("video") !== -1;
       var hostedUrl = "https://lh3.googleusercontent.com/d/" + file.id;
-      var thumbUrl = "https://drive.google.com/thumbnail?id=" + file.id + "&sz=w400";
-      var displayUrl = isVideo ? "" : thumbUrl;
-      imageLibrary.push({id: id, driveId: file.id, dataUrl: displayUrl, filename: file.name, tags: [], tagString: "analysing...", analyzing: true, hostedUrl: hostedUrl, isVideo: isVideo});
+      var thumbUrl = isVideo ? "" : "https://lh3.googleusercontent.com/d/" + file.id + "=w400";
+      imageLibrary.push({id: id, driveId: file.id, dataUrl: thumbUrl, filename: file.name, tags: [], tagString: "analysing...", analyzing: true, hostedUrl: hostedUrl, isVideo: isVideo});
       renderImgLibrary();
       saveImageLibrary();
       analyseImageByUrl(id, hostedUrl, function() {
