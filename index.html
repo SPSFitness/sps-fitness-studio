@@ -822,6 +822,55 @@ function callAPI(sys, prompt, cb) {
   .catch(function(e) { cb("Network error: " + e.message); });
 }
 
+function swapMatchedImage() {
+  var existing = document.getElementById("matchedImgBox");
+  if (!existing) return;
+  var ready = imageLibrary.filter(function(img) { return !img.analyzing; });
+  if (ready.length <= 1) { alert("No other photos available. Add more in the Images tab."); return; }
+  // Find current image and pick a different one
+  var currentSrc = existing.querySelector("img") ? existing.querySelector("img").src : "";
+  var others = ready.filter(function(img) { return img.dataUrl !== currentSrc; });
+  if (!others.length) others = ready;
+  // Prefer matching post type
+  var exact = others.filter(function(img) { return img.bestFor === selType; });
+  var pool = exact.length ? exact : others;
+  var picked = pool[Math.floor(Math.random() * pool.length)];
+  markImageUsed(picked.id);
+  renderMatchedImage(selType, picked.id);
+}
+
+function removeMatchedImage() {
+  var existing = document.getElementById("matchedImgBox");
+  if (existing) existing.remove();
+}
+
+function renderMatchedImage(postType, forceId) {
+  var existing = document.getElementById("matchedImgBox");
+  if (existing) existing.remove();
+  if (!imageLibrary.length) return;
+  var img = forceId
+    ? imageLibrary.filter(function(i) { return i.id === forceId; })[0]
+    : findBestImage(postType);
+  if (!img) return;
+  var card = document.getElementById("outputCard");
+  var box = document.createElement("div");
+  box.id = "matchedImgBox";
+  box.className = "matched-img";
+  var hostedBadge = img.hostedUrl ? ' <span style="font-size:10px;background:rgba(57,217,138,0.2);color:#39d98a;padding:2px 7px;border-radius:4px;font-weight:700">HOSTED</span>' : '';
+  var mediaPreview = img.isVideo
+    ? '<div style="display:flex;align-items:center;justify-content:center;height:200px;background:var(--surface2);font-size:48px;border-radius:var(--rs) var(--rs) 0 0">&#x1F3A5;</div>'
+    : '<img src="' + img.dataUrl + '" alt="Matched media" crossorigin="anonymous" />';
+  box.innerHTML = mediaPreview +
+    '<div class="matched-img-info">' +
+    '<span>' + img.filename + hostedBadge + '</span>' +
+    '<div style="display:flex;gap:6px">' +
+    '<button class="btn bg" style="padding:5px 12px;font-size:12px" onclick="swapMatchedImage()">&#x21C4; Swap</button>' +
+    '<button class="btn bg" style="padding:5px 12px;font-size:12px" onclick="removeMatchedImage()">&#x2715; Remove</button>' +
+    '</div>' +
+    '</div>';
+  card.appendChild(box);
+}
+
 function doGenerate() {
   var ctx = document.getElementById("extraCtx").value.trim();
   var customTopic = document.getElementById("customTopic").value.trim();
@@ -1105,7 +1154,10 @@ function renderMatchedImage(postType) {
   box.innerHTML = mediaPreview +
     '<div class="matched-img-info">' +
     '<span>' + img.filename + hostedBadge + '</span>' +
-    '<a href="' + img.dataUrl + '" download="' + img.filename + '" class="btn bc" style="padding:5px 12px;font-size:12px;text-decoration:none">&#x2913; Download</a>' +
+    '<div style="display:flex;gap:6px">' +
+    '<button class="btn bg" style="padding:5px 12px;font-size:12px" onclick="swapMatchedImage()">&#x21C4; Swap</button>' +
+    '<button class="btn bg" style="padding:5px 12px;font-size:12px" onclick="removeMatchedImage()">&#x2715; Remove</button>' +
+    '</div>' +
     '</div>';
   card.appendChild(box);
 }
