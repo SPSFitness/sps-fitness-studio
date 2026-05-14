@@ -202,6 +202,7 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
           <button class="btn bg" onclick="doEdit()">&#x270E; Edit</button>
           <button class="btn bc" onclick="doSchedOpen()">&#x1F4C5; Schedule</button>
           <button class="btn bg" onclick="doCopy()">&#x2398; Copy</button>
+          <button class="btn bg" onclick="doDownload()">&#x2B07; Download</button>
         </div>
         <div class="sb" id="outStatus"></div>
       </div>
@@ -317,6 +318,7 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
           <button class="btn bg" onclick="doGenerateMember()">&#x21BA; Regenerate</button>
           <button class="btn bg" onclick="doMemberEdit()">&#x270E; Edit</button>
           <button class="btn bg" onclick="doMemberCopy()">&#x2398; Copy</button>
+          <button class="btn bg" onclick="doMemberDownload()">&#x2B07; Download</button>
         </div>
         <div class="sb" id="memberStatus"></div>
       </div>
@@ -749,6 +751,25 @@ function doMemberCopy() {
   });
 }
 
+function doMemberDownload() {
+  var el = document.getElementById("memberPostOutput");
+  var t = el.value || el.textContent;
+  if (!t) return;
+  var now = new Date();
+  var fname = "sps-member-post-" + now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0") + ".txt";
+  var blob = new Blob([t], {type: "text/plain;charset=utf-8;"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showStatus("memberStatus", "Downloaded!", "success");
+  setTimeout(function() { hideStatus("memberStatus"); }, 3000);
+}
+
 var CYCLE = ["motivation","myth","evidence","quickwin","motivation","myth","quickwin"];
 var CYCLE_AUD = ["women","men","everyone","women","men","everyone","everyone"];
 var BADGE = {motivation:"bm",myth:"bmyth",evidence:"be",quickwin:"bq",bodyblast:"bbb"};
@@ -913,6 +934,41 @@ function doCopy() {
     showStatus("outStatus", "Copied! Paste into Meta Business Suite.", "success");
     setTimeout(function() { hideStatus("outStatus"); }, 3000);
   });
+}
+
+function doDownload() {
+  var el = document.getElementById("postOutput");
+  var t = el.value || el.textContent;
+  if (!t) return;
+  var now = new Date();
+  var base = "sps-post-" + now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0") + "-" + selType;
+
+  // Download text
+  var blob = new Blob([t], {type: "text/plain;charset=utf-8;"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url; a.download = base + ".txt";
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+
+  // Download image if one is matched
+  var imgBox = document.getElementById("matchedImgBox");
+  if (imgBox) {
+    var img = imgBox.querySelector("img");
+    if (img && img.src) {
+      setTimeout(function() {
+        var a2 = document.createElement("a");
+        a2.href = img.src;
+        a2.download = base + ".jpg";
+        a2.target = "_blank";
+        document.body.appendChild(a2); a2.click();
+        document.body.removeChild(a2);
+      }, 500);
+    }
+  }
+
+  showStatus("outStatus", "Downloaded post and image — ready to paste into your Facebook group!", "success");
+  setTimeout(function() { hideStatus("outStatus"); }, 4000);
 }
 
 function doSchedOpen() {
