@@ -559,7 +559,7 @@ function buildInfographic(data, canvas) {
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,W,H);
 
-  var styles = ["numbered-dark","bold-light","minimal-dark","split-light"];
+  var styles = ["numbered-dark","bold-light","minimal-dark","split-light","quote-dark","checklist-light","big-stat-dark","magazine-light"];
   var style  = styles[infogStyleIndex % styles.length];
   infogStyleIndex++;
 
@@ -716,6 +716,113 @@ function buildInfographic(data, canvas) {
       var pi4=wrapText(ctx,points[i4],0,0,W-280,pSize4*1.3,{measureOnly:true});
       var py4=cy4+cH/2-((pi4.lines-1)*pSize4*1.3)/2;
       wrapText(ctx,points[i4],170,py4,W-280,pSize4*1.3);
+    }
+  // STYLE 5: QUOTE DARK
+  } else if (style === "quote-dark") {
+    ctx.fillStyle="#0a0a0a"; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle="rgba(26,111,255,0.06)"; ctx.font="900 500px "+DISPLAY;
+    ctx.textAlign="left"; ctx.textBaseline="top"; ctx.fillText("\u201C",40,-60);
+    drawLogo(ctx,W-110,110,{radius:42,bg:"rgba(255,255,255,0.08)",fg:"#ffffff",border:"rgba(255,255,255,0.2)"});
+    var q5Size=fitFontSize(ctx,title,W-180,3,88,48,DISPLAY,"900");
+    ctx.font="900 "+q5Size+"px "+DISPLAY; ctx.fillStyle="#ffffff";
+    ctx.textAlign="left"; ctx.textBaseline="top";
+    var qt=wrapText(ctx,title,90,130,W-180,q5Size*1.1);
+    var divY=130+qt.height+40;
+    var qg=ctx.createLinearGradient(0,0,W,0);
+    qg.addColorStop(0,"#1a6fff"); qg.addColorStop(1,"#00e5ff");
+    ctx.fillStyle=qg; ctx.fillRect(90,divY,W-180,3);
+    var ptY=divY+50, ptSlot=(H-ptY-80)/3;
+    for(var iq=0;iq<3;iq++){
+      var pyq=ptY+iq*ptSlot;
+      ctx.fillStyle="#1a6fff"; ctx.font="900 28px "+DISPLAY;
+      ctx.textAlign="left"; ctx.textBaseline="top"; ctx.fillText("0"+(iq+1),90,pyq+4);
+      var psq=fitFontSize(ctx,points[iq],W-200,2,30,20,SANS,"500");
+      ctx.font="500 "+psq+"px "+SANS; ctx.fillStyle="rgba(255,255,255,0.8)";
+      ctx.textAlign="left"; ctx.textBaseline="top";
+      wrapText(ctx,points[iq],150,pyq,W-200,psq*1.35);
+    }
+
+  // STYLE 6: CHECKLIST LIGHT
+  } else if (style === "checklist-light") {
+    ctx.fillStyle="#fafafa"; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle="#1a6fff"; ctx.fillRect(0,0,W,16);
+    drawLogo(ctx,110,110,{radius:44,bg:"#ffffff",fg:"#1a6fff",border:"#e0e0e0"});
+    ctx.fillStyle="#0a0a0a"; ctx.font="700 24px "+SANS;
+    ctx.textAlign="left"; ctx.textBaseline="middle"; ctx.fillText("SPS FITNESS",180,110);
+    var t6Size=fitFontSize(ctx,title,W-180,2,96,56,DISPLAY,"900");
+    ctx.font="900 "+t6Size+"px "+DISPLAY; ctx.fillStyle="#0a0a0a";
+    ctx.textAlign="left"; ctx.textBaseline="top";
+    var ti6=wrapText(ctx,title,90,200,W-180,t6Size*1.0);
+    ctx.fillStyle="#e8e8e8"; ctx.fillRect(90,200+ti6.height+30,W-180,2);
+    var c6Top=200+ti6.height+60, c6Slot=(H-c6Top-80)/3;
+    for(var ic=0;ic<3;ic++){
+      var cyc=c6Top+ic*c6Slot;
+      ctx.fillStyle="#1a6fff"; ctx.fillRect(90,cyc+8,52,52);
+      ctx.fillStyle="#ffffff"; ctx.font="900 32px "+SANS;
+      ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("\u2713",116,cyc+34);
+      var ps6=fitFontSize(ctx,points[ic],W-240,2,34,22,SANS,"600");
+      ctx.font="600 "+ps6+"px "+SANS; ctx.fillStyle="#0a0a0a";
+      ctx.textAlign="left"; ctx.textBaseline="top";
+      wrapText(ctx,points[ic],170,cyc+10,W-240,ps6*1.35);
+      if(ic<2){ctx.fillStyle="#eeeeee"; ctx.fillRect(90,cyc+c6Slot-15,W-180,1);}
+    }
+
+  // STYLE 7: BIG STAT DARK
+  } else if (style === "big-stat-dark") {
+    var bg7=ctx.createLinearGradient(0,0,W,H);
+    bg7.addColorStop(0,"#0a0f1e"); bg7.addColorStop(1,"#060a14");
+    ctx.fillStyle=bg7; ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle="rgba(26,111,255,0.08)"; ctx.lineWidth=1;
+    for(var gx=0;gx<W;gx+=120){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+    for(var gy=0;gy<H;gy+=120){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+    drawLogo(ctx,110,110,{radius:44,bg:"#1a6fff",fg:"#ffffff"});
+    ctx.fillStyle="#ffffff"; ctx.font="700 24px "+SANS;
+    ctx.textAlign="left"; ctx.textBaseline="middle"; ctx.fillText("SPS FITNESS",180,110);
+    var t7Size=fitFontSize(ctx,title,W-180,2,72,44,DISPLAY,"900");
+    ctx.font="900 "+t7Size+"px "+DISPLAY; ctx.fillStyle="#ffffff";
+    ctx.textAlign="left"; ctx.textBaseline="top";
+    var ti7=wrapText(ctx,title,90,180,W-180,t7Size*1.05);
+    var p7Top=180+ti7.height+50, p7Slot=(H-p7Top-60)/3;
+    for(var is=0;is<3;is++){
+      var py7=p7Top+is*p7Slot;
+      ctx.fillStyle="rgba(26,111,255,0.08)"; ctx.font="900 180px "+DISPLAY;
+      ctx.textAlign="right"; ctx.textBaseline="top"; ctx.fillText(String(is+1),W-80,py7-20);
+      var ag=ctx.createLinearGradient(0,0,300,0);
+      ag.addColorStop(0,"#1a6fff"); ag.addColorStop(1,"rgba(26,111,255,0)");
+      ctx.fillStyle=ag; ctx.fillRect(90,py7+2,300,3);
+      var ps7=fitFontSize(ctx,points[is],W-180,2,34,22,SANS,"500");
+      ctx.font="500 "+ps7+"px "+SANS; ctx.fillStyle="#e0e8ff";
+      ctx.textAlign="left"; ctx.textBaseline="top";
+      wrapText(ctx,points[is],90,py7+20,W-180,ps7*1.35);
+    }
+
+  // STYLE 8: MAGAZINE LIGHT
+  } else if (style === "magazine-light") {
+    ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle="#0a0a0a"; ctx.fillRect(0,0,24,H);
+    ctx.fillStyle="#1a6fff"; ctx.fillRect(0,0,24,360);
+    drawLogo(ctx,110,110,{radius:44,bg:"#0a0a0a",fg:"#ffffff"});
+    ctx.fillStyle="#0a0a0a"; ctx.font="700 22px "+SANS;
+    ctx.textAlign="left"; ctx.textBaseline="middle"; ctx.fillText("SPS FITNESS  /  MEMBER INSIGHT",180,110);
+    ctx.fillStyle="#eeeeee"; ctx.fillRect(60,145,W-120,2);
+    var t8Size=fitFontSize(ctx,title,W-120,2,108,60,DISPLAY,"900");
+    ctx.font="900 "+t8Size+"px "+DISPLAY; ctx.fillStyle="#0a0a0a";
+    ctx.textAlign="left"; ctx.textBaseline="top";
+    var ti8=wrapText(ctx,title,60,170,W-120,t8Size*1.0);
+    ctx.fillStyle="#1a6fff"; ctx.fillRect(60,170+ti8.height+24,80,6);
+    var p8Top=170+ti8.height+60, p8Slot=(H-p8Top-80)/3;
+    for(var im=0;im<3;im++){
+      var py8=p8Top+im*p8Slot;
+      ctx.fillStyle="#f4f4f4"; ctx.fillRect(60,py8,W-120,p8Slot-16);
+      ctx.fillStyle="#1a6fff"; ctx.fillRect(60,py8,6,p8Slot-16);
+      ctx.fillStyle="#0a0a0a"; ctx.font="900 48px "+DISPLAY;
+      ctx.textAlign="left"; ctx.textBaseline="top"; ctx.fillText(String(im+1),80,py8+12);
+      var ps8=fitFontSize(ctx,points[im],W-230,2,32,20,SANS,"600");
+      ctx.font="600 "+ps8+"px "+SANS; ctx.fillStyle="#0a0a0a";
+      ctx.textAlign="left"; ctx.textBaseline="top";
+      var pi8=wrapText(ctx,points[im],0,0,W-230,ps8*1.3,{measureOnly:true});
+      var ty8=py8+(p8Slot-16)/2-(pi8.lines*ps8*1.3)/2;
+      wrapText(ctx,points[im],148,ty8,W-230,ps8*1.3);
     }
   }
 }
