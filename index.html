@@ -189,7 +189,9 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
           <div class="tb" data-type="bodyblast" id="tb-bodyblast" onclick="selectType('bodyblast')" style="border-color:rgba(255,60,120,0.4)"><div class="ti">&#x1F4AA;</div><div class="tl">Bodyblast</div></div>
         </div>
         <div class="cl">Focus <span style="font-weight:400;text-transform:none;font-size:12px;color:var(--faint)">(optional)</span></div>
-        <input type="text" id="extraCtx" placeholder="e.g. Monday energy, strength training, sleep, stress..." style="margin-bottom:18px" />
+        <input type="text" id="extraCtx" placeholder="e.g. Monday energy, strength training, sleep, stress..." style="margin-bottom:12px" />
+        <div class="cl">Your own topic <span style="font-weight:400;text-transform:none;font-size:12px;color:var(--faint)">(optional — overrides AI topic choice)</span></div>
+        <input type="text" id="customTopic" placeholder="e.g. our new 6am sessions starting June, why we do deadlifts every week..." style="margin-bottom:18px" />
         <button class="btn bp" id="genBtn" onclick="doGenerate()">&#x2726; GENERATE POST</button>
       </div>
       <div class="card" id="outputCard" style="display:none">
@@ -302,7 +304,9 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
           <div class="ab" id="infog-yes" onclick="selectInfographic('yes')">&#x1F4CA; With infographic</div>
         </div>
         <div class="cl">Focus <span style="font-weight:400;text-transform:none;font-size:12px;color:var(--faint)">(optional)</span></div>
-        <input type="text" id="memberCtx" placeholder="e.g. sleep, recovery, leg day, protein, consistency..." style="margin-bottom:18px" />
+        <input type="text" id="memberCtx" placeholder="e.g. sleep, recovery, leg day, protein, consistency..." style="margin-bottom:12px" />
+        <div class="cl">Your own topic <span style="font-weight:400;text-transform:none;font-size:12px;color:var(--faint)">(optional — overrides AI topic choice)</span></div>
+        <input type="text" id="memberCustomTopic" placeholder="e.g. why we programme pause squats, what to eat before Saturday sessions..." style="margin-bottom:18px" />
         <button class="btn bp" onclick="doGenerateMember()">&#x2726; GENERATE MEMBER POST</button>
       </div>
       <div class="card" id="memberOutputCard" style="display:none">
@@ -426,8 +430,10 @@ function selectInfographic(v) {
 
 function doGenerateMember() {
   var ctx = document.getElementById("memberCtx").value.trim();
+  var memberCustomTopic = document.getElementById("memberCustomTopic").value.trim();
   var prompt = MEMBER_PROMPTS[selMemberType];
   if (ctx) prompt += " Focus on: " + ctx + ".";
+  if (memberCustomTopic) prompt = "Write a " + selMemberType + " post for existing SPS Fitness members about this specific topic: " + memberCustomTopic + ". " + MEMBER_SYS + " Keep the tone coach-like and warm. No selling.";
   var card = document.getElementById("memberOutputCard");
   var out = document.getElementById("memberPostOutput");
   var preview = document.getElementById("memberInfographicPreview");
@@ -818,8 +824,11 @@ function callAPI(sys, prompt, cb) {
 
 function doGenerate() {
   var ctx = document.getElementById("extraCtx").value.trim();
+  var customTopic = document.getElementById("customTopic").value.trim();
   var sys = getSys();
-  var prompt = getPrompt(selType, selAud, ctx);
+  var prompt = customTopic
+    ? getPrompt(selType, selAud, ctx) + " The specific topic for this post is: " + customTopic + ". Write the post about this topic specifically, keeping the correct tone and audience in mind."
+    : getPrompt(selType, selAud, ctx);
   var card = document.getElementById("outputCard");
   var out = document.getElementById("postOutput");
   card.style.display = "block";
