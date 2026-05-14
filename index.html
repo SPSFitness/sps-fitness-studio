@@ -848,16 +848,13 @@ function swapMatchedImage() {
   if (!existing) return;
   var ready = imageLibrary.filter(function(img) { return !img.analyzing; });
   if (ready.length <= 1) { alert("No other photos available. Add more in the Images tab."); return; }
-  // Find current image and pick a different one
   var currentSrc = existing.querySelector("img") ? existing.querySelector("img").src : "";
   var others = ready.filter(function(img) { return img.dataUrl !== currentSrc; });
   if (!others.length) others = ready;
-  // Prefer matching post type
   var exact = others.filter(function(img) { return img.bestFor === selType; });
   var pool = exact.length ? exact : others;
   var picked = pool[Math.floor(Math.random() * pool.length)];
-  markImageUsed(picked.id);
-  renderMatchedImage(selType, picked.id);
+  renderMatchedImage(selType, picked.id); // renderMatchedImage handles marking
 }
 
 function removeMatchedImage() {
@@ -873,6 +870,7 @@ function renderMatchedImage(postType, forceId) {
     ? imageLibrary.filter(function(i) { return i.id === forceId; })[0]
     : findBestImage(postType);
   if (!img) return;
+  if (!forceId) markImageUsed(img.id);
   var card = document.getElementById("outputCard");
   var box = document.createElement("div");
   box.id = "matchedImgBox";
@@ -985,6 +983,7 @@ function doAddQueue() {
   var time = document.getElementById("schedTime").value;
   if (!date || !time || !curPost) return;
   var assignedMedia = imageLibrary.length ? findBestImage(selType) : null;
+  if (assignedMedia) markImageUsed(assignedMedia.id);
   queue.push({id: Date.now(), type: selType, aud: selAud, text: curPost, date: date, time: time, mediaId: assignedMedia ? assignedMedia.id : null});
   queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
   doSchedClose();
@@ -1177,9 +1176,8 @@ function findBestImage(postType) {
   var pool = unused.length ? unused : ready;
   // Within pool prefer exact match
   var exact = pool.filter(function(img) { return img.bestFor === postType; });
-  var picked = exact.length ? exact[Math.floor(Math.random() * exact.length)] : pool[Math.floor(Math.random() * pool.length)];
-  markImageUsed(picked.id);
-  return picked;
+  return exact.length ? exact[Math.floor(Math.random() * exact.length)] : pool[Math.floor(Math.random() * pool.length)];
+  // NOTE: does NOT mark as used — call markImageUsed() separately when actually assigning
 }
 
 function markImageUsed(id) {
@@ -1323,6 +1321,7 @@ function doWeek() {
     callAPI(sys, getPrompt(type, aud, ""), function(err, text) {
       if (!err && text) {
         var wMedia = imageLibrary.length ? findBestImage(type) : null;
+        if (wMedia) markImageUsed(wMedia.id);
         queue.push({id: Date.now()+idx, type: type, aud: aud, text: text, date: ds, time: defTime, mediaId: wMedia ? wMedia.id : null});
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         renderQueue(); updateBadge();
@@ -1396,6 +1395,7 @@ function do30Days() {
       if (prog) prog.textContent = done;
       if (!err && text) {
         var pMedia = imageLibrary.length ? findBestImage(plan.type) : null;
+        if (pMedia) markImageUsed(pMedia.id);
         queue.push({id: Date.now()+idx, type: plan.type, aud: plan.aud, text: text, date: ds, time: defTime, mediaId: pMedia ? pMedia.id : null});
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         renderQueue(); updateBadge();
