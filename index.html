@@ -454,58 +454,163 @@ function generateInfographic(type, ctx, container) {
     try {
       var clean = text.replace(/```json|```/g, "").trim();
       var data = JSON.parse(clean);
-      var svg = buildInfographic(data);
-      container.innerHTML = '<div class="infographic-preview">' + svg + '</div><div class="infographic-actions"><span>&#x1F4CA; Infographic ready</span><button class="btn bc" style="padding:5px 12px;font-size:12px" onclick="downloadInfographic()">&#x2913; Download</button></div>';
-    } catch(e) { container.innerHTML = ""; }
+      var canvas = buildInfographic(data);
+      container.innerHTML = '<div class="infographic-preview"><canvas id="infogCanvas" style="width:100%;display:block;border-radius:var(--rs)"></canvas></div><div class="infographic-actions"><span>&#x1F4CA; Infographic ready</span><button class="btn bc" style="padding:5px 12px;font-size:12px" onclick="downloadInfographic()">&#x2913; Download PNG</button></div>';
+      var c = document.getElementById("infogCanvas");
+      c.width = 1080;
+      c.height = 1080;
+      buildInfographic(data, c);
+    } catch(e) { container.innerHTML = ""; console.error(e); }
   });
 }
 
-function buildInfographic(data) {
-  var dark = data.style !== "light";
-  var bg = dark ? "#0d0d0d" : "#ffffff";
-  var bg2 = dark ? "#161616" : "#f8f8f8";
-  var accent = "#1a6fff";
-  var text1 = dark ? "#ffffff" : "#111111";
-  var text2 = dark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.6)";
-  var border = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
-  var title = (data.title || "SPS Fitness Tip").toUpperCase();
-  var points = data.points || [];
-
-  var pointsHtml = points.map(function(p, i) {
-    var y = 200 + (i * 80);
-    return '<rect x="40" y="' + (y-2) + '" width="520" height="64" rx="10" fill="' + bg2 + '" stroke="' + border + '" stroke-width="1"/>' +
-      '<circle cx="72" cy="' + (y+30) + '" r="16" fill="' + accent + '"/>' +
-      '<text x="72" y="' + (y+36) + '" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="14" font-weight="900" fill="#fff">' + (i+1) + '</text>' +
-      '<text x="100" y="' + (y+24) + '" font-family="Arial,sans-serif" font-size="15" font-weight="600" fill="' + text1 + '" xml:space="preserve">' + escSvg(p) + '</text>';
-  }).join("");
-
-  return '<svg viewBox="0 0 600 480" xmlns="http://www.w3.org/2000/svg">' +
-    '<rect width="600" height="480" fill="' + bg + '"/>' +
-    '<rect x="0" y="0" width="600" height="6" fill="' + accent + '"/>' +
-    '<rect x="40" y="30" width="520" height="120" rx="12" fill="' + bg2 + '" stroke="' + border + '" stroke-width="1"/>' +
-    '<text x="300" y="80" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="22" font-weight="900" fill="' + text1 + '">' + escSvg(title) + '</text>' +
-    '<text x="300" y="115" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="' + text2 + '">SPS Fitness | Halesowen</text>' +
-    pointsHtml +
-    '<text x="300" y="460" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="' + text2 + '">spsfitness.co.uk</text>' +
-    '</svg>';
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  var words = text.split(" ");
+  var line = "";
+  var lines = [];
+  for (var i = 0; i < words.length; i++) {
+    var testLine = line + words[i] + " ";
+    var metrics = ctx.measureText(testLine);
+    if (metrics.width > maxWidth && i > 0) {
+      lines.push(line.trim());
+      line = words[i] + " ";
+    } else {
+      line = testLine;
+    }
+  }
+  lines.push(line.trim());
+  for (var j = 0; j < lines.length; j++) {
+    ctx.fillText(lines[j], x, y + (j * lineHeight));
+  }
+  return lines.length;
 }
 
-function escSvg(str) {
-  return (str || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+var infogStyleIndex = 0;
+
+function buildInfographic(data, canvas) {
+  if (!canvas) return;
+  var styles = ["numbered-dark", "bold-light", "minimal-dark", "split-light"];
+  var style = styles[infogStyleIndex % styles.length];
+  infogStyleIndex++;
+  var ctx = canvas.getContext("2d");
+  var W = 1080, H = 1080;
+  var title = (data.title || "Tip").toUpperCase();
+  var points = data.points || [];
+
+  if (style === "numbered-dark") {
+    // Dark cards with numbered list
+    ctx.fillStyle = "#0a0a0a"; ctx.fillRect(0,0,W,H);
+    var g = ctx.createLinearGradient(0,0,W,0);
+    g.addColorStop(0,"#1a6fff"); g.addColorStop(1,"#00e5ff");
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,10); ctx.fillRect(0,H-10,W,10);
+    ctx.fillStyle="#161616"; roundRect(ctx,60,40,W-120,160,20); ctx.fill();
+    ctx.fillStyle="#fff"; ctx.font="900 54px Arial Black,Arial,sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText(title, W/2, 120);
+    var cardH=210, gap=24, startY=240;
+    points.forEach(function(p,i){
+      var y=startY+i*(cardH+gap);
+      ctx.fillStyle="#161616"; roundRect(ctx,60,y,W-120,cardH,20); ctx.fill();
+      var g2=ctx.createLinearGradient(0,y,0,y+cardH);
+      g2.addColorStop(0,"#1a6fff"); g2.addColorStop(1,"#00e5ff");
+      ctx.fillStyle=g2; ctx.beginPath(); ctx.arc(128,y+cardH/2,38,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle="#fff"; ctx.font="900 38px Arial Black,Arial,sans-serif";
+      ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(i+1,128,y+cardH/2);
+      ctx.fillStyle="#fff"; ctx.font="600 30px Arial,sans-serif";
+      ctx.textAlign="left"; ctx.textBaseline="top";
+      wrapText(ctx, p, 190, y+30, W-300, 42);
+    });
+
+  } else if (style === "bold-light") {
+    // White background, bold coloured title, clean lines
+    ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle="#1a6fff"; ctx.fillRect(0,0,W,180);
+    ctx.fillStyle="#fff"; ctx.font="900 56px Arial Black,Arial,sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(title,W/2,90);
+    var lineColors=["#1a6fff","#00e5ff","#39d98a"];
+    var cardH=215, gap=22, startY=220;
+    points.forEach(function(p,i){
+      var y=startY+i*(cardH+gap);
+      ctx.fillStyle="#f4f4f4"; roundRect(ctx,60,y,W-120,cardH,16); ctx.fill();
+      ctx.fillStyle=lineColors[i%lineColors.length]; ctx.fillRect(60,y,10,cardH);
+      ctx.fillStyle="#0a0a0a"; ctx.font="700 32px Arial,sans-serif";
+      ctx.textAlign="left"; ctx.textBaseline="top";
+      wrapText(ctx, p, 100, y+28, W-220, 46);
+    });
+    ctx.fillStyle="rgba(0,0,0,0.3)"; ctx.font="500 22px Arial,sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("spsfitness.co.uk",W/2,H-36);
+
+  } else if (style === "minimal-dark") {
+    // Very minimal — big number, clean text, lots of space
+    ctx.fillStyle="#0d0d0d"; ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle="rgba(255,255,255,0.06)"; ctx.lineWidth=1;
+    ctx.strokeRect(40,40,W-80,H-80);
+    ctx.fillStyle="#1a6fff"; ctx.fillRect(40,40,4,H-80);
+    ctx.fillStyle="#fff"; ctx.font="900 50px Arial Black,Arial,sans-serif";
+    ctx.textAlign="left"; ctx.textBaseline="top"; ctx.fillText(title,80,70);
+    ctx.fillStyle="rgba(255,255,255,0.15)"; ctx.fillRect(80,150,W-160,1);
+    var ptY=200;
+    points.forEach(function(p,i){
+      ctx.fillStyle="rgba(26,111,255,0.15)";
+      ctx.font="900 120px Arial Black,Arial,sans-serif";
+      ctx.textAlign="left"; ctx.textBaseline="top";
+      ctx.fillText(i+1, 80, ptY-20);
+      ctx.fillStyle="#fff"; ctx.font="600 34px Arial,sans-serif";
+      ctx.textAlign="left"; ctx.textBaseline="top";
+      var linesDrawn = wrapText(ctx, p, 80, ptY+80, W-200, 48);
+      ctx.fillStyle="rgba(255,255,255,0.08)"; ctx.fillRect(80,ptY+80+(linesDrawn*48)+20,W-200,1);
+      ptY += 280;
+    });
+
+  } else {
+    // Split — coloured left panel, white right panel
+    ctx.fillStyle="#1a6fff"; ctx.fillRect(0,0,320,H);
+    ctx.fillStyle="#ffffff"; ctx.fillRect(320,0,W-320,H);
+    // Left title rotated
+    ctx.save(); ctx.translate(160,H/2); ctx.rotate(-Math.PI/2);
+    ctx.fillStyle="#fff"; ctx.font="900 52px Arial Black,Arial,sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(title,0,0);
+    ctx.restore();
+    // Right points
+    var cardH=210, gap=28, startY=100;
+    points.forEach(function(p,i){
+      var y=startY+i*(cardH+gap);
+      ctx.fillStyle="#f0f4ff"; roundRect(ctx,360,y,W-420,cardH,16); ctx.fill();
+      ctx.fillStyle="#1a6fff"; ctx.font="900 72px Arial Black,Arial,sans-serif";
+      ctx.textAlign="left"; ctx.textBaseline="top"; ctx.fillText(i+1,380,y+10);
+      ctx.fillStyle="#0a0a0a"; ctx.font="600 30px Arial,sans-serif";
+      ctx.textAlign="left"; ctx.textBaseline="top";
+      wrapText(ctx, p, 460, y+20, W-530, 44);
+    });
+    ctx.fillStyle="rgba(26,111,255,0.4)"; ctx.font="500 22px Arial,sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("spsfitness.co.uk",W/2+160,H-36);
+  }
 }
 
 function downloadInfographic() {
-  var svg = document.querySelector("#memberInfographicPreview svg");
-  if (!svg) return;
-  var blob = new Blob([svg.outerHTML], {type:"image/svg+xml"});
-  var url = URL.createObjectURL(blob);
+  var canvas = document.getElementById("infogCanvas");
+  if (!canvas) return;
+  var url = canvas.toDataURL("image/png");
   var a = document.createElement("a");
   a.href = url;
-  a.download = "sps-infographic-" + Date.now() + ".svg";
+  a.download = "sps-infographic-" + Date.now() + ".png";
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 }
 
 function doMemberEdit() {
