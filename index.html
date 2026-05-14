@@ -449,7 +449,7 @@ function generateInfographic(type, ctx, container) {
   container.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:13px">Generating infographic...</div>';
   var prompt = INFOGRAPHIC_PROMPTS[type];
   if (ctx) prompt += " Topic: " + ctx + ".";
-  callAPI("You generate infographic content. Return only valid JSON, no markdown, no backticks.", prompt, function(err, text) {
+  callAPI("You generate infographic content. Return only valid JSON, no markdown, no backticks. Never use these titles or phrases: crush it, crush your goals, beast mode, hustle, grind, level up, game changer, smash your goals, feel the burn, no excuses, no pain no gain. Keep titles specific and informative, not motivational cliches.", prompt, function(err, text) {
     if (err) { container.innerHTML = ""; return; }
     try {
       var clean = text.replace(/```json|```/g, "").trim();
@@ -572,12 +572,12 @@ function buildInfographic(data, canvas) {
     ctx.fillStyle="#3d8bff"; ctx.font="700 22px "+SANS;
     ctx.textAlign="left"; ctx.textBaseline="alphabetic";
     ctx.fillText("INSIGHT  /  SPS FITNESS", 90, 112);
-    var titleSize = fitFontSize(ctx, title, W-280, 2, 96, 60, DISPLAY, "900");
+    var titleSize = fitFontSize(ctx, title, W-200, 2, 80, 48, DISPLAY, "900");
     ctx.font="900 "+titleSize+"px "+DISPLAY; ctx.fillStyle="#ffffff";
     ctx.textAlign="left"; ctx.textBaseline="top";
-    var ti = wrapText(ctx, title, 90, 160, W-280, titleSize*1.0);
-    var cardsTop = 160+ti.height+60;
-    var avail=H-cardsTop-80, cardGap=22;
+    var ti = wrapText(ctx, title, 90, 160, W-200, titleSize*1.1);
+    var cardsTop = 160+ti.height+40;
+    var avail=H-cardsTop-60, cardGap=18;
     var cardH=Math.floor((avail-2*cardGap)/3);
     for (var i=0; i<3; i++) {
       var y=cardsTop+i*(cardH+cardGap);
@@ -610,11 +610,11 @@ function buildInfographic(data, canvas) {
     ctx.fillStyle="#1a6fff"; ctx.font="700 22px "+SANS;
     ctx.textAlign="left"; ctx.textBaseline="alphabetic";
     ctx.fillText("SPS FITNESS  ·  MEMBER FOCUS", 190, 118);
-    var t2Size=fitFontSize(ctx,title,W-180,3,118,64,DISPLAY,"900");
+    var t2Size=fitFontSize(ctx,title,W-180,2,100,54,DISPLAY,"900");
     ctx.font="900 "+t2Size+"px "+DISPLAY; ctx.fillStyle="#0a0a0a";
     ctx.textAlign="left"; ctx.textBaseline="top";
-    var ti2=wrapText(ctx,title,90,220,W-180,t2Size*0.98);
-    var ruleY=220+ti2.height+50;
+    var ti2=wrapText(ctx,title,90,200,W-180,t2Size*0.98);
+    var ruleY=200+ti2.height+36;
     ctx.fillStyle="#0a0a0a"; ctx.fillRect(90,ruleY,W-180,3);
     var listTop=ruleY+50, rowH=(H-listTop-90)/3;
     for (var i2=0; i2<3; i2++) {
@@ -639,11 +639,11 @@ function buildInfographic(data, canvas) {
     ctx.fillStyle="rgba(255,255,255,0.45)"; ctx.font="700 20px "+SANS;
     ctx.textAlign="center"; ctx.textBaseline="top";
     ctx.fillText("S P S  F I T N E S S",W/2,190);
-    var t3Size=fitFontSize(ctx,title,W-240,2,100,60,DISPLAY,"900");
+    var t3Size=fitFontSize(ctx,title,W-200,2,90,52,DISPLAY,"900");
     ctx.font="900 "+t3Size+"px "+DISPLAY; ctx.fillStyle="#ffffff";
     ctx.textAlign="center"; ctx.textBaseline="top";
-    var ti3=wrapText(ctx,title,W/2,240,W-240,t3Size*1.02);
-    var ulY=240+ti3.height+32;
+    var ti3=wrapText(ctx,title,W/2,220,W-200,t3Size*1.05);
+    var ulY=220+ti3.height+28;
     var ulG=ctx.createLinearGradient(W/2-60,0,W/2+60,0);
     ulG.addColorStop(0,"#1a6fff"); ulG.addColorStop(1,"#00e5ff");
     ctx.fillStyle=ulG; ctx.fillRect(W/2-60,ulY,120,4);
@@ -677,12 +677,12 @@ function buildInfographic(data, canvas) {
     ctx.fillStyle="rgba(255,255,255,0.85)"; ctx.font="700 22px "+SANS;
     ctx.textAlign="left"; ctx.textBaseline="alphabetic";
     ctx.fillText("SPS FITNESS",190,118);
-    var t4Size=fitFontSize(ctx,title,W-180,2,90,54,DISPLAY,"900");
+    var t4Size=fitFontSize(ctx,title,W-180,2,80,48,DISPLAY,"900");
     ctx.font="900 "+t4Size+"px "+DISPLAY; ctx.fillStyle="#ffffff";
     ctx.textAlign="left"; ctx.textBaseline="top";
-    wrapText(ctx,title,90,200,W-180,t4Size*1.0);
-    var cardTop=headH+30, cardGap4=20;
-    var cH=Math.floor((H-cardTop-80-2*cardGap4)/3);
+    wrapText(ctx,title,90,190,W-180,t4Size*1.05);
+    var cardTop=headH+24, cardGap4=16;
+    var cH=Math.floor((H-cardTop-70-2*cardGap4)/3);
     for (var i4=0; i4<3; i4++) {
       var cy4=cardTop+i4*(cH+cardGap4);
       ctx.fillStyle="#f4f7ff"; rr(60,cy4,W-120,cH,18); ctx.fill();
