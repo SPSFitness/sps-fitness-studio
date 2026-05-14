@@ -681,7 +681,7 @@ function buildInfographic(data, canvas) {
     }
 
   // STYLE 4: SPLIT LIGHT
-  } else {
+  } else if (style === "split-light") {
     ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,W,H);
     var headH=360;
     var hg=ctx.createLinearGradient(0,0,W,headH);
