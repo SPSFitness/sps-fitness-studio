@@ -349,6 +349,1295 @@ var postHistory = []; // tracks recent posts to avoid repetition
 var imageLibrary = []; // {id, dataUrl, filename, tags, tagString, hostedUrl}
 // ImgBB key is stored server-side
 
+var SYS_BASE = "You write Facebook posts for SPS Fitness, a small group personal training gym in Halesowen, West Midlands. Maximum 12 people per session. Run by the coach. The tone is straight-talking, warm, specific and real — never generic, never preachy, never corporate. Posts feel like they come from a knowledgeable friend who gets real life. Short sentences. Direct. Occasionally dry or funny. Never waffy. Vary the CTA — sometimes a question, sometimes invite a comment, sometimes just make them think. Max 3 hashtags. Under 180 words. British English. MEMBER INTELLIGENCE — these are real themes from SPS Fitness member reviews, use them to make posts feel specific and real: members often felt intimidated by regular gyms before joining; many had tried other gyms and been let down; several came back after illness or long gaps; results go beyond weight loss — members say they feel the fittest they have ever been; members did not expect to actually enjoy training but did; the small group of max 12 people makes people feel seen and not lost in a crowd; a different workout every time keeps it from getting boring; the coach understands each person's fitness level and pushes them correctly; the atmosphere is described as supportive and community-like; members often say they wish they had found it sooner. Draw on these real experiences to make posts feel authentic and specific to this community. STRICT FORMATTING RULES: Never use dash symbols (-) or em dashes to start lines or separate ideas — use full stops or line breaks instead. Never end with meta-commentary like 'That is it. That is the post.' or 'Simple as that.' or any self-referential closing line. Just end the post naturally on the message itself. Never use markdown formatting — no asterisks, no bold, no bullet points with asterisks, no **text**. Plain text only. Never use the phrase your future self will thank you or any variation of it. Avoid overused fitness clichés like DOMS, beast mode, level up, game changer, hustle, grind, feel the burn, trust the process — use them sparingly if ever, and never in consecutive posts.";
+
+var SYS_WOMEN = SYS_BASE + " This post is specifically for women over 30. These women are juggling full-time work, kids, partners, school runs, and not enough hours in the day. They are time-poor, often exhausted, and have probably tried and failed at fitness before — including other gyms that felt intimidating or impersonal. They are smart and do not need lecturing. Be specific about the reality of life over 30 for women: hormones, perimenopause, metabolism changes, guilt about not doing enough, fitting exercise around chaos. Some are coming back after illness, injury or years away from exercise. Many feel stuck and do not know where to start. The SPS difference that resonates with them: small groups so you are never lost in a crowd, sessions tailored to your level, actually enjoying training for the first time, feeling the fittest they have ever been not just lighter. Never use these phrases: ladies, girls, you need to, you should, your future self, no judgement, no judgment, no pressure, we are all in the same boat, most of us are in the same boat, honestly, and honestly, just curious, just putting it out there, your future self will thank you, future you will thank you.";
+
+var SYS_MEN = SYS_BASE + " This post is specifically for men in their 40s and 50s. These men are dealing with things their younger selves did not expect: testosterone decline, belly fat that appeared from nowhere, joints that creak, slower recovery, back pain from a desk job, less energy than they used to have, and maybe some embarrassment about how far their fitness has slipped. Many have tried other gyms and found them intimidating, impersonal or just not right for where they are now. Some are coming back after illness, injury or a long gap. They are often busy with career and family. They do not want to be talked down to or sold miracle solutions. The SPS difference that resonates: small groups of max 12 so no one is watching or judging, training that actually matches where you are now not where you were at 25, a different session every time so it never gets boring, and coaching that pushes you correctly without destroying you. Be direct, practical and honest. Never use these phrases: you need to, you should, it is never too late, you have got this, no judgement, no judgment, no pressure, honestly, and honestly, just curious, most of us are in the same boat, your future self will thank you, future you will thank you.";
+
+var SYS_ALL = SYS_BASE + " This post is for the whole SPS Fitness community — women over 30 and men in their 40s and 50s. Write something that resonates with anyone who is busy, time-poor, and trying to get fit or stay fit around a full life. Be inclusive without being vague. Speak to real shared experiences: not having enough time, feeling like fitness keeps slipping down the priority list, wanting to feel stronger and have more energy, having tried other gyms and been let down, feeling intimidated by big gyms, coming back after a gap or illness and not knowing where to start, discovering they actually enjoy training when it is done right. The SPS difference: max 12 people per session, different workout every time, coaching that meets you where you are, a community where people genuinely support each other.";
+
+var PROMPTS = {
+  motivation: {
+    women: "Write a motivational post for busy women over 30. Make it feel real and earned — not cheesy. Draw on one of these real member experiences or feelings: felt too intimidated to go to a regular gym, tried other gyms and felt like just a number, coming back after illness or a long gap and not knowing where to start, feeling stuck and like nothing is working, not expecting to actually enjoy training but surprising herself. Name a specific struggle: school run chaos, 4pm energy crash, guilt about not doing enough, not having trained in weeks or months. End with something that makes her feel seen and understood, not lectured. Do not mention SPS Fitness by name — let the feeling do the work.",
+    men: "Write a motivational post for men in their 40s and 50s. Be honest and grounded — not laddish, not overly intense. Draw on one of these real experiences: felt out of place in big gyms full of younger people, coming back after illness or injury, the quiet embarrassment of how far fitness has slipped, tried the gym before and it never stuck, not knowing where to start at this age. Acknowledge a specific reality: body has changed, slower recovery, fitting training around work and family. Make it feel like permission to start from exactly where they are now — not where they were at 30.",
+    everyone: "Write a motivational post for a mixed community of busy adults — women over 30 and men in their 40s and 50s. Acknowledge the shared reality: life is full, fitness keeps slipping, they want to feel better but time and energy are limited. Draw on one of these real shared experiences: having tried other gyms and felt let down or invisible, not expecting to actually enjoy training, the surprise of feeling the fittest you have ever been not just lighter, wishing you had started sooner. Make it feel real and grounding. End with something that makes them feel understood, not sold to."
+  },
+  myth: {
+    women: "Write a myth-busting post for women over 30. Pick one harmful fitness myth specific to this age group: lifting weights makes you bulky, you need cardio every day to lose weight, your metabolism is broken after 40, you need to earn food through exercise, soreness means a good workout, you need hours in the gym to see results. Bust it clearly with one or two evidence-backed sentences. Make her feel informed and a bit annoyed she was ever told otherwise.",
+    men: "Write a myth-busting post for men in their 40s and 50s. Pick one fitness myth that holds men back at this life stage: you need to train like you did in your 20s, high intensity is the only way to get results, testosterone decline means you cannot build muscle, cardio will make you lose muscle, supplements are essential. Bust it with clear evidence. Make it feel like a lightbulb moment.",
+    everyone: "Write a myth-busting post for a mixed fitness community. Pick one universal fitness myth that affects everyone: spot reduction, no pain no gain, you need to be sore after every workout, more exercise is always better, you need to cut carbs to lose fat. Bust it clearly with evidence. Keep it punchy and satisfying."
+  },
+  evidence: {
+    women: "Write an evidence-based post for women over 30. Choose ONE fact from this verified list and build the post around it: (1) Resistance training 2-3x per week significantly slows bone density loss in women over 35 — more effective than cardio for long-term bone health. (2) Post-meal walks of 10 minutes reduce blood sugar spikes — particularly valuable as insulin sensitivity naturally decreases after 35. (3) Women over 35 need roughly 1.6-2g of protein per kg of bodyweight to maintain muscle — most eat far less than this. (4) Strength training raises resting metabolic rate for up to 48 hours after a session — cardio does not have this effect. (5) Sleep under 6 hours raises cortisol, which directly increases fat storage around the abdomen. (6) Muscle mass naturally decreases by 3-8% per decade after 30 if not actively maintained through resistance training. (7) High-intensity exercise raises cortisol significantly — for women managing perimenopause symptoms, moderate resistance training is often more effective. (8) Women who strength train have measurably better insulin sensitivity than those who only do cardio. Choose one fact, explain the mechanism simply, say why it matters specifically for a busy woman over 30. Do not exaggerate statistics — say significantly or research suggests rather than specific percentages unless they are in this list.",
+    men: "Write an evidence-based post for men in their 40s and 50s. Choose ONE fact from this verified list and build the post around it: (1) Testosterone naturally declines by about 1% per year after 30 — but resistance training measurably slows this decline and increases testosterone response. (2) Visceral fat (the fat around organs) is directly reduced by resistance training — more effectively than cardio alone. (3) Protein synthesis slows significantly after 40 — men need more protein per meal (at least 40g) to trigger the same muscle-building response as younger men. (4) Men who strength train in their 40s and 50s have significantly lower risk of cardiovascular disease than those who only do cardio. (5) Sleep is when testosterone is produced — men getting under 6 hours have measurably lower testosterone levels than those getting 7-9 hours. (6) Compound movements like squats and deadlifts produce the highest testosterone and growth hormone response of any exercise. (7) High intensity training raises cortisol significantly in men over 40 — moderate resistance training 3x per week produces better body composition results with less recovery cost. (8) Men who maintain muscle mass into their 50s have significantly better metabolic health markers including blood pressure, cholesterol and blood sugar. Choose one fact, explain it plainly, say why it matters for a busy man in his 40s or 50s. Do not exaggerate — use research suggests or studies show rather than inventing specific percentages.",
+    everyone: "Write an evidence-based post for a mixed fitness community of adults over 30. Choose ONE fact from this verified list and build the post around it: (1) People who do resistance training consistently live measurably longer and have better quality of life in later years — muscle mass is one of the strongest predictors of longevity. (2) Walking 7000-8000 steps per day is associated with significantly lower all-cause mortality — you do not need 10000 steps. (3) Chronic stress raises cortisol which directly causes fat storage, muscle breakdown, poor sleep and reduced motivation to exercise — managing stress is not optional for fitness. (4) Dehydration of just 2% body weight measurably reduces both physical and cognitive performance. (5) Post-meal walks of 10 minutes reduce blood sugar spikes more effectively than a single longer walk at another time of day. (6) People who exercise consistently report significantly better sleep quality, mood and energy than those who do not — the mental health benefits are as strong as the physical ones. (7) Consistency beats intensity — 3 moderate sessions per week for a year produces far better results than intense training for a few weeks followed by stopping. (8) Strength training is the single most effective intervention for maintaining metabolic health, bone density and functional mobility as people age. Choose one fact, explain it simply and practically, give one actionable takeaway. Use research shows or studies suggest rather than inventing percentages."
+  },
+  quickwin: {
+    women: "Write a quick win post for a woman over 30 who is genuinely time-poor. Give one specific, immediately usable tip she could do today — not just go for a walk but something clever and specific. Habit stacking onto something she already does, a 4-minute movement snack between school run and work, a protein swap that takes zero extra time, a sleep trick that costs nothing. Make it feel genuinely useful, not obvious.",
+    men: "Write a quick win post for a man in his 40s or 50s with a busy life. Give one specific practical tip he could use today: a simple mobility routine for a stiff back that takes 5 minutes, a protein-rich lunch swap that does not require meal prep, a way to get effective exercise in under 20 minutes when the gym is not happening, a recovery hack that actually works. Practical and specific, not generic.",
+    everyone: "Write a quick win post for busy adults over 30. Give one specific, immediately actionable tip anyone could do today regardless of gender or fitness level. Make it genuinely clever — not just drink more water or go to bed earlier. Think: habit stacking, movement snacks, simple nutrition swaps, recovery tricks. Something that makes them think why did I not think of that."
+  },
+  bodyblast: {
+    women: "Write a Facebook post promoting the SPS Fitness Bodyblast programme to women over 30 who are new to the gym or returning after a break. The Bodyblast programme is evergreen — it runs continuously so there is always a place available. Do NOT use urgency tactics. Draw on these real member truths: many felt too intimidated to try a regular gym, some came back after illness or years away, most did not expect to enjoy it but did, the small group of max 12 means you are never lost or ignored, every session is different so it never gets boring, results go beyond losing weight — members describe feeling the fittest they have ever been. Make it feel like an honest invitation, not a sales pitch. End with a soft CTA like drop us a message or comment if you want to know more.",
+    men: "Write a Facebook post promoting the SPS Fitness Bodyblast programme to men in their 40s and 50s getting back into training. The programme is evergreen — always open. Do NOT use pressure tactics. Draw on these real truths: big gyms can feel intimidating especially when fitness has slipped, training with people at a similar stage makes a difference, max 12 people per session means the coach actually knows your name and your level, every session is different so it never gets stale, real results without being destroyed. Honest and direct. End with a low-pressure CTA like send us a message if you want the details.",
+    everyone: "Write a Facebook post promoting the SPS Fitness Bodyblast programme to a mixed audience of men and women over 30. The programme is evergreen — always running, always welcoming new people. Draw on these real member truths: most people who join felt intimidated by regular gyms, many had tried other places and been disappointed, nobody expects to enjoy it as much as they do, max 12 people means you are not invisible, a different workout every time means it never gets old, and results go beyond the scales — members say they feel the fittest they have ever been. No pressure, no urgency. End with a soft open CTA like message us or drop a comment if you want to know more."
+  }
+};
+
+var selMemberType = "tip";
+var selInfographic = "no";
+var curMemberPost = "";
+
+var MEMBER_SYS = "You write Facebook group posts for SPS Fitness members — people who already train with their coach at SPS Fitness in Halesowen. These members are coached in every session — their coach tells them exactly what to do. They do not programme their own training. So posts should never give them generic gym tips or tell them what to do in sessions. Instead posts should: explain the thinking behind what they are already doing in sessions, help them understand why certain things are programmed, cover the lifestyle factors outside the gym that affect their results — sleep, nutrition, stress, recovery, hydration — and celebrate their progress as a community. The tone is warm, direct and coach-like — like a knowledgeable friend who knows them and their training. No selling, no CTAs pushing new programmes. Short sentences. Real. Occasionally funny. British English. Under 150 words. No markdown, no asterisks. No headers. Plain text only.";
+
+var MEMBER_PROMPTS = {
+  tip: "Write a post for existing SPS Fitness members that explains the thinking behind something the coach programmes in sessions. Members are fully coached — they do not programme their own training. So this post should help them understand WHY something is done, not tell them what to do. Examples: why compound movements are programmed more than isolation work, why sessions vary week to week, why recovery matters as much as training, why form is prioritised over load. Make it feel like insight from their coach that helps them get more from what they are already doing.",
+  win: "Write a member celebration post for the SPS Fitness members Facebook group. Celebrate the kind of wins that happen in this community — not just weight loss but: showing up when life is chaotic, getting stronger over months, recovering from injury, feeling more energetic, sleeping better, clothes fitting differently. Keep it warm, genuine and specific. No names. Make other members read it and think yes that is me or that could be me.",
+  challenge: "Write a lifestyle challenge post for SPS Fitness members — something outside the gym that supports their training. Not a fitness challenge — they get that in sessions. Instead something around: hitting a sleep target this week, nailing protein at breakfast every day, walking after dinner, drinking more water, managing stress. One specific achievable thing. Keep it light, friendly and easy to commit to.",
+  nutrition: "Write a nutrition post for existing SPS Fitness members. One specific practical thing they can do this week to support their training. Not a diet plan. Something real and achievable: a protein swap at lunch, eating more before sessions, not skipping breakfast on training days, what to eat after a session. Frame it as supporting the training they are already doing with their coach, not as general fitness advice."
+};
+
+var INFOGRAPHIC_PROMPTS = {
+  tip: "Create content for a fitness tip infographic for SPS Fitness members. Return ONLY a JSON object with: title (max 6 words, punchy), points (array of exactly 3 items, each max 10 words, practical and specific), style (either 'dark' or 'light', alternate randomly). No preamble, just JSON.",
+  win: "Create content for a motivation infographic for SPS Fitness members. Return ONLY a JSON object with: title (max 6 words, celebratory), points (array of exactly 3 short wins or affirmations, each max 10 words), style (either 'dark' or 'light'). No preamble, just JSON.",
+  challenge: "Create content for a weekly challenge infographic for SPS Fitness members. Return ONLY a JSON object with: title (max 6 words, action-oriented), points (array of exactly 3 challenge steps, each max 10 words), style (either 'dark' or 'light'). No preamble, just JSON.",
+  nutrition: "Create content for a nutrition tip infographic for SPS Fitness members. Return ONLY a JSON object with: title (max 6 words, clear and direct), points (array of exactly 3 practical tips, each max 10 words), style (either 'dark' or 'light'). No preamble, just JSON."
+};
+
+function selectMemberType(t) {
+  selMemberType = t;
+  var types = ["tip","win","challenge","nutrition"];
+  for (var i = 0; i < types.length; i++) {
+    var el = document.getElementById("mtb-" + types[i]);
+    if (el) el.classList.remove("sel");
+  }
+  var sel = document.getElementById("mtb-" + t);
+  if (sel) sel.classList.add("sel");
+}
+
+function selectInfographic(v) {
+  selInfographic = v;
+  document.getElementById("infog-no").classList.toggle("sel", v === "no");
+  document.getElementById("infog-yes").classList.toggle("sel", v === "yes");
+}
+
+function doGenerateMember() {
+  var ctx = document.getElementById("memberCtx").value.trim();
+  var prompt = MEMBER_PROMPTS[selMemberType];
+  if (ctx) prompt += " Focus on: " + ctx + ".";
+  var card = document.getElementById("memberOutputCard");
+  var out = document.getElementById("memberPostOutput");
+  var preview = document.getElementById("memberInfographicPreview");
+  card.style.display = "block";
+  preview.innerHTML = "";
+  hideStatus("memberStatus");
+  out.className = "pb loading";
+  out.textContent = "Writing your post...";
+  callAPI(MEMBER_SYS, prompt, function(err, text) {
+    out.className = "pb";
+    if (err) { out.textContent = "Error: " + err; return; }
+    curMemberPost = text;
+    out.textContent = text;
+    if (selInfographic === "yes") {
+      generateInfographic(selMemberType, ctx, preview);
+    }
+  });
+}
+
+function generateInfographic(type, ctx, container) {
+  container.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:13px">Generating infographic...</div>';
+  var prompt = INFOGRAPHIC_PROMPTS[type];
+  if (ctx) prompt += " Topic: " + ctx + ".";
+  callAPI("You generate infographic content. Return only valid JSON, no markdown, no backticks.", prompt, function(err, text) {
+    if (err) { container.innerHTML = ""; return; }
+    try {
+      var clean = text.replace(/```json|```/g, "").trim();
+      var data = JSON.parse(clean);
+      var canvas = buildInfographic(data);
+      container.innerHTML = '<div class="infographic-preview"><canvas id="infogCanvas" style="width:100%;display:block;border-radius:var(--rs)"></canvas></div><div class="infographic-actions"><span>&#x1F4CA; Infographic ready</span><button class="btn bc" style="padding:5px 12px;font-size:12px" onclick="downloadInfographic()">&#x2913; Download PNG</button></div>';
+      var c = document.getElementById("infogCanvas");
+      c.width = 1080;
+      c.height = 1080;
+      buildInfographic(data, c);
+    } catch(e) { container.innerHTML = ""; console.error(e); }
+  });
+}
+
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  var words = text.split(" ");
+  var line = "";
+  var lines = [];
+  for (var i = 0; i < words.length; i++) {
+    var testLine = line + words[i] + " ";
+    var metrics = ctx.measureText(testLine);
+    if (metrics.width > maxWidth && i > 0) {
+      lines.push(line.trim());
+      line = words[i] + " ";
+    } else {
+      line = testLine;
+    }
+  }
+  lines.push(line.trim());
+  for (var j = 0; j < lines.length; j++) {
+    ctx.fillText(lines[j], x, y + (j * lineHeight));
+  }
+  return lines.length;
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+var infogStyleIndex = 0;
+
+function buildInfographic(data, canvas) {
+  if (!canvas) return;
+  var styles = ["numbered-dark", "bold-light", "minimal-dark", "split-light"];
+  var style = styles[infogStyleIndex % styles.length];
+  infogStyleIndex++;
+  var ctx = canvas.getContext("2d");
+  var W = 1080, H = 1080;
+  var title = (data.title || "Tip").toUpperCase();
+  var points = data.points || [];
+
+  if (style === "numbered-dark") {
+    // Dark cards with numbered list
+    ctx.fillStyle = "#0a0a0a"; ctx.fillRect(0,0,W,H);
+    var g = ctx.createLinearGradient(0,0,W,0);
+    g.addColorStop(0,"#1a6fff"); g.addColorStop(1,"#00e5ff");
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,10); ctx.fillRect(0,H-10,W,10);
+    ctx.fillStyle="#161616"; roundRect(ctx,60,40,W-120,160,20); ctx.fill();
+    ctx.fillStyle="#fff"; ctx.font="900 54px Arial Black,Arial,sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText(title, W/2, 120);
+    var cardH=210, gap=24, startY=240;
+    points.forEach(function(p,i){
+      var y=startY+i*(cardH+gap);
+      ctx.fillStyle="#161616"; roundRect(ctx,60,y,W-120,cardH,20); ctx.fill();
+      var g2=ctx.createLinearGradient(0,y,0,y+cardH);
+      g2.addColorStop(0,"#1a6fff"); g2.addColorStop(1,"#00e5ff");
+      ctx.fillStyle=g2; ctx.beginPath(); ctx.arc(128,y+cardH/2,38,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle="#fff"; ctx.font="900 38px Arial Black,Arial,sans-serif";
+      ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(i+1,128,y+cardH/2);
+      ctx.fillStyle="#fff"; ctx.font="600 30px Arial,sans-serif";
+      ctx.textAlign="left"; ctx.textBaseline="top";
+      wrapText(ctx, p, 190, y+30, W-300, 42);
+    });
+
+  } else if (style === "bold-light") {
+    // White background, bold coloured title, clean lines
+    ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle="#1a6fff"; ctx.fillRect(0,0,W,180);
+    ctx.fillStyle="#fff"; ctx.font="900 56px Arial Black,Arial,sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(title,W/2,90);
+    var lineColors=["#1a6fff","#00e5ff","#39d98a"];
+    var cardH=215, gap=22, startY=220;
+    points.forEach(function(p,i){
+      var y=startY+i*(cardH+gap);
+      ctx.fillStyle="#f4f4f4"; roundRect(ctx,60,y,W-120,cardH,16); ctx.fill();
+      ctx.fillStyle=lineColors[i%lineColors.length]; ctx.fillRect(60,y,10,cardH);
+      ctx.fillStyle="#0a0a0a"; ctx.font="700 32px Arial,sans-serif";
+      ctx.textAlign="left"; ctx.textBaseline="top";
+      wrapText(ctx, p, 100, y+28, W-220, 46);
+    });
+    ctx.fillStyle="rgba(0,0,0,0.3)"; ctx.font="500 22px Arial,sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("spsfitness.co.uk",W/2,H-36);
+
+  } else if (style === "minimal-dark") {
+    // Very minimal — big number, clean text, lots of space
+    ctx.fillStyle="#0d0d0d"; ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle="rgba(255,255,255,0.06)"; ctx.lineWidth=1;
+    ctx.strokeRect(40,40,W-80,H-80);
+    ctx.fillStyle="#1a6fff"; ctx.fillRect(40,40,4,H-80);
+    ctx.fillStyle="#fff"; ctx.font="900 50px Arial Black,Arial,sans-serif";
+    ctx.textAlign="left"; ctx.textBaseline="top"; ctx.fillText(title,80,70);
+    ctx.fillStyle="rgba(255,255,255,0.15)"; ctx.fillRect(80,150,W-160,1);
+    var ptY=200;
+    points.forEach(function(p,i){
+      ctx.fillStyle="rgba(26,111,255,0.15)";
+      ctx.font="900 120px Arial Black,Arial,sans-serif";
+      ctx.textAlign="left"; ctx.textBaseline="top";
+      ctx.fillText(i+1, 80, ptY-20);
+      ctx.fillStyle="#fff"; ctx.font="600 34px Arial,sans-serif";
+      ctx.textAlign="left"; ctx.textBaseline="top";
+      var linesDrawn = wrapText(ctx, p, 80, ptY+80, W-200, 48);
+      ctx.fillStyle="rgba(255,255,255,0.08)"; ctx.fillRect(80,ptY+80+(linesDrawn*48)+20,W-200,1);
+      ptY += 280;
+    });
+
+  } else {
+    // Split — coloured left panel, white right panel
+    ctx.fillStyle="#1a6fff"; ctx.fillRect(0,0,320,H);
+    ctx.fillStyle="#ffffff"; ctx.fillRect(320,0,W-320,H);
+    // Left title rotated
+    ctx.save(); ctx.translate(160,H/2); ctx.rotate(-Math.PI/2);
+    ctx.fillStyle="#fff"; ctx.font="900 52px Arial Black,Arial,sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(title,0,0);
+    ctx.restore();
+    // Right points
+    var cardH=210, gap=28, startY=100;
+    points.forEach(function(p,i){
+      var y=startY+i*(cardH+gap);
+      ctx.fillStyle="#f0f4ff"; roundRect(ctx,360,y,W-420,cardH,16); ctx.fill();
+      ctx.fillStyle="#1a6fff"; ctx.font="900 72px Arial Black,Arial,sans-serif";
+      ctx.textAlign="left"; ctx.textBaseline="top"; ctx.fillText(i+1,380,y+10);
+      ctx.fillStyle="#0a0a0a"; ctx.font="600 30px Arial,sans-serif";
+      ctx.textAlign="left"; ctx.textBaseline="top";
+      wrapText(ctx, p, 460, y+20, W-530, 44);
+    });
+    ctx.fillStyle="rgba(26,111,255,0.4)"; ctx.font="500 22px Arial,sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("spsfitness.co.uk",W/2+160,H-36);
+  }
+}
+
+function downloadInfographic() {
+  var canvas = document.getElementById("infogCanvas");
+  if (!canvas) return;
+  var url = canvas.toDataURL("image/png");
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = "sps-infographic-" + Date.now() + ".png";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function doMemberEdit() {
+  var out = document.getElementById("memberPostOutput");
+  var ta = document.createElement("textarea");
+  ta.className = "pb";
+  ta.id = "memberPostOutput";
+  ta.value = out.textContent || out.value || "";
+  ta.addEventListener("input", function() { curMemberPost = ta.value; });
+  out.parentNode.replaceChild(ta, out);
+}
+
+function doMemberCopy() {
+  var el = document.getElementById("memberPostOutput");
+  var t = el.value || el.textContent;
+  if (!t) return;
+  navigator.clipboard.writeText(t).then(function() {
+    showStatus("memberStatus", "Copied! Paste into your members Facebook group.", "success");
+    setTimeout(function() { hideStatus("memberStatus"); }, 3000);
+  });
+}
+
+var CYCLE = ["motivation","myth","evidence","quickwin","motivation","myth","quickwin"];
+var CYCLE_AUD = ["women","men","everyone","women","men","everyone","everyone"];
+var BADGE = {motivation:"bm",myth:"bmyth",evidence:"be",quickwin:"bq",bodyblast:"bbb"};
+var ICONS = {motivation:"&#x1F525;",myth:"&#x1F4A1;",evidence:"&#x1F52C;",quickwin:"&#x26A1;",bodyblast:"&#x1F4AA;"};
+var IBGS = {motivation:"rgba(26,111,255,0.15)",myth:"rgba(0,229,255,0.12)",evidence:"rgba(57,217,138,0.1)",quickwin:"rgba(255,184,0,0.12)",bodyblast:"rgba(255,60,120,0.12)"};
+
+function showPanel(name) {
+  var panels = document.querySelectorAll(".panel");
+  for (var i = 0; i < panels.length; i++) panels[i].classList.remove("active");
+  var navs = document.querySelectorAll(".ni");
+  for (var i = 0; i < navs.length; i++) navs[i].classList.remove("active");
+  document.getElementById("panel-" + name).classList.add("active");
+  document.getElementById("nav-" + name).classList.add("active");
+  if (name === "calendar") renderCal();
+  if (name === "members") { /* members panel init */ }
+  if (name === "queue") renderQueue();
+  if (name === "images") renderImgLibrary();
+}
+
+function selectType(t) {
+  selType = t;
+  var types = ["motivation","myth","evidence","quickwin","bodyblast"];
+  for (var i = 0; i < types.length; i++) {
+    var el = document.getElementById("tb-" + types[i]);
+    if (el) el.classList.remove("sel");
+  }
+  var sel = document.getElementById("tb-" + t);
+  if (sel) sel.classList.add("sel");
+}
+
+function selectAud(a) {
+  selAud = a;
+  var auds = ["everyone","women","men"];
+  for (var i = 0; i < auds.length; i++) {
+    var el = document.getElementById("aud-" + auds[i]);
+    if (el) el.classList.remove("sel");
+  }
+  var sel = document.getElementById("aud-" + a);
+  if (sel) sel.classList.add("sel");
+}
+
+function getSys() {
+  if (selAud === "women") return SYS_WOMEN;
+  if (selAud === "men") return SYS_MEN;
+  return SYS_ALL;
+}
+
+function getPrompt(type, aud, ctx) {
+  var p = PROMPTS[type][aud];
+  if (ctx) p = p + " Specific focus for this post: " + ctx + ".";
+  p = p + getHistoryContext(type, aud);
+  return p;
+}
+
+function callAPI(sys, prompt, cb) {
+  fetch("/.netlify/functions/generate", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({system: sys, messages: [{role: "user", content: prompt}]})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.error) { cb("Error: " + JSON.stringify(d.error)); return; }
+    var text = "";
+    for (var i = 0; i < d.content.length; i++) {
+      if (d.content[i].text) text += d.content[i].text;
+    }
+    text = text.split("**").join("").split("*").join("");
+    cb(null, text.trim());
+  })
+  .catch(function(e) { cb("Network error: " + e.message); });
+}
+
+function doGenerate() {
+  var ctx = document.getElementById("extraCtx").value.trim();
+  var sys = getSys();
+  var prompt = getPrompt(selType, selAud, ctx);
+  var card = document.getElementById("outputCard");
+  var out = document.getElementById("postOutput");
+  card.style.display = "block";
+  document.getElementById("schedForm").style.display = "none";
+  hideStatus("outStatus");
+  out.className = "pb loading";
+  out.textContent = "Writing your post...";
+  callAPI(sys, prompt, function(err, text) {
+    out.className = "pb";
+    if (err) { out.textContent = "Error: " + err; return; }
+    curPost = text;
+    out.textContent = text;
+    addToPostHistory(selType, selAud, text);
+    renderMatchedImage(selType);
+  });
+}
+
+function doEdit() {
+  var out = document.getElementById("postOutput");
+  var ta = document.createElement("textarea");
+  ta.className = "pb";
+  ta.id = "postOutput";
+  ta.value = out.textContent || out.value || "";
+  ta.addEventListener("input", function() { curPost = ta.value; });
+  out.parentNode.replaceChild(ta, out);
+}
+
+function doCopy() {
+  var el = document.getElementById("postOutput");
+  var t = el.value || el.textContent;
+  if (!t) return;
+  navigator.clipboard.writeText(t).then(function() {
+    showStatus("outStatus", "Copied! Paste into Meta Business Suite.", "success");
+    setTimeout(function() { hideStatus("outStatus"); }, 3000);
+  });
+}
+
+function doSchedOpen() {
+  if (!curPost) return;
+  document.getElementById("schedForm").style.display = "block";
+  document.getElementById("schedDate").value = new Date().toISOString().split("T")[0];
+  document.getElementById("schedTime").value = "19:00";
+}
+
+function doSchedClose() { document.getElementById("schedForm").style.display = "none"; }
+
+function doAddQueue() {
+  var date = document.getElementById("schedDate").value;
+  var time = document.getElementById("schedTime").value;
+  if (!date || !time || !curPost) return;
+  var assignedMedia = imageLibrary.length ? findBestImage(selType) : null;
+  queue.push({id: Date.now(), type: selType, aud: selAud, text: curPost, date: date, time: time, mediaId: assignedMedia ? assignedMedia.id : null});
+  queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
+  doSchedClose();
+  updateBadge();
+  showStatus("outStatus", "Added to queue for " + fmtDate(date) + " at " + time, "success");
+  setTimeout(function() { hideStatus("outStatus"); }, 3000);
+}
+
+function removeQ(id) {
+  queue = queue.filter(function(q) { return q.id !== id; });
+  renderQueue(); updateBadge();
+}
+
+function copyQ(id) {
+  var item = null;
+  for (var i = 0; i < queue.length; i++) { if (queue[i].id === id) { item = queue[i]; break; } }
+  if (!item) return;
+  navigator.clipboard.writeText(item.text).then(function() {
+    alert("Copied! Go to business.facebook.com > Planner > Create post > paste > Schedule");
+  });
+}
+
+var GDRIVE_FOLDER = "1611vCEdMo-ikeYBzhjv0LqYtTqo3ewnG";
+var GDRIVE_KEY = "AIzaSyDZQK_0tzhKKoNMMvjlmMs_LnfBxCM9v1I";
+
+function syncDrive() {
+  showStatus("imgStatus", "Syncing with Google Drive...", "info");
+  var url = "https://www.googleapis.com/drive/v3/files?q=%27" + GDRIVE_FOLDER + "%27+in+parents+and+(mimeType+contains+%27image%27+or+mimeType+contains+%27video%27)+and+trashed%3Dfalse&fields=files(id,name,mimeType)&key=" + GDRIVE_KEY;
+  fetch(url)
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.error) {
+      showStatus("imgStatus", "Drive error: " + d.error.message, "error");
+      return;
+    }
+    var files = d.files || [];
+    if (!files.length) {
+      showStatus("imgStatus", "No photos found in Drive folder. Add some photos and sync again!", "info");
+      return;
+    }
+    // Find new files not already in library
+    var existingIds = imageLibrary.map(function(img) { return img.driveId; });
+    var newFiles = files.filter(function(f) { return existingIds.indexOf(f.id) === -1; });
+    if (!newFiles.length) {
+      showStatus("imgStatus", "All " + files.length + " photos already synced!", "success");
+      setTimeout(function() { hideStatus("imgStatus"); }, 3000);
+      return;
+    }
+    showStatus("imgStatus", "Found " + newFiles.length + " new photo" + (newFiles.length !== 1 ? "s" : "") + " — tagging...", "info");
+    var done = 0;
+    newFiles.forEach(function(file) {
+      var id = Date.now() + Math.random();
+      var isVideo = file.mimeType && file.mimeType.indexOf("video") !== -1;
+      var hostedUrl = "https://drive.google.com/uc?export=download&id=" + file.id;
+      var thumbUrl = isVideo ? "" : "https://lh3.googleusercontent.com/d/" + file.id + "=w400";
+      var displayUrl = isVideo ? "https://lh3.googleusercontent.com/d/" + file.id : "https://lh3.googleusercontent.com/d/" + file.id + "=w400";
+      imageLibrary.push({id: id, driveId: file.id, dataUrl: displayUrl, filename: file.name, tags: [], tagString: "analysing...", analyzing: true, hostedUrl: hostedUrl, isVideo: isVideo});
+      renderImgLibrary();
+      saveImageLibrary();
+      analyseImageByUrl(id, hostedUrl, function() {
+        done++;
+        if (done === newFiles.length) {
+          showStatus("imgStatus", newFiles.length + " new photo" + (newFiles.length !== 1 ? "s" : "") + " added and tagged! Total: " + imageLibrary.length, "success");
+          setTimeout(function() { hideStatus("imgStatus"); }, 4000);
+        }
+        renderImgLibrary();
+        saveImageLibrary();
+      });
+    });
+  })
+  .catch(function(e) {
+    showStatus("imgStatus", "Sync failed: " + e.message, "error");
+  });
+}
+
+function addImageUrls() {
+  // Legacy function kept for compatibility
+}
+
+function analyseImageByUrl(id, url, cb) {
+  var sys = "You are an image tagger for a fitness gym called SPS Fitness. Look at this photo and return ONLY a JSON object with these fields: tags (array of 3-5 short lowercase tags like: group-session, lifting, cardio, equipment, outdoor, stretching, motivation, bodyblast, women, men, mixed, smiling, intense, relaxed), bestFor (one of: motivation, myth, evidence, quickwin, bodyblast, any). Return only valid JSON, nothing else.";
+  fetch("/.netlify/functions/generate", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      system: sys,
+      messages: [{role: "user", content: [{type: "image", source: {type: "url", url: url}}, {type: "text", text: "Tag this fitness photo."}]}]
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    var text = d.content ? d.content.map(function(b) { return b.text || ""; }).join("") : "";
+    try {
+      var clean = text.replace(/```json|```/g, "").trim();
+      var parsed = JSON.parse(clean);
+      for (var i = 0; i < imageLibrary.length; i++) {
+        if (imageLibrary[i].id === id) {
+          imageLibrary[i].tags = parsed.tags || [];
+          imageLibrary[i].bestFor = parsed.bestFor || "any";
+          imageLibrary[i].tagString = (parsed.tags || []).join(", ");
+          imageLibrary[i].analyzing = false;
+          break;
+        }
+      }
+    } catch(e) {
+      for (var i = 0; i < imageLibrary.length; i++) {
+        if (imageLibrary[i].id === id) {
+          imageLibrary[i].tagString = "tagged";
+          imageLibrary[i].analyzing = false;
+          break;
+        }
+      }
+    }
+    cb();
+  })
+  .catch(function() {
+    for (var i = 0; i < imageLibrary.length; i++) {
+      if (imageLibrary[i].id === id) {
+        imageLibrary[i].tagString = "tagged";
+        imageLibrary[i].analyzing = false;
+        break;
+      }
+    }
+    cb();
+  });
+}
+
+function saveImageLibrary() {
+  try {
+    var toSave = imageLibrary.map(function(img) {
+      return {id: img.id, dataUrl: img.hostedUrl, filename: img.filename, tags: img.tags || [], tagString: img.tagString || "", analyzing: false, hostedUrl: img.hostedUrl, bestFor: img.bestFor || "any"};
+    });
+    localStorage.setItem("sps_image_library", JSON.stringify(toSave));
+  } catch(e) {}
+}
+
+function loadImageLibrary() {
+  try {
+    var saved = localStorage.getItem("sps_image_library");
+    if (saved) { imageLibrary = JSON.parse(saved); }
+  } catch(e) {}
+}
+
+function clearAllImages() {
+  if (!confirm("Clear all saved photos?")) return;
+  imageLibrary = [];
+  localStorage.removeItem("sps_image_library");
+  renderImgLibrary();
+}
+
+
+
+function renderImgLibrary() {
+  var card = document.getElementById("imgLibraryCard");
+  var grid = document.getElementById("imgGrid");
+  var count = document.getElementById("imgCount");
+  if (!imageLibrary.length) { card.style.display = "none"; return; }
+  card.style.display = "block";
+  count.textContent = imageLibrary.length;
+  grid.innerHTML = imageLibrary.map(function(img) {
+    var mediaEl = img.isVideo
+        ? '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:var(--surface3);font-size:32px">&#x1F3A5;</div>'
+        : '<img src="' + img.dataUrl + '" alt="' + img.filename + '" crossorigin="anonymous" />';
+      var videoBadge = img.isVideo ? '<span style="position:absolute;top:4px;left:4px;background:var(--blue);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px">VIDEO</span>' : '';
+      return '<div class="img-card' + (img.analyzing ? " analyzing" : "") + '" id="imgcard-' + img.id + '">' +
+      mediaEl + videoBadge +
+      '<div class="img-overlay">' + (img.analyzing ? "analysing..." : img.tagString + (img.usedCount ? " | used " + img.usedCount + "x" : "")) + '</div>' +
+      '<button class="img-del" onclick="removeImg(' + img.id + ')" title="Remove">&times;</button>' +
+      '</div>';
+  }).join("");
+}
+
+function removeImg(id) {
+  imageLibrary = imageLibrary.filter(function(img) { return img.id !== id; });
+  renderImgLibrary();
+  saveImageLibrary();
+}
+
+function findBestImage(postType) {
+  if (!imageLibrary.length) return null;
+  var ready = imageLibrary.filter(function(img) { return !img.analyzing; });
+  if (!ready.length) return null;
+  // Reset usage if all images have been used
+  var allUsed = ready.every(function(img) { return img.usedCount && img.usedCount > 0; });
+  if (allUsed) {
+    for (var i = 0; i < imageLibrary.length; i++) { imageLibrary[i].usedCount = 0; }
+    saveImageLibrary();
+  }
+  // Prefer unused first
+  var unused = ready.filter(function(img) { return !img.usedCount || img.usedCount === 0; });
+  var pool = unused.length ? unused : ready;
+  // Within pool prefer exact match
+  var exact = pool.filter(function(img) { return img.bestFor === postType; });
+  var picked = exact.length ? exact[Math.floor(Math.random() * exact.length)] : pool[Math.floor(Math.random() * pool.length)];
+  markImageUsed(picked.id);
+  return picked;
+}
+
+function markImageUsed(id) {
+  for (var i = 0; i < imageLibrary.length; i++) {
+    if (imageLibrary[i].id === id) {
+      imageLibrary[i].usedCount = (imageLibrary[i].usedCount || 0) + 1;
+      break;
+    }
+  }
+  saveImageLibrary();
+}
+
+function renderMatchedImage(postType) {
+  var existing = document.getElementById("matchedImgBox");
+  if (existing) existing.remove();
+  if (!imageLibrary.length) return;
+  var img = findBestImage(postType);
+  if (!img) return;
+  var card = document.getElementById("outputCard");
+  var box = document.createElement("div");
+  box.id = "matchedImgBox";
+  box.className = "matched-img";
+  var hostedBadge = img.hostedUrl ? ' <span style="font-size:10px;background:rgba(57,217,138,0.2);color:#39d98a;padding:2px 7px;border-radius:4px;font-weight:700">HOSTED</span>' : '';
+  var mediaPreview = img.isVideo
+    ? '<div style="display:flex;align-items:center;justify-content:center;height:200px;background:var(--surface2);font-size:48px;border-radius:var(--rs) var(--rs) 0 0">&#x1F3A5;</div>'
+    : '<img src="' + img.dataUrl + '" alt="Matched media" crossorigin="anonymous" />';
+  box.innerHTML = mediaPreview +
+    '<div class="matched-img-info">' +
+    '<span>' + img.filename + hostedBadge + '</span>' +
+    '<a href="' + img.dataUrl + '" download="' + img.filename + '" class="btn bc" style="padding:5px 12px;font-size:12px;text-decoration:none">&#x2913; Download</a>' +
+    '</div>';
+  card.appendChild(box);
+}
+
+function savePostHistory() {
+  try {
+    localStorage.setItem("sps_post_history", JSON.stringify(postHistory.slice(-20)));
+  } catch(e) {}
+}
+
+function loadPostHistory() {
+  try {
+    var saved = localStorage.getItem("sps_post_history");
+    if (saved) postHistory = JSON.parse(saved);
+  } catch(e) {}
+}
+
+function addToPostHistory(type, aud, text) {
+  // Extract first sentence as summary
+  var summary = text.split(/[.!?]/)[0].trim().substring(0, 80);
+  postHistory.push({type: type, aud: aud, summary: summary, date: new Date().toISOString().split("T")[0]});
+  if (postHistory.length > 20) postHistory = postHistory.slice(-20);
+  savePostHistory();
+}
+
+function getHistoryContext(type, aud) {
+  // Get recent posts of same type and audience
+  var relevant = postHistory.filter(function(p) {
+    return (p.type === type || p.aud === aud);
+  }).slice(-8);
+  if (!relevant.length) return "";
+  var summaries = relevant.map(function(p) { return p.summary; }).join("; ");
+  return " IMPORTANT — avoid repeating these recently used angles and opening lines: " + summaries + ". Use a completely different angle, structure and opening line.";
+}
+
+function swapQueueMedia(qid) {
+  // Find next unused image for this queue item
+  var item = null;
+  for (var i = 0; i < queue.length; i++) { if (queue[i].id === qid) { item = queue[i]; break; } }
+  if (!item) return;
+  var ready = imageLibrary.filter(function(img) { return !img.analyzing && img.id !== item.mediaId; });
+  if (!ready.length) { alert("No other photos available. Add more photos in the Images tab."); return; }
+  // Pick next one by type match or random
+  var exact = ready.filter(function(img) { return img.bestFor === item.type; });
+  var pool = exact.length ? exact : ready;
+  var picked = pool[Math.floor(Math.random() * pool.length)];
+  item.mediaId = picked.id;
+  renderQueue();
+}
+
+function removeQueueMedia(qid) {
+  for (var i = 0; i < queue.length; i++) {
+    if (queue[i].id === qid) { queue[i].mediaId = null; break; }
+  }
+  renderQueue();
+}
+
+function assignQueueMedia(qid) {
+  var item = null;
+  for (var i = 0; i < queue.length; i++) { if (queue[i].id === qid) { item = queue[i]; break; } }
+  if (!item) return;
+  var media = findBestImage(item.type);
+  if (media) { item.mediaId = media.id; renderQueue(); }
+}
+
+function renderQueue() {
+  var list = document.getElementById("queueList");
+  var now = new Date();
+  var we = new Date(now); we.setDate(now.getDate() + 7);
+  document.getElementById("statTotal").textContent = queue.length;
+  document.getElementById("statDue").textContent = queue.filter(function(q) { return new Date(q.date+"T"+q.time) <= now; }).length;
+  document.getElementById("statWeek").textContent = queue.filter(function(q) { var d = new Date(q.date+"T"+q.time); return d >= now && d <= we; }).length;
+  if (!queue.length) {
+    list.innerHTML = '<div class="empty"><div style="font-size:42px">&#x1F4CB;</div><p>No posts yet. Generate some or use auto-fill!</p></div>';
+    return;
+  }
+  var audLabels = {women:"Women 30+", men:"Men 40s/50s", everyone:"Everyone"};
+  var html = "";
+  for (var i = 0; i < queue.length; i++) {
+    var q = queue[i];
+    var due = new Date(q.date+"T"+q.time) <= now;
+    var prev = q.text.replace(/\n/g," ").substring(0,100) + (q.text.length > 100 ? "..." : "");
+    html += '<div class="qi"><div class="qicon" style="background:'+IBGS[q.type]+'">'+ICONS[q.type]+'</div>';
+    html += '<div class="qb"><span class="badge '+BADGE[q.type]+'">'+q.type+'</span>';
+    html += ' <span class="badge" style="background:rgba(61,139,255,0.15);color:var(--blue2)">'+(audLabels[q.aud]||q.aud)+'</span>';
+    if (due) html += ' <span class="badge" style="background:rgba(255,184,0,0.15);color:#ffb800">Due</span>';
+    html += '<div class="qp">'+prev+'</div><div class="qt">'+fmtDate(q.date)+' at '+q.time+'</div>';
+    // Find assigned media
+    var qMedia = null;
+    if (q.mediaId) {
+      for (var mi = 0; mi < imageLibrary.length; mi++) {
+        if (imageLibrary[mi].id === q.mediaId) { qMedia = imageLibrary[mi]; break; }
+      }
+    }
+    var mediaHtml = "";
+    if (qMedia) {
+      if (qMedia.isVideo) {
+        mediaHtml = '<div class="q-img"><div class="q-img-video">&#x1F3A5;</div>';
+      } else {
+        mediaHtml = '<div class="q-img"><img src="' + qMedia.dataUrl + '" alt="matched photo" crossorigin="anonymous" /></div>';
+      }
+      mediaHtml += '<div class="q-img-actions"><button class="btn bg" onclick="swapQueueMedia(' + q.id + ')">&#x21C4; Swap photo</button><button class="btn bg" onclick="removeQueueMedia(' + q.id + ')">&#x2715; Remove photo</button></div>';
+    } else if (imageLibrary.length) {
+      mediaHtml = '<div class="q-img-none">No photo assigned — <span style="cursor:pointer;color:var(--blue2)" onclick="assignQueueMedia(' + q.id + ')">click to assign</span></div>';
+    }
+    html += '<div class="qa"><button class="btn bc" onclick="copyQ('+q.id+')">&#x2398; Copy</button></div>';
+    html += mediaHtml;
+    html += '</div><button class="qdel" onclick="removeQ('+q.id+')">&times;</button></div>';
+  }
+  list.innerHTML = html;
+}
+
+function doWeek() {
+  var defTime = document.getElementById("defaultTime").value || "19:00";
+  var startInput = document.getElementById("planStartDate").value;
+  var today = startInput ? new Date(startInput + "T12:00:00") : new Date();
+  showPanel("queue");
+  document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x2726;</div><p>Generating 7 posts... about 30 seconds!</p></div>';
+  var i = 0;
+  function next() {
+    if (i >= 7) {
+      queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
+      renderQueue(); updateBadge();
+      showStatus("queueStatus", "7 posts ready! Copy each into Meta Business Suite.", "success");
+      return;
+    }
+    var d = new Date(today); d.setDate(today.getDate() + i);
+    var ds = d.toISOString().split("T")[0];
+    var type = CYCLE[i % CYCLE.length];
+    var aud = CYCLE_AUD[i % CYCLE_AUD.length];
+    var sys = aud === "women" ? SYS_WOMEN : (aud === "men" ? SYS_MEN : SYS_ALL);
+    var idx = i;
+    callAPI(sys, getPrompt(type, aud, ""), function(err, text) {
+      if (!err && text) {
+        var wMedia = imageLibrary.length ? findBestImage(type) : null;
+        queue.push({id: Date.now()+idx, type: type, aud: aud, text: text, date: ds, time: defTime, mediaId: wMedia ? wMedia.id : null});
+        queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
+        renderQueue(); updateBadge();
+      }
+      i++; next();
+    });
+  }
+  next();
+}
+
+function do30Days() {
+  if (!confirm("This will generate 30 posts — about 3-4 minutes. Ready?")) return;
+  var defTime = document.getElementById("defaultTime").value || "19:00";
+  var startInput = document.getElementById("planStartDate").value;
+  var today = startInput ? new Date(startInput + "T12:00:00") : new Date();
+  showPanel("queue");
+
+  var PLAN = [
+    {type:"motivation", aud:"women"},
+    {type:"bodyblast",  aud:"everyone"},
+    {type:"evidence",   aud:"women"},
+    {type:"myth",       aud:"everyone"},
+    {type:"motivation", aud:"men"},
+    {type:"quickwin",   aud:"women"},
+    {type:"evidence",   aud:"everyone"},
+    {type:"motivation", aud:"everyone"},
+    {type:"quickwin",   aud:"men"},
+    {type:"myth",       aud:"women"},
+    {type:"evidence",   aud:"men"},
+    {type:"motivation", aud:"women"},
+    {type:"quickwin",   aud:"everyone"},
+    {type:"myth",       aud:"men"},
+    {type:"motivation", aud:"everyone"},
+    {type:"evidence",   aud:"women"},
+    {type:"quickwin",   aud:"men"},
+    {type:"myth",       aud:"everyone"},
+    {type:"motivation", aud:"men"},
+    {type:"evidence",   aud:"everyone"},
+    {type:"bodyblast",  aud:"women"},
+    {type:"motivation", aud:"everyone"},
+    {type:"myth",       aud:"women"},
+    {type:"evidence",   aud:"men"},
+    {type:"bodyblast",  aud:"men"},
+    {type:"motivation", aud:"women"},
+    {type:"myth",       aud:"men"},
+    {type:"evidence",   aud:"everyone"},
+    {type:"quickwin",   aud:"women"},
+    {type:"motivation", aud:"men"}
+  ];
+
+  var total = PLAN.length;
+  var done = 0;
+  document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x1F4C5;</div><p>Generating 30 posts... <span id="prog30">0</span> of 30 done. This takes 3-4 minutes.</p></div>';
+
+  var i = 0;
+  function next() {
+    if (i >= total) {
+      queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
+      renderQueue(); updateBadge();
+      showStatus("queueStatus", "30 posts generated! Your full month is ready. Export CSV to upload to High Level.", "success");
+      return;
+    }
+    var d = new Date(today); d.setDate(today.getDate() + i);
+    var ds = d.toISOString().split("T")[0];
+    var plan = PLAN[i];
+    var sys = plan.aud === "women" ? SYS_WOMEN : (plan.aud === "men" ? SYS_MEN : SYS_ALL);
+    var idx = i;
+    callAPI(sys, getPrompt(plan.type, plan.aud, ""), function(err, text) {
+      done++;
+      var prog = document.getElementById("prog30");
+      if (prog) prog.textContent = done;
+      if (!err && text) {
+        var pMedia = imageLibrary.length ? findBestImage(plan.type) : null;
+        queue.push({id: Date.now()+idx, type: plan.type, aud: plan.aud, text: text, date: ds, time: defTime, mediaId: pMedia ? pMedia.id : null});
+        queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
+        renderQueue(); updateBadge();
+      }
+      i++; next();
+    });
+  }
+  next();
+}
+
+function exportCSV() {
+  if (!queue.length) {
+    alert("No posts in queue to export. Generate some posts first!");
+    return;
+  }
+
+  // High Level Basic Format: postAtSpecificTime (YYYY-MM-DD HH:mm:ss),content,link,imageUrls,gifUrl,videoUrls,thumbnailUrl
+  var headers = ["postAtSpecificTime (YYYY-MM-DD HH:mm:ss)", "content", "link (OGmetaUrl)", "imageUrls", "gifUrl", "videoUrls", "thumbnailUrl"];
+  var rows = [headers];
+
+  for (var i = 0; i < queue.length; i++) {
+    var q = queue[i];
+
+    // Combine date and time into YYYY-MM-DD HH:mm:ss format
+    var datetime = q.date + " " + q.time + ":00";
+
+    // Combine post text and hashtags into one content field
+    var fullText = q.text.replace(/"/g, '""');
+
+    // Find best matched image URL for this post
+    var imgUrl = "";
+    if (imageLibrary.length) {
+      var bestImg = findBestImage(q.type);
+      if (bestImg && bestImg.hostedUrl) imgUrl = bestImg.hostedUrl;
+    }
+    // Use pre-assigned media from queue item
+    var imageUrl = "";
+    var videoUrl = "";
+    if (q.mediaId) {
+      for (var mi = 0; mi < imageLibrary.length; mi++) {
+        if (imageLibrary[mi].id === q.mediaId) {
+          if (imageLibrary[mi].isVideo) { videoUrl = imageLibrary[mi].hostedUrl; }
+          else { imageUrl = imageLibrary[mi].hostedUrl; }
+          break;
+        }
+      }
+    }
+    rows.push([
+      datetime,
+      '"' + fullText + '"',
+      "",
+      imageUrl,
+      "",
+      videoUrl,
+      ""
+    ]);
+  }
+
+  var csv = rows.map(function(row) { return row.join(","); }).join("\n");
+  var blob = new Blob([csv], {type: "text/csv;charset=utf-8;"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  var now = new Date();
+  var fname = "sps-fitness-posts-" + now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0") + ".csv";
+  a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showStatus("queueStatus", "Downloaded " + queue.length + " posts in High Level format. Ready to upload!", "success");
+}
+
+function doClearQueue() {
+  if (!queue.length) return;
+  if (confirm("Clear all scheduled posts?")) { queue = []; renderQueue(); updateBadge(); }
+}
+
+function updateBadge() { document.getElementById("queueBadge").textContent = queue.length; }
+
+function fmtDate(d) {
+  return new Date(d+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
+}
+
+function showStatus(id, msg, type) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.className = "sb " + type;
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+function hideStatus(id) {
+  var el = document.getElementById(id);
+  if (el) el.style.display = "none";
+}
+
+function shiftCal(d) { calOff += d; renderCal(); }
+
+function renderCal() {
+  var today = new Date();
+  var ws = new Date(today);
+  ws.setDate(today.getDate() - ((today.getDay()+6)%7) + calOff*7);
+  var we = new Date(ws); we.setDate(ws.getDate()+6);
+  function fmt(d) { return d.toLocaleDateString("en-GB",{day:"numeric",month:"short"}); }
+  document.getElementById("calRange").textContent = fmt(ws) + " - " + fmt(we);
+  var days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  var html = "";
+  for (var i = 0; i < 7; i++) html += '<div class="cdh">'+days[i]+'</div>';
+  for (var i = 0; i < 7; i++) {
+    var d = new Date(ws); d.setDate(ws.getDate()+i);
+    var ds = d.toISOString().split("T")[0];
+    var isToday = ds === today.toISOString().split("T")[0];
+    var dp = queue.filter(function(q) { return q.date === ds; });
+    var dots = "";
+    for (var j = 0; j < dp.length; j++) dots += '<div class="cdot '+dp[j].type+'"></div>';
+    html += '<div class="cc'+(dp.length?" hp":"")+(isToday?" td":"")+'"><div class="cn">'+d.getDate()+'</div>'+dots+'</div>';
+  }
+  document.getElementById("calGrid").innerHTML = html;
+}
+
+loadImageLibrary();
+  loadPostHistory();
+renderQueue();
+renderCal();
+renderImgLibrary();
+</script>
+</body>
+</html>.tb[data-type="motivation"].sel{border-color:var(--blue);background:rgba(26,111,255,0.14);color:#fff;}
+.tb[data-type="myth"].sel{border-color:var(--cyan);background:rgba(0,229,255,0.1);color:#fff;}
+.tb[data-type="evidence"].sel{border-color:var(--green);background:rgba(57,217,138,0.1);color:#fff;}
+.tb[data-type="quickwin"].sel{border-color:var(--gold);background:rgba(255,184,0,0.1);color:#fff;}
+.tb[data-type="bodyblast"].sel{border-color:#ff3c78;background:rgba(255,60,120,0.12);color:#fff;}
+.cdot.bodyblast{background:#ff3c78;}
+.ag{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;}
+.ab{padding:12px 8px;border:1px solid var(--border);border-radius:var(--rs);background:var(--surface2);cursor:pointer;text-align:center;transition:all .15s;color:var(--muted);font-size:12px;font-weight:600;}
+.ab:hover{border-color:var(--border2);color:var(--text);}
+.ab.sel{border-color:var(--blue2);background:rgba(61,139,255,0.12);color:#fff;}
+input,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:12px 16px;outline:none;transition:border-color .15s;}
+input:focus,textarea:focus{border-color:var(--blue2);}
+input::placeholder,textarea::placeholder{color:var(--faint);}
+textarea{min-height:120px;resize:vertical;line-height:1.75;}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:11px 18px;border-radius:var(--rs);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;border:none;letter-spacing:.02em;white-space:nowrap;}
+.bp{background:var(--blue);color:#fff;width:100%;font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:3px;padding:14px;box-shadow:0 0 30px rgba(26,111,255,0.3);}
+.bp:hover{background:var(--blue2);}
+.bg{background:var(--surface2);color:var(--muted);border:1px solid var(--border);}
+.bg:hover{color:var(--text);border-color:var(--border2);}
+.bc{background:rgba(0,229,255,0.12);color:var(--cyan);border:1px solid rgba(0,229,255,0.25);}
+.bgreen{background:rgba(57,217,138,0.12);color:var(--green);border:1px solid rgba(57,217,138,0.25);}
+.br{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+.pb{background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:20px;font-size:15px;line-height:1.8;color:var(--text);white-space:pre-wrap;min-height:100px;}
+.pb.loading{color:var(--faint);font-style:italic;}
+.sb{padding:12px 16px;border-radius:var(--rs);font-size:13px;font-weight:500;margin-top:12px;display:none;}
+.sb.success{background:rgba(57,217,138,0.1);color:var(--green);border:1px solid rgba(57,217,138,0.2);}
+.sb.error{background:rgba(255,80,80,0.1);color:#ff6b6b;border:1px solid rgba(255,80,80,0.2);}
+.sb.info{background:rgba(26,111,255,0.1);color:var(--blue2);border:1px solid rgba(26,111,255,0.2);}
+.sf{background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:20px;margin-top:14px;display:none;}
+.sr{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.sl{font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;}
+.sh{font-size:12px;color:var(--faint);margin-top:5px;line-height:1.55;}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;}
+.sc{background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:18px 20px;}
+.sn{font-family:'Bebas Neue',sans-serif;font-size:36px;line-height:1;margin-bottom:4px;}
+.sk{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+.qi{background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:14px;}
+.qicon{width:42px;height:42px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.qb{flex:1;min-width:0;}
+.qp{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px;}
+.qt{font-size:11px;color:var(--faint);margin-top:5px;}
+.qa{display:flex;gap:6px;margin-top:9px;}
+.qa .btn{padding:5px 12px;font-size:12px;}
+.qdel{background:none;border:none;color:var(--faint);cursor:pointer;padding:2px 4px;font-size:22px;line-height:1;flex-shrink:0;}
+.qdel:hover{color:#ff6b6b;}
+.q-img{width:100%;border-radius:var(--rs);overflow:hidden;margin-top:8px;position:relative;}
+.q-img img{width:100%;max-height:160px;object-fit:cover;display:block;}
+.q-img-video{height:80px;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:32px;border-radius:var(--rs);}
+.q-img-none{height:60px;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--faint);border-radius:var(--rs);}
+.q-img-actions{display:flex;gap:6px;margin-top:6px;}
+.q-img-actions .btn{padding:4px 10px;font-size:11px;}
+.badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:4px;}
+.bm{background:rgba(26,111,255,0.2);color:var(--blue2);}
+.bmyth{background:rgba(0,229,255,0.15);color:var(--cyan);}
+.be{background:rgba(57,217,138,0.15);color:var(--green);}
+.bq{background:rgba(255,184,0,0.15);color:var(--gold);}
+.bbb{background:rgba(255,60,120,0.2);color:#ff3c78;}
+.cnr{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.cnb{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 16px;border-radius:var(--rs);cursor:pointer;font-size:16px;}
+.cnb:hover{border-color:var(--blue2);color:var(--blue2);}
+.crl{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;flex:1;text-align:center;color:#fff;}
+.cgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+.cdh{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);text-align:center;padding:5px 0;}
+.cc{min-height:72px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:8px;}
+.cc.hp{border-color:rgba(26,111,255,0.35);background:rgba(26,111,255,0.06);}
+.cc.td{border-color:var(--blue2);}
+.cn{font-size:13px;font-weight:600;margin-bottom:5px;color:var(--muted);}
+.cc.td .cn{color:var(--blue2);}
+.cdot{width:8px;height:8px;border-radius:50%;margin:2px 0;}
+.cdot.motivation{background:var(--blue);}
+.cdot.myth{background:var(--cyan);}
+.cdot.evidence{background:var(--green);}
+.cdot.quickwin{background:var(--gold);}
+.cleg{display:flex;gap:18px;flex-wrap:wrap;margin-top:16px;}
+.cli{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);}
+.empty{text-align:center;padding:52px 24px;color:var(--faint);}
+.empty p{font-size:14px;line-height:1.6;margin-top:12px;}
+.hs{display:flex;gap:12px;margin-bottom:14px;align-items:flex-start;}
+.hn{width:28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+.ht{font-size:13px;color:var(--muted);line-height:1.6;}
+.ht strong{color:var(--text);}
+.ht a{color:var(--blue2);text-decoration:none;}
+.drop-zone{border:2px dashed var(--border2);border-radius:var(--r);padding:40px 24px;text-align:center;cursor:pointer;transition:all .2s;color:var(--muted);}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--blue2);background:rgba(26,111,255,0.05);color:var(--text);}
+.drop-zone svg{width:36px;height:36px;margin-bottom:12px;stroke:currentColor;fill:none;stroke-width:1.5;}
+.img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:16px;}
+.img-card{position:relative;border-radius:var(--rs);overflow:hidden;border:1px solid var(--border);background:var(--surface2);aspect-ratio:1;}
+.img-card img{width:100%;height:100%;object-fit:cover;display:block;}
+.img-card .img-overlay{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.7);padding:6px 8px;font-size:10px;color:rgba(255,255,255,0.7);line-height:1.4;}
+.img-card .img-del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);border:none;color:#fff;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}
+.img-card .img-del:hover{background:rgba(255,60,60,0.8);}
+.img-card.analyzing{opacity:0.6;}
+.img-card.selected{border-color:var(--blue2);box-shadow:0 0 0 2px var(--blue2);}
+.matched-img{margin-top:16px;border-radius:var(--rs);overflow:hidden;border:1px solid var(--border2);}
+.matched-img img{width:100%;max-height:280px;object-fit:cover;display:block;}
+.matched-img-info{padding:10px 14px;background:var(--surface2);font-size:13px;color:var(--muted);display:flex;align-items:center;justify-content:space-between;}
+.tb[data-type="tip"].sel{border-color:#a78bfa;background:rgba(167,139,250,0.12);color:#fff;}
+.tb[data-type="win"].sel{border-color:#f59e0b;background:rgba(245,158,11,0.12);color:#fff;}
+.tb[data-type="challenge"].sel{border-color:#10b981;background:rgba(16,185,129,0.12);color:#fff;}
+.tb[data-type="nutrition"].sel{border-color:#f97316;background:rgba(249,115,22,0.12);color:#fff;}
+.infographic-preview{margin-top:16px;border-radius:var(--rs);overflow:hidden;border:1px solid var(--border2);}
+.infographic-preview svg{display:block;width:100%;}
+.infographic-actions{padding:10px 14px;background:var(--surface2);display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--muted);}
+@media(max-width:680px){.sidebar{display:none;}.tg{grid-template-columns:repeat(2,1fr);}.ag{grid-template-columns:repeat(3,1fr);}.stats{grid-template-columns:1fr 1fr;}.main{padding:20px 16px 48px;}.pt{font-size:28px;}}
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="logo">SPS <span>FITNESS</span></div>
+</header>
+<div class="app">
+  <nav class="sidebar">
+    <div class="ns">Content</div>
+    <div class="ni active" id="nav-generate" onclick="showPanel('generate')">
+      <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Generate
+    </div>
+    <div class="ni" id="nav-queue" onclick="showPanel('queue')">
+      <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>Queue<span class="nb" id="queueBadge">0</span>
+    </div>
+    <div class="ni" id="nav-calendar" onclick="showPanel('calendar')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Calendar
+    </div>
+    <div class="ni" id="nav-members" onclick="showPanel('members')">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>Members
+    </div>
+    <div class="ns">App</div>
+    <div class="ni" id="nav-images" onclick="showPanel('images')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Images
+    </div>
+    <div class="ni" id="nav-settings" onclick="showPanel('settings')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Settings
+    </div>
+  </nav>
+  <main class="main">
+
+    <div class="panel active" id="panel-generate">
+      <div class="pt">Create a <span>post</span></div>
+      <div class="ps">Sharp, specific content for your SPS community</div>
+      <div class="al"></div>
+      <div class="card">
+        <div class="cl">Who is this post for?</div>
+        <div class="ag">
+          <div class="ab sel" id="aud-everyone" onclick="selectAud('everyone')">&#x1F465; Everyone</div>
+          <div class="ab" id="aud-women" onclick="selectAud('women')">&#x1F469; Women 30+</div>
+          <div class="ab" id="aud-men" onclick="selectAud('men')">&#x1F468; Men 40s/50s</div>
+        </div>
+        <div class="cl">Post type</div>
+        <div class="tg" style="grid-template-columns:repeat(5,1fr)">
+          <div class="tb sel" data-type="motivation" id="tb-motivation" onclick="selectType('motivation')"><div class="ti">&#x1F525;</div><div class="tl">Motivation</div></div>
+          <div class="tb" data-type="myth" id="tb-myth" onclick="selectType('myth')"><div class="ti">&#x1F4A1;</div><div class="tl">Myth bust</div></div>
+          <div class="tb" data-type="evidence" id="tb-evidence" onclick="selectType('evidence')"><div class="ti">&#x1F52C;</div><div class="tl">Evidence</div></div>
+          <div class="tb" data-type="quickwin" id="tb-quickwin" onclick="selectType('quickwin')"><div class="ti">&#x26A1;</div><div class="tl">Quick win</div></div>
+          <div class="tb" data-type="bodyblast" id="tb-bodyblast" onclick="selectType('bodyblast')" style="border-color:rgba(255,60,120,0.4)"><div class="ti">&#x1F4AA;</div><div class="tl">Bodyblast</div></div>
+        </div>
+        <div class="cl">Focus <span style="font-weight:400;text-transform:none;font-size:12px;color:var(--faint)">(optional)</span></div>
+        <input type="text" id="extraCtx" placeholder="e.g. Monday energy, strength training, sleep, stress..." style="margin-bottom:18px" />
+        <button class="btn bp" id="genBtn" onclick="doGenerate()">&#x2726; GENERATE POST</button>
+      </div>
+      <div class="card" id="outputCard" style="display:none">
+        <div class="cl">Your post</div>
+        <div class="pb" id="postOutput">...</div>
+        <div class="br">
+          <button class="btn bg" onclick="doGenerate()">&#x21BA; Regenerate</button>
+          <button class="btn bg" onclick="doEdit()">&#x270E; Edit</button>
+          <button class="btn bc" onclick="doSchedOpen()">&#x1F4C5; Schedule</button>
+          <button class="btn bg" onclick="doCopy()">&#x2398; Copy</button>
+        </div>
+        <div class="sb" id="outStatus"></div>
+      </div>
+      <div class="sf" id="schedForm">
+        <div class="cl" style="margin-bottom:14px">Schedule this post</div>
+        <div class="sr">
+          <div><div class="sl">Date</div><input type="date" id="schedDate" /></div>
+          <div><div class="sl">Time</div><input type="time" id="schedTime" value="19:00" /></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn bgreen" style="flex:1" onclick="doAddQueue()">&#x2713; Add to queue</button>
+          <button class="btn bg" onclick="doSchedClose()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-queue">
+      <div class="pt">Scheduled <span>queue</span></div>
+      <div class="ps">Copy each post into Meta Business Suite to schedule it</div>
+      <div class="al"></div>
+      <div class="stats">
+        <div class="sc"><div class="sn" id="statTotal" style="color:var(--blue2)">0</div><div class="sk">Scheduled</div></div>
+        <div class="sc"><div class="sn" id="statDue" style="color:var(--gold)">0</div><div class="sk">Due now</div></div>
+        <div class="sc"><div class="sn" id="statWeek" style="color:var(--cyan)">0</div><div class="sk">This week</div></div>
+      </div>
+      <div class="card" style="margin-bottom:16px;padding:16px 20px">
+        <div class="cl" style="margin-bottom:8px">Start date for auto-fill</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <input type="date" id="planStartDate" style="max-width:200px" />
+          <span style="font-size:13px;color:var(--muted)">Leave blank to start from today</span>
+        </div>
+      </div>
+      <div class="br" style="margin-bottom:20px">
+        <button class="btn bp" style="flex:1" onclick="doWeek()">&#x2726; 7 DAYS</button>
+        <button class="btn bc" style="flex:1" onclick="do30Days()">&#x1F4C5; 30 DAYS</button>
+        <button class="btn bgreen" onclick="exportCSV()">&#x2B07; Export CSV</button>
+        <button class="btn bg" onclick="doClearQueue()">&#x1F5D1; Clear</button>
+      </div>
+      <div class="sb" id="queueStatus" style="margin-bottom:12px"></div>
+      <div id="queueList"></div>
+    </div>
+
+    <div class="panel" id="panel-calendar">
+      <div class="pt">Content <span>calendar</span></div>
+      <div class="ps">Your weekly content at a glance</div>
+      <div class="al"></div>
+      <div class="cnr">
+        <button class="cnb" onclick="shiftCal(-1)">&#x2039;</button>
+        <div class="crl" id="calRange"></div>
+        <button class="cnb" onclick="shiftCal(1)">&#x203A;</button>
+      </div>
+      <div class="cgrid" id="calGrid"></div>
+      <div class="cleg">
+        <div class="cli"><div class="cdot motivation"></div>Motivation</div>
+        <div class="cli"><div class="cdot myth"></div>Myth busting</div>
+        <div class="cli"><div class="cdot evidence"></div>Evidence based</div>
+        <div class="cli"><div class="cdot quickwin"></div>Quick win</div>
+        <div class="cli"><div class="cdot bodyblast"></div>Bodyblast</div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-images">
+      <div class="pt">Image <span>library</span></div>
+      <div class="ps">Syncs automatically from your SPS Fitness Google Drive folder. Drop photos in the folder — they appear here.</div>
+      <div class="al"></div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px">Google Drive sync</div>
+            <div style="font-size:13px;color:var(--muted)">Add photos to your <a href="https://drive.google.com/drive/folders/1611vCEdMo-ikeYBzhjv0LqYtTqo3ewnG" target="_blank" style="color:var(--blue2)">SPS Fitness Photos</a> folder on Google Drive</div>
+          </div>
+          <button class="btn bp" style="width:auto;font-size:14px;letter-spacing:1px;padding:10px 20px" onclick="syncDrive()">&#x21BA; SYNC NOW</button>
+        </div>
+        <div class="sb" id="imgStatus"></div>
+      </div>
+      <div class="card" id="imgLibraryCard" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="cl" style="margin-bottom:0">Your photos (<span id="imgCount">0</span>)</div>
+          <button class="btn bg" style="font-size:12px;padding:5px 12px" onclick="clearAllImages()">Clear all</button>
+        </div>
+        <div class="img-grid" id="imgGrid"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-members">
+      <div class="pt">Member <span>content</span></div>
+      <div class="ps">Posts for your existing members — warmer, more personal, community-focused</div>
+      <div class="al"></div>
+      <div class="card">
+        <div class="cl">Post type</div>
+        <div class="tg" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+          <div class="tb sel" data-type="tip" id="mtb-tip" onclick="selectMemberType('tip')"><div class="ti">&#x1F3CB;</div><div class="tl">Training tip</div></div>
+          <div class="tb" data-type="win" id="mtb-win" onclick="selectMemberType('win')"><div class="ti">&#x1F3C6;</div><div class="tl">Member win</div></div>
+          <div class="tb" data-type="challenge" id="mtb-challenge" onclick="selectMemberType('challenge')"><div class="ti">&#x26A1;</div><div class="tl">Challenge</div></div>
+          <div class="tb" data-type="nutrition" id="mtb-nutrition" onclick="selectMemberType('nutrition')"><div class="ti">&#x1F957;</div><div class="tl">Nutrition</div></div>
+        </div>
+        <div class="cl" style="margin-bottom:8px">Include infographic?</div>
+        <div class="ag" style="margin-bottom:16px">
+          <div class="ab sel" id="infog-no" onclick="selectInfographic('no')">Text post only</div>
+          <div class="ab" id="infog-yes" onclick="selectInfographic('yes')">&#x1F4CA; With infographic</div>
+        </div>
+        <div class="cl">Focus <span style="font-weight:400;text-transform:none;font-size:12px;color:var(--faint)">(optional)</span></div>
+        <input type="text" id="memberCtx" placeholder="e.g. sleep, recovery, leg day, protein, consistency..." style="margin-bottom:18px" />
+        <button class="btn bp" onclick="doGenerateMember()">&#x2726; GENERATE MEMBER POST</button>
+      </div>
+      <div class="card" id="memberOutputCard" style="display:none">
+        <div class="cl">Your post</div>
+        <div class="pb" id="memberPostOutput">...</div>
+        <div id="memberInfographicPreview"></div>
+        <div class="br">
+          <button class="btn bg" onclick="doGenerateMember()">&#x21BA; Regenerate</button>
+          <button class="btn bg" onclick="doMemberEdit()">&#x270E; Edit</button>
+          <button class="btn bg" onclick="doMemberCopy()">&#x2398; Copy</button>
+        </div>
+        <div class="sb" id="memberStatus"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-settings">
+      <div class="pt">Settings</div>
+      <div class="ps">Configure defaults</div>
+      <div class="al"></div>
+      <div class="card">
+        <div class="cl">Default post time</div>
+        <input type="time" id="defaultTime" value="19:00" style="max-width:180px;margin-bottom:6px" />
+        <div class="sh">Auto-fill posts will use this time daily</div>
+      </div>
+      <div class="card">
+        <div class="cl">How to publish posts</div>
+        <div class="hs"><div class="hn">1</div><div class="ht">Generate your post and click <strong>Copy</strong></div></div>
+        <div class="hs"><div class="hn">2</div><div class="ht">Go to <a href="https://business.facebook.com" target="_blank">business.facebook.com</a> &rarr; <strong>Planner</strong> &rarr; <strong>Create post</strong></div></div>
+        <div class="hs"><div class="hn">3</div><div class="ht">Paste, click arrow next to Post now &rarr; <strong>Schedule</strong> &rarr; pick date and time</div></div>
+        <div class="hs"><div class="hn">4</div><div class="ht">Use <strong>Auto-fill 7 days</strong> to batch your whole week every Monday</div></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+var selType = "motivation";
+var selAud = "everyone";
+var curPost = "";
+var queue = [];
+var calOff = 0;
+var postHistory = []; // tracks recent posts to avoid repetition
+var imageLibrary = []; // {id, dataUrl, filename, tags, tagString, hostedUrl}
+// ImgBB key is stored server-side
+
 var SYS_BASE = "You write Facebook posts for SPS Fitness, a small group personal training gym in Halesowen, West Midlands. Maximum 12 people per session. Run by Sam and Kate. The tone is straight-talking, warm, specific and real — never generic, never preachy, never corporate. Posts feel like they come from a knowledgeable friend who gets real life. Short sentences. Direct. Occasionally dry or funny. Never waffy. Vary the CTA — sometimes a question, sometimes invite a comment, sometimes just make them think. Max 3 hashtags. Under 180 words. British English. MEMBER INTELLIGENCE — these are real themes from SPS Fitness member reviews, use them to make posts feel specific and real: members often felt intimidated by regular gyms before joining; many had tried other gyms and been let down; several came back after illness or long gaps; results go beyond weight loss — members say they feel the fittest they have ever been; members did not expect to actually enjoy training but did; the small group of max 12 people makes people feel seen and not lost in a crowd; a different workout every time keeps it from getting boring; Sam understands each person's fitness level and pushes them correctly; the atmosphere is described as supportive and community-like; members often say they wish they had found it sooner. Draw on these real experiences to make posts feel authentic and specific to this community. STRICT FORMATTING RULES: Never use dash symbols (-) or em dashes to start lines or separate ideas — use full stops or line breaks instead. Never end with meta-commentary like 'That is it. That is the post.' or 'Simple as that.' or any self-referential closing line. Just end the post naturally on the message itself. Never use markdown formatting — no asterisks, no bold, no bullet points with asterisks, no **text**. Plain text only. Never use the phrase your future self will thank you or any variation of it. Avoid overused fitness clichés like DOMS, beast mode, level up, game changer, hustle, grind, feel the burn, trust the process — use them sparingly if ever, and never in consecutive posts.";
 
 var SYS_WOMEN = SYS_BASE + " This post is specifically for women over 30. These women are juggling full-time work, kids, partners, school runs, and not enough hours in the day. They are time-poor, often exhausted, and have probably tried and failed at fitness before — including other gyms that felt intimidating or impersonal. They are smart and do not need lecturing. Be specific about the reality of life over 30 for women: hormones, perimenopause, metabolism changes, guilt about not doing enough, fitting exercise around chaos. Some are coming back after illness, injury or years away from exercise. Many feel stuck and do not know where to start. The SPS difference that resonates with them: small groups so you are never lost in a crowd, sessions tailored to your level, actually enjoying training for the first time, feeling the fittest they have ever been not just lighter. Never use these phrases: ladies, girls, you need to, you should, your future self, no judgement, no judgment, no pressure, we are all in the same boat, most of us are in the same boat, honestly, and honestly, just curious, just putting it out there, your future self will thank you, future you will thank you.";
