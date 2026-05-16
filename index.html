@@ -352,6 +352,8 @@ var curPost = "";
 var queue = [];
 var calOff = 0;
 var postHistory = []; // tracks recent posts to avoid repetition
+var SHEETS_URL = "https://script.google.com/macros/s/AKfycbyPSdZtx3IXDfiYfqwjKN1b5o-7sr43By0bvz9OlfOnaDQGFaicgEmgjkvKG1IR6wkpDQ/exec";
+var sheetsReady = false;
 var imageLibrary = []; // {id, dataUrl, filename, tags, tagString, hostedUrl}
 // ImgBB key is stored server-side
 var SPS_LOGO = new Image();
@@ -1231,6 +1233,7 @@ function saveImageLibrary() {
     });
     localStorage.setItem("sps_image_library", JSON.stringify(toSave));
   } catch(e) {}
+  saveImagesToSheets();
 }
 
 function loadImageLibrary() {
@@ -1304,10 +1307,77 @@ function markImageUsed(id) {
   saveImageLibrary();
 }
 
+// ── GOOGLE SHEETS BACKEND ─────────────────────────────────────────────────
+
+function sheetsGet(action, cb) {
+  fetch(SHEETS_URL + "?action=" + action)
+    .then(function(r) { return r.json(); })
+    .then(function(d) { cb(null, d); })
+    .catch(function(e) { cb(e.message); });
+}
+
+function sheetsPost(action, data, cb) {
+  fetch(SHEETS_URL + "?action=" + action, {
+    method: "POST",
+    body: JSON.stringify(data)
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) { cb(null, d); })
+  .catch(function(e) { cb(e.message); });
+}
+
+function loadFromSheets(cb) {
+  // Load all three stores in parallel
+  var results = {};
+  var done = 0;
+  function check() { done++; if (done === 3 && cb) cb(); }
+
+  sheetsGet("getImages", function(err, d) {
+    if (!err && d.images && d.images.length) {
+      imageLibrary = d.images;
+      renderImgLibrary();
+    }
+    check();
+  });
+
+  sheetsGet("getHistory", function(err, d) {
+    if (!err && d.history) postHistory = d.history;
+    check();
+  });
+
+  sheetsGet("getQueue", function(err, d) {
+    if (!err && d.queue && d.queue.length) {
+      queue = d.queue;
+      renderQueue();
+      updateBadge();
+    }
+    check();
+  });
+}
+
+function saveImagesToSheets() {
+  sheetsPost("saveImages", { images: imageLibrary }, function(err) {
+    if (err) console.warn("Sheets image save failed:", err);
+  });
+}
+
+function saveHistoryToSheets() {
+  sheetsPost("saveHistory", { history: postHistory }, function(err) {
+    if (err) console.warn("Sheets history save failed:", err);
+  });
+}
+
+function saveQueueToSheets() {
+  sheetsPost("saveQueue", { queue: queue }, function(err) {
+    if (err) console.warn("Sheets queue save failed:", err);
+  });
+}
+
 function savePostHistory() {
   try {
     localStorage.setItem("sps_post_history", JSON.stringify(postHistory.slice(-20)));
   } catch(e) {}
+  saveHistoryToSheets();
 }
 
 function loadPostHistory() {
@@ -1582,7 +1652,10 @@ function doClearQueue() {
   if (confirm("Clear all scheduled posts?")) { queue = []; renderQueue(); updateBadge(); }
 }
 
-function updateBadge() { document.getElementById("queueBadge").textContent = queue.length; }
+function updateBadge() {
+  document.getElementById("queueBadge").textContent = queue.length;
+  saveQueueToSheets();
+}
 
 function fmtDate(d) {
   return new Date(d+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
@@ -1627,6 +1700,13 @@ function renderCal() {
 
 loadImageLibrary();
   loadPostHistory();
+  // Load from Google Sheets (overrides localStorage if data exists)
+  loadFromSheets(function() {
+    renderImgLibrary();
+    renderQueue();
+    renderCal();
+    updateBadge();
+  });
 renderQueue();
 renderCal();
 renderImgLibrary();
