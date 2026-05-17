@@ -316,7 +316,7 @@ const DIFF = {
 const TM = {
   upper:  {l:'Upper',  tc:'tc-upper', bias:'upper',  def:'6x2', dd:'moderate'},
   legs:   {l:'Legs',   tc:'tc-legs',  bias:'legs',   def:'6x2', dd:'moderate'},
-  cardio: {l:'Cardio', tc:'tc-cardio',bias:'cardio', def:'12x1',dd:'intense'},
+  cardio: {l:'Cardio', tc:'tc-cardio',bias:'cardio', def:'6x2',dd:'intense'},
   mixed:  {l:'Mixed',  tc:'tc-mixed', bias:'mixed',  def:'6x2', dd:'moderate'}
 };
 
@@ -1019,7 +1019,7 @@ const TPLS = {
 
 function applyTemplate(name){
   const t = TPLS[name];
-  cfg = t.map((type,i)=>({type, fmt:TM[type].def, diff:cfg[i]?.diff||'moderate', rest:false}));
+  cfg = t.map((type,i)=>({type, fmt:type==='cardio'?(Math.random()>.5?'12x1':'6x2'):TM[type].def, diff:cfg[i]?.diff||'moderate', rest:false}));
   renderCfg();
 }
 
@@ -1035,7 +1035,7 @@ function updateBanner(){
   else{           el.classList.add('b-warn'); msg.innerHTML=`<strong>${n} cardio sessions — max 2 per week</strong>`;}
 }
 
-function updType(i,v){ cfg[i].type=v; if(v==='cardio'&&cfg[i].fmt==='4x3') cfg[i].fmt='12x1'; renderCfg(); }
+function updType(i,v){ cfg[i].type=v; if(v==='cardio') cfg[i].fmt=Math.random()>.5?'12x1':'6x2'; renderCfg(); }
 function updFmt(i,v){  cfg[i].fmt=v;  renderCfg(); }
 function setDiff(i,v){ cfg[i].diff=v; renderCfg(); }
 function togRest(i){
