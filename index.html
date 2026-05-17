@@ -944,7 +944,31 @@ function buildStations(type, fmt, bias, day, diff, excl=[], thisWeekUsed=[], his
 }
 
 // ── STATE ──────────────────────────────────────────────────────
-function assignDifficulties(types){
+function getCardioFmt(cardioCount, formats){
+  // For double cardio weeks always use one 12x1 and one 6x2
+  if(cardioCount > 1){
+    const used = formats.filter(f=>f!==null);
+    if(!used.includes('12x1')) return '12x1';
+    if(!used.includes('6x2'))  return '6x2';
+  }
+  return Math.random()>.5 ? '12x1' : '6x2';
+}
+
+function buildLayout(layout){
+  const diffs = assignDifficulties(layout);
+  const cardioCount = layout.filter(t=>t==='cardio').length;
+  const cardioFmts = []; // track which formats have been assigned
+  return layout.map((type,i)=>{
+    let fmt;
+    if(type==='cardio'){
+      fmt = getCardioFmt(cardioCount, cardioFmts);
+      cardioFmts.push(fmt);
+    } else {
+      fmt = TM[type].def;
+    }
+    return { type, fmt, diff:diffs[i], rest:false };
+  });
+}
   let streak=0;
   return types.map((type,i)=>{
     let diff;
@@ -962,19 +986,7 @@ function assignDifficulties(types){
 
 function smartLayout(){
   const layout=LAYOUTS[Math.floor(Math.random()*LAYOUTS.length)];
-  const diffs=assignDifficulties(layout);
-  const cardioCount=layout.filter(t=>t==='cardio').length;
-  let cardioFormatToggle=Math.random()>.5; // first cardio gets 12x1 or 6x2 randomly
-  return layout.map((type,i)=>({
-    type,
-    fmt: type==='cardio'
-      ? (cardioCount>1
-          ? (cardioFormatToggle=!cardioFormatToggle, cardioFormatToggle?'6x2':'12x1') // alternate formats
-          : (Math.random()>.5?'12x1':'6x2')) // single cardio — random
-      : TM[type].def,
-    diff:diffs[i],
-    rest:false
-  }));
+  return buildLayout(layout);
 }
 
 function smartLayoutWithHistory(){
@@ -984,22 +996,12 @@ function smartLayoutWithHistory(){
     layout,idx,penalty:layoutHistoryPenalty(layout)
   })).sort((a,b)=>a.penalty-b.penalty+(Math.random()-.5)*2);
   const best=scored[0].layout;
-  const diffs=assignDifficulties(best);
+  const result=buildLayout(best);
+  // Sanity check streak
   let streak=0,ok=true;
-  diffs.forEach(d=>{ if(d==='intense'||d==='max'){streak++;if(streak>=3)ok=false;}else streak=0; });
+  result.forEach(d=>{ if(d.diff==='intense'||d.diff==='max'){streak++;if(streak>=3)ok=false;}else streak=0; });
   if(!ok) return smartLayoutWithHistory();
-  const cardioCount=best.filter(t=>t==='cardio').length;
-  let cardioFormatToggle=Math.random()>.5;
-  return best.map((type,i)=>({
-    type,
-    fmt: type==='cardio'
-      ? (cardioCount>1
-          ? (cardioFormatToggle=!cardioFormatToggle, cardioFormatToggle?'6x2':'12x1')
-          : (Math.random()>.5?'12x1':'6x2'))
-      : TM[type].def,
-    diff:diffs[i],
-    rest:false
-  }));
+  return result;
 }
 
 let cfg = smartLayoutWithHistory();
