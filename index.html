@@ -1507,10 +1507,23 @@ function validateWeek(){
     const allEx=s.stations.flatMap(st=>st.exercises);
     const names=allEx.map(e=>e.n), equips=allEx.map(e=>e.e);
     const cs_c=equips.filter(e=>e==='cable_single').length, cb_c=equips.filter(e=>e==='cable_both').length;
-    if(cb_c>1)                errs.push({r:'Cable',d:DAYS[s.di],m:'Max 1 dual-cable exercise per session'});
-    else if(cb_c===1&&cs_c>0) errs.push({r:'Cable',d:DAYS[s.di],m:'Dual-cable + single-cable conflict'});
-    else if(cs_c>2)           errs.push({r:'Cable',d:DAYS[s.di],m:`${cs_c} cable exercises — max 2 single`});
+    // Find the offending exercise to swap out
+    const cableOffender = cb_c>1
+      ? allEx.filter(e=>e.e==='cable_both')[1]?.n  // second dual cable
+      : cb_c===1&&cs_c>0
+        ? allEx.find(e=>e.e==='cable_single')?.n    // single cable when dual exists
+        : cs_c>2
+          ? allEx.filter(e=>e.e==='cable_single')[2]?.n  // third single cable
+          : null;
+    if(cb_c>1)                errs.push({r:'Cable',d:DAYS[s.di],m:'Max 1 dual-cable exercise per session',fday:s.di,ftype:'cable',fextra:cableOffender||'',fl:'Fix'});
+    else if(cb_c===1&&cs_c>0) errs.push({r:'Cable',d:DAYS[s.di],m:'Dual-cable + single-cable conflict',fday:s.di,ftype:'cable',fextra:cableOffender||'',fl:'Fix'});
+    else if(cs_c>2)           errs.push({r:'Cable',d:DAYS[s.di],m:`${cs_c} cable exercises — max 2 single`,fday:s.di,ftype:'cable',fextra:cableOffender||'',fl:'Fix'});
     else                      oks.push ({r:'Cable',d:DAYS[s.di],m:`Cable OK — ${cs_c} single${cb_c?' + 1 dual':''} ✓`});
+
+    // Cable attachment: max 1 attachment exercise per session
+    const CABLE_ATTACH_V=['Facepull','Tricep Pulldown','Cable Tricep Ext','Cable Bicep Curl','Lat Pulldown','Woodchops','Cable Crunch'];
+    const attachEx=names.filter(n=>CABLE_ATTACH_V.includes(n));
+    if(attachEx.length>1) errs.push({r:'Cable',d:DAYS[s.di],m:`Same cable attachment: ${attachEx.join(' + ')}`,fday:s.di,ftype:'cable',fextra:attachEx[1],fl:'Fix'});
 
     const b1n=names.filter(n=>BAY1.includes(n)), b2n=names.filter(n=>BAY2.includes(n));
     if(b1n.length>1) errs.push({r:'Rack',d:DAYS[s.di],m:`Bay 1 conflict: ${b1n.join(' + ')}`});
@@ -1643,6 +1656,29 @@ function doFix(di,ft,extra){
   if(ft==='consecutive'){
     const conflicts=extra.split('|').filter(Boolean);
     s.stations.forEach(st=>{ st.exercises.forEach((ex,ei)=>{ if(conflicts.includes(ex.n)){ const r=p.find(x=>!adj.includes(x.n)&&!allUsed.filter(n=>n!==ex.n).includes(x.n)&&x.n!==ex.n); if(r){allUsed[allUsed.indexOf(ex.n)]=r.n;st.exercises[ei]={...r};}} }); });
+  } else if(ft==='cable'){
+    // Swap offending cable exercise with a non-cable exercise from the same pool
+    let done=false;
+    const sessionUsed=allUsed.filter(n=>n!==extra);
+    s.stations.forEach(st=>{ st.exercises.forEach((ex,ei)=>{ if(!done&&ex.n===extra){
+      const partner=st.exercises.find((_,pi)=>pi!==ei);
+      // Find replacement that is NOT cable equipment
+      const r=p.find(x=>
+        x.n!==extra &&
+        !adj.includes(x.n) &&
+        !sessionUsed.includes(x.n) &&
+        x.e!=='cable_single' &&
+        x.e!=='cable_both' &&
+        (!partner||goodPair(partner,x))
+      ) || p.find(x=>
+        x.n!==extra &&
+        !adj.includes(x.n) &&
+        !sessionUsed.includes(x.n) &&
+        x.e!=='cable_single' &&
+        x.e!=='cable_both'
+      );
+      if(r){st.exercises[ei]={...r};done=true;}
+    }}); });
   } else if(ft==='dualmachine'){
     let done=false;
     const sessionUsed=allUsed.filter(n=>n!==extra);
