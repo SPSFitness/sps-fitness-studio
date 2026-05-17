@@ -1862,46 +1862,47 @@ function exportPDF(){
     background:#fff;
     width:210mm;
     margin:0 auto 10mm;
-    padding:10mm 12mm 8mm;
+    padding:8mm 10mm 6mm;
     display:flex;
     flex-direction:column;
-    gap:5mm;
+    gap:3mm;
     page-break-after:always;
     page-break-inside:avoid;
+    overflow:hidden;
   }
   /* ── PAGE HEADER ── */
   .page-header{
     display:flex;
     align-items:center;
-    gap:8mm;
-    border-bottom:3px solid #111;
-    padding-bottom:6mm;
+    gap:5mm;
+    border-bottom:2px solid #111;
+    padding-bottom:3mm;
   }
   .page-logo img{
-    width:18mm;height:18mm;border-radius:50%;border:2px solid #2255ff;
+    width:14mm;height:14mm;border-radius:50%;border:2px solid #2255ff;
   }
-  .page-title{display:flex;flex-direction:column;gap:3mm}
-  .session-day{font-size:22pt;font-weight:800;letter-spacing:.5px;line-height:1}
+  .page-title{display:flex;flex-direction:column;gap:2mm}
+  .session-day{font-size:18pt;font-weight:800;letter-spacing:.5px;line-height:1}
   .session-type{
-    display:inline-block;font-size:11pt;font-weight:700;
-    padding:3px 12px;border-radius:4px;letter-spacing:1px;
+    display:inline-block;font-size:9pt;font-weight:700;
+    padding:2px 8px;border-radius:4px;letter-spacing:1px;
   }
   .page-meta{
     margin-left:auto;
     display:grid;
     grid-template-columns:auto auto;
-    gap:2mm 6mm;
+    gap:1.5mm 4mm;
     text-align:right;
   }
   .meta-row{display:contents}
-  .meta-label{font-size:8pt;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:.5px;text-align:left}
-  .meta-val{font-size:9pt;font-weight:600;text-align:right}
+  .meta-label{font-size:7pt;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:.5px;text-align:left}
+  .meta-val{font-size:8pt;font-weight:600;text-align:right}
   .diff-pill{padding:1px 8px;border-radius:3px;font-size:9pt;font-weight:700}
   /* ── STATIONS GRID ── */
   .stations-grid{
     display:grid;
     grid-template-columns:1fr 1fr;
-    gap:4mm;
+    gap:2.5mm;
     align-items:start;
   }
   /* 12x1 — 4 columns, 3 rows fits all 12 on one page */
@@ -1916,7 +1917,7 @@ function exportPDF(){
   .station-header{
     background:#111;
     color:#fff;
-    padding:2.5mm 4mm;
+    padding:1.5mm 3mm;
     display:flex;
     align-items:flex-start;
     justify-content:space-between;
@@ -1924,7 +1925,7 @@ function exportPDF(){
     overflow:hidden;
   }
   .station-num{
-    font-size:10pt;font-weight:800;letter-spacing:.5px;
+    font-size:8.5pt;font-weight:800;letter-spacing:.5px;
     flex-shrink:0;
     padding-top:1px;
     white-space:nowrap;
@@ -1944,35 +1945,35 @@ function exportPDF(){
   .equip-tag{background:#444;color:#fff}
   .pattern-tag{background:#1D9E75;color:#fff}
   /* ── EXERCISE PAIR ── */
-  .ex-pair{padding:3mm 4mm;display:flex;flex-direction:column;gap:2.5mm}
-  .fmt-12x1 .ex-pair{padding:2mm 3mm;gap:1mm}
-  .ex-row{display:flex;flex-direction:column;gap:1mm}
-  .primary-row{padding-bottom:3mm;border-bottom:1px solid #eee}
+  .ex-pair{padding:2mm 3mm;display:flex;flex-direction:column;gap:1.5mm}
+  .fmt-12x1 .ex-pair{padding:1.5mm 2mm;gap:1mm}
+  .ex-row{display:flex;flex-direction:column;gap:0.5mm}
+  .primary-row{padding-bottom:2mm;border-bottom:1px solid #eee}
   .ex-label{
-    font-size:7.5pt;font-weight:700;color:#888;
+    font-size:7pt;font-weight:700;color:#888;
     letter-spacing:.8px;text-transform:uppercase;
   }
-  .ex-name{font-size:13pt;font-weight:700;line-height:1.15;color:#111}
-  .fmt-12x1 .ex-label{font-size:6.5pt}
-  .fmt-12x1 .ex-name{font-size:11pt}
-  .ex-meta{font-size:8pt;color:#666}
+  .ex-name{font-size:12pt;font-weight:700;line-height:1.1;color:#111}
+  .fmt-12x1 .ex-label{font-size:6pt}
+  .fmt-12x1 .ex-name{font-size:10pt}
+  .ex-meta{font-size:7.5pt;color:#666}
   .ex-divider{
-    text-align:center;font-size:14pt;font-weight:700;color:#bbb;
-    margin:-1mm 0;
+    text-align:center;font-size:12pt;font-weight:700;color:#bbb;
+    margin:0;line-height:1;
   }
   /* ── FOOTER ── */
   .page-footer{
     border-top:1px solid #ddd;
-    padding-top:3mm;
+    padding-top:2mm;
     display:flex;
     justify-content:space-between;
-    font-size:8pt;
+    font-size:7pt;
     color:#888;
   }
   @media print{
     @page{size:A4 portrait;margin:0}
     body{background:#fff}
-    .page{margin:0;width:100%;min-height:100vh;page-break-after:always}
+    .page{margin:0;width:100%;page-break-after:always;page-break-inside:avoid;}
   }
 </style>
 </head>
