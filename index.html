@@ -969,6 +969,8 @@ function buildLayout(layout){
     return { type, fmt, diff:diffs[i], rest:false };
   });
 }
+
+function assignDifficulties(types){
   let streak=0;
   return types.map((type,i)=>{
     let diff;
