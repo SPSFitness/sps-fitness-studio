@@ -1651,7 +1651,28 @@ function exportCSV() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  showStatus("queueStatus", "Downloaded " + queue.length + " posts in High Level format. Ready to upload!", "success");
+
+  // Remove exported images from library so they are never reused in future exports
+  var usedMediaIds = {};
+  for (var qi = 0; qi < queue.length; qi++) {
+    if (queue[qi].mediaId) usedMediaIds[String(queue[qi].mediaId)] = true;
+  }
+  var removedCount = 0;
+  if (Object.keys(usedMediaIds).length) {
+    var before = imageLibrary.length;
+    imageLibrary = imageLibrary.filter(function(img) {
+      return !usedMediaIds[String(img.id)];
+    });
+    removedCount = before - imageLibrary.length;
+    if (removedCount > 0) {
+      saveImageLibrary();
+      renderImgLibrary();
+    }
+  }
+
+  var msg = "Downloaded " + queue.length + " posts in High Level format. Ready to upload!";
+  if (removedCount > 0) msg += " " + removedCount + " used photo" + (removedCount !== 1 ? "s" : "") + " removed from library.";
+  showStatus("queueStatus", msg, "success");
 }
 
 function doClearQueue() {
