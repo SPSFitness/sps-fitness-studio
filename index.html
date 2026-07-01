@@ -96,6 +96,8 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
 .bfaq{background:rgba(16,185,129,0.2);color:#10b981;}
 .bseasonal{background:rgba(249,115,22,0.2);color:#f97316;}
 .blocal{background:rgba(236,72,153,0.2);color:#ec4899;}
+.beducation{background:rgba(99,102,241,0.2);color:#818cf8;}
+.tb[data-type="education"].sel{border-color:#818cf8;background:rgba(99,102,241,0.12);color:#fff;}
 .cnr{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
 .cnb{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 16px;border-radius:var(--rs);cursor:pointer;font-size:16px;}
 .cnb:hover{border-color:var(--blue2);color:var(--blue2);}
@@ -199,6 +201,9 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
           <div class="tb" data-type="faq" id="tb-faq" onclick="selectType('faq')"><div class="ti">&#x2753;</div><div class="tl">FAQ</div></div>
           <div class="tb" data-type="seasonal" id="tb-seasonal" onclick="selectType('seasonal')"><div class="ti">&#x1F4C5;</div><div class="tl">Seasonal</div></div>
           <div class="tb" data-type="local" id="tb-local" onclick="selectType('local')"><div class="ti">&#x1F4CD;</div><div class="tl">Local</div></div>
+        </div>
+        <div class="tg" style="grid-template-columns:repeat(3,1fr)">
+          <div class="tb" data-type="education" id="tb-education" onclick="selectType('education')"><div class="ti">&#x1F4DA;</div><div class="tl">Education</div></div>
         </div>
         <div class="cl">Focus <span style="font-weight:400;text-transform:none;font-size:12px;color:var(--faint)">(optional)</span></div>
         <input type="text" id="extraCtx" placeholder="e.g. Monday energy, strength training, sleep, stress..." style="margin-bottom:12px" />
@@ -431,6 +436,11 @@ var PROMPTS = {
     men: "Write a post with a local Halesowen or West Midlands feel for men in their 40s and 50s. Reference being a local gym, training close to home or work, being part of a local community. Direct and grounded.",
     everyone: "Write a post celebrating the local community feel of SPS Fitness in Halesowen. Reference being independent and local, not a chain, knowing your members by name, being part of the West Midlands community."
   },
+  education: {
+    women: "Write an educational Facebook post for women over 30 about the specific topic provided. This should be genuinely informative — explain what is happening in the body, why it matters at this life stage, and what the practical implication is. Use real mechanisms not vague claims. Reference research findings where relevant but keep it accessible. No selling, no CTA pushing Bodyblast. End with something that makes her feel informed and more confident about her training choices.",
+    men: "Write an educational Facebook post for men in their 40s and 50s about the specific topic provided. This should be genuinely informative — explain the physiology, the research, the practical implications. Use real numbers and mechanisms where relevant. Direct and factual. No selling, no Bodyblast CTA. End with a practical takeaway.",
+    everyone: "Write an educational Facebook post for a mixed adult fitness community about the specific topic provided. Explain the science clearly without being patronising. Use real research findings, mechanisms and numbers where relevant. Keep it accessible but do not dumb it down. No selling. End with a clear practical takeaway they can act on."
+  },
   bodyblast: {
     women: "Write a Facebook post promoting the SPS Fitness Bodyblast programme to women over 30 who are new to the gym or returning after a break. The Bodyblast programme is evergreen — it runs continuously so there is always a place available. Do NOT use urgency tactics. Draw on these real member truths: many felt too intimidated to try a regular gym, some came back after illness or years away, most did not expect to enjoy it but did, the small group means you are never lost or ignored, every session is different so it never gets boring, results go beyond losing weight — members describe feeling the fittest they have ever been. Make it feel like an honest invitation, not a sales pitch. End with a soft CTA like drop us a message or comment if you want to know more.",
     men: "Write a Facebook post promoting the SPS Fitness Bodyblast programme to men in their 40s and 50s getting back into training. The programme is evergreen — always open. Do NOT use pressure tactics. Draw on these real truths: big gyms can feel intimidating especially when fitness has slipped, training with people at a similar stage makes a difference, the coach actually knows your name and your level, every session is different so it never gets stale, real results without being destroyed. Honest and direct. End with a low-pressure CTA like send us a message if you want the details.",
@@ -456,6 +466,7 @@ var MEMBER_PROMPTS = {
 };
 
 var INFOGRAPHIC_PROMPTS = {
+  education: "Create content for an educational infographic for SPS Fitness members. The infographic should present a specific fitness or health fact clearly. Return ONLY a JSON object with: title (max 6 words, clear and factual), points (array of exactly 3 specific evidence-based facts or steps, each max 12 words, no vague language), style (either 'dark' or 'light'). No preamble, just JSON.",
   tip: "Create content for a fitness tip infographic for SPS Fitness members. Return ONLY a JSON object with: title (max 6 words, punchy), points (array of exactly 3 items, each max 10 words, practical and specific), style (either 'dark' or 'light', alternate randomly). No preamble, just JSON.",
   win: "Create content for a motivation infographic for SPS Fitness members. Return ONLY a JSON object with: title (max 6 words, celebratory), points (array of exactly 3 short wins or affirmations, each max 10 words), style (either 'dark' or 'light'). No preamble, just JSON.",
   challenge: "Create content for a weekly lifestyle challenge infographic for SPS Fitness members. The challenge must be about lifestyle habits outside the gym — sleep, nutrition, hydration, stress, daily walks. Never suggest extra exercise sessions or workouts. Return ONLY a JSON object with: title (max 6 words, action-oriented, lifestyle focused e.g. Sleep 8 Hours Every Night, Hit Your Protein Every Day), points (array of exactly 3 simple daily actions, each max 10 words), style (either 'dark' or 'light'). No preamble, just JSON.",
@@ -928,9 +939,9 @@ function doMemberDownload() {
 
 var CYCLE = ["motivation","behindscenes","evidence","quickwin","local","myth","faq"];
 var CYCLE_AUD = ["women","everyone","men","women","everyone","men","everyone"];
-var BADGE = {motivation:"bm",myth:"bmyth",evidence:"be",quickwin:"bq",bodyblast:"bbb",results:"bresults",behindscenes:"bbehind",faq:"bfaq",seasonal:"bseasonal",local:"blocal"};
-var ICONS = {motivation:"&#x1F525;",myth:"&#x1F4A1;",evidence:"&#x1F52C;",quickwin:"&#x26A1;",bodyblast:"&#x1F4AA;",results:"&#x1F4AF;",behindscenes:"&#x1F3A5;",faq:"&#x2753;",seasonal:"&#x1F4C5;",local:"&#x1F4CD;"};
-var IBGS = {motivation:"rgba(26,111,255,0.15)",myth:"rgba(0,229,255,0.12)",evidence:"rgba(57,217,138,0.1)",quickwin:"rgba(255,184,0,0.12)",bodyblast:"rgba(255,60,120,0.12)",results:"rgba(255,184,0,0.12)",behindscenes:"rgba(139,92,246,0.12)",faq:"rgba(16,185,129,0.12)",seasonal:"rgba(249,115,22,0.12)",local:"rgba(236,72,153,0.12)"};
+var BADGE = {motivation:"bm",myth:"bmyth",evidence:"be",quickwin:"bq",bodyblast:"bbb",results:"bresults",behindscenes:"bbehind",faq:"bfaq",seasonal:"bseasonal",local:"blocal",education:"beducation"};
+var ICONS = {motivation:"&#x1F525;",myth:"&#x1F4A1;",evidence:"&#x1F52C;",quickwin:"&#x26A1;",bodyblast:"&#x1F4AA;",results:"&#x1F4AF;",behindscenes:"&#x1F3A5;",faq:"&#x2753;",seasonal:"&#x1F4C5;",local:"&#x1F4CD;",education:"&#x1F4DA;"};
+var IBGS = {motivation:"rgba(26,111,255,0.15)",myth:"rgba(0,229,255,0.12)",evidence:"rgba(57,217,138,0.1)",quickwin:"rgba(255,184,0,0.12)",bodyblast:"rgba(255,60,120,0.12)",results:"rgba(255,184,0,0.12)",behindscenes:"rgba(139,92,246,0.12)",faq:"rgba(16,185,129,0.12)",seasonal:"rgba(249,115,22,0.12)",local:"rgba(236,72,153,0.12)",education:"rgba(99,102,241,0.12)"};
 
 function showPanel(name) {
   var panels = document.querySelectorAll(".panel");
@@ -947,7 +958,7 @@ function showPanel(name) {
 
 function selectType(t) {
   selType = t;
-  var types = ["motivation","myth","evidence","quickwin","bodyblast","results","behindscenes","faq","seasonal","local"];
+  var types = ["motivation","myth","evidence","quickwin","bodyblast","results","behindscenes","faq","seasonal","local","education"];
   for (var i = 0; i < types.length; i++) {
     var el = document.getElementById("tb-" + types[i]);
     if (el) el.classList.remove("sel");
@@ -1633,331 +1644,384 @@ function doWeek() {
 var TOPIC_ANGLES = {
   motivation: {
     women: [
-      "coming back after months away and the guilt that builds up",
-      "fitting training in around school runs and chaos",
-      "feeling like everyone else has their life together except you",
-      "starting from scratch after illness or injury",
-      "the moment training stops feeling like a chore",
-      "doing it for yourself not for anyone else",
-      "consistency over intensity — showing up imperfectly",
-      "the mental shift when clothes start fitting differently",
-      "not recognising yourself in photos and deciding to change that",
-      "juggling work kids and no time left for yourself",
-      "the Sunday dread of another week slipping by without training",
-      "comparing yourself to who you were five years ago",
-      "the difference between motivation and discipline",
-      "what it actually feels like to have more energy",
-      "stopping the cycle of starting and stopping",
-      "doing something just for you in a life full of doing for others",
-      "the first session back after a long break",
-      "how training affects your mood more than your body",
-      "permission to start where you actually are not where you think you should be",
-      "the small wins that add up over months"
+      "returning to training after months away — the guilt, the resistance, what actually helps",
+      "training around a full-time job, kids, school runs and no time left for yourself",
+      "feeling like you have lost all the progress you made and starting again",
+      "the mental shift when you stop training for how you look and start training for how you feel",
+      "not recognising yourself in photos and deciding to do something about it",
+      "the difference between a bad week and giving up — why one session changes everything",
+      "fitting exercise in around perimenopause symptoms and hormonal changes",
+      "what it actually means to be the fittest you have ever been at 40 plus",
+      "stopping the cycle of starting strong then falling off after two weeks",
+      "doing something for yourself in a life built entirely around other people",
+      "the version of you that has more energy, less pain and actually enjoys moving",
+      "what two sessions a week for six months looks like in real life",
+      "training after a health scare — how it changes your relationship with your body",
+      "the difference between being exhausted from doing nothing and tired from doing something",
+      "why women over 35 are often the most committed people in any training environment",
+      "the Sunday feeling of knowing your week is going to be better because you trained",
+      "coming back after pregnancy or postnatal recovery",
+      "the point where exercise stops being a task and becomes something you protect",
+      "why strength training specifically changes how you carry yourself day to day",
+      "what members say about SPS six months in that they never expected to say"
     ],
     men: [
-      "noticing your body has changed and not recognising yourself",
-      "the quiet embarrassment of being unfit when you used to be active",
-      "fitting training around a demanding job and family",
-      "coming back after years away and not knowing where to start",
-      "slower recovery than your 20s and what to do about it",
-      "doing something for yourself for the first time in years",
-      "the mental shift that happens when you start getting stronger",
-      "progress that happens slowly and then suddenly",
-      "the realisation that strength matters more than you thought",
-      "what it means to feel like yourself again at 45",
-      "the belt going to a tighter notch after three months",
-      "keeping up with your kids without getting out of breath",
-      "the difference between being busy and being productive with training",
-      "stopping the excuses and actually starting",
-      "not wanting to feel like this at 60",
-      "what consistent training does to stress levels",
-      "the weekend warrior who keeps getting injured",
-      "why training in your 40s is more important than your 20s",
-      "what men get wrong about fitness after 40",
-      "the satisfaction of lifting more than you could three months ago"
+      "the moment you realise your body is not recovering the way it used to",
+      "training in your 40s and 50s — what is different, what is the same, what matters more",
+      "coming back to training after years away and not knowing where to start",
+      "the quiet frustration of being unfit when you used to play sport or train regularly",
+      "what happens to muscle mass if you do nothing about it from 40 onwards — the actual numbers",
+      "fitting two sessions a week around a demanding job and a family",
+      "the difference between being tired because you trained and tired because you sat at a desk all day",
+      "what strength training does to blood pressure and cardiovascular health in men over 40",
+      "why men who start training in their 40s often get better results than men who never stopped",
+      "the moment you stop seeing training as vanity and start seeing it as maintenance",
+      "what consistent training does to stress, mood and how you handle pressure",
+      "back pain, desk posture, tight hips — what training actually addresses",
+      "keeping up with your kids and not getting out of breath doing it",
+      "what your body composition looks like at 50 if you do something versus if you do nothing",
+      "training with men at the same stage of life — why that environment matters",
+      "the difference between what you think training will feel like and what it actually feels like",
+      "what men get wrong when they try to train like they did at 25",
+      "the satisfaction of being physically capable — lifting, carrying, moving well",
+      "how resistance training changes your energy levels across the whole week",
+      "what it means to invest in your health now rather than pay for the consequences later"
     ],
     everyone: [
-      "the gap between wanting to feel better and actually starting",
-      "why consistency beats motivation every time",
-      "what turning up when you do not feel like it actually builds",
-      "the version of fit that is about energy and strength not aesthetics",
-      "how training changes your relationship with stress",
-      "what progress actually looks like over months not weeks",
-      "the hardest session is always the first one back",
-      "why small steps compound into big changes",
-      "the moment you stop dreading sessions and start looking forward to them",
-      "what happens to your sleep when you train consistently",
-      "the difference between training to look good and training to feel good",
-      "why people who train together stay consistent longer",
-      "what two sessions a week actually does over a year",
-      "the mental health benefits nobody talks about enough",
-      "stopping the all or nothing thinking",
-      "what it means to be fit for your life not for a gym",
-      "the version of yourself you want to be in ten years",
-      "why rest is part of training not a failure",
-      "the confidence that comes from getting stronger",
-      "what happens when fitness stops being a punishment"
+      "the gap between knowing what you should do and actually doing it — what closes it",
+      "why the people who stay consistent are not more motivated — they just built different habits",
+      "what six months of two sessions a week looks like physically and mentally",
+      "the difference between training to change how you look and training to change how you feel",
+      "why the hardest part of any session is getting through the door",
+      "what happens when you stop treating exercise as punishment for eating",
+      "the role of community in whether people stay consistent or quit",
+      "why intensity is overrated and consistency is underrated",
+      "what actually changes in your life when you start getting stronger",
+      "the compound effect of showing up imperfectly over twelve months",
+      "why people who train in groups are significantly more likely to still be training a year later",
+      "what happens to your relationship with food when you train regularly",
+      "the mental health benefits of regular resistance training — what the research actually shows",
+      "why rest is not the enemy of progress — it is part of the mechanism",
+      "what it looks like to be fit at 50, 55, 60 — and what gets you there",
+      "the difference between a gym that sees you as a number and one that sees you as a person",
+      "what members say surprises them most after three months at SPS",
+      "why people who have tried and failed at fitness before often thrive in small group training",
+      "the long game — what training looks like as a lifestyle not a short term fix",
+      "what you are actually building when you turn up week after week"
     ]
   },
   myth: {
     women: [
-      "lifting weights makes you bulky",
-      "you need cardio every day to lose weight",
-      "your metabolism is broken after 40",
-      "you need to earn food through exercise",
-      "you need to sweat buckets for a workout to count",
-      "fasted cardio burns more fat",
-      "you need hours in the gym to see results",
-      "supplements are essential for women over 35",
-      "toning is different from building muscle",
-      "women should train differently to men",
-      "you cannot build muscle after 40",
-      "light weights and high reps is best for women",
-      "running is the best exercise for weight loss",
-      "eating less is always better",
-      "you need to be sore to know a workout worked"
+      "lifting weights makes women bulky — what the science actually shows about muscle gain in women",
+      "cardio is better than weights for fat loss — why this is wrong and what the research says",
+      "your metabolism slows down dramatically after 40 — the truth about metabolic rate and age",
+      "you need to feel the burn for a workout to count — what muscle fatigue actually signals",
+      "fasted cardio burns significantly more fat — what studies actually found",
+      "you need to spend hours in the gym to see results — the minimum effective dose research",
+      "light weights high reps tones you, heavy weights bulk you up — there is no such thing as toning",
+      "supplements are necessary for women over 35 — what actually moves the needle",
+      "you need to cut out entire food groups to lose weight — what sustainable fat loss actually requires",
+      "sweating more means a better workout — what sweat actually indicates",
+      "women should train differently to men — where this is true and where it is not",
+      "running is the best exercise for weight loss — why the research disagrees",
+      "you cannot build muscle after menopause — what studies on postmenopausal women actually show",
+      "more exercise is always better — the research on overtraining and diminishing returns",
+      "eating fat makes you fat — the actual relationship between dietary fat and body fat"
     ],
     men: [
-      "you need to train like you did in your 20s",
-      "high intensity is the only way to get results",
-      "testosterone decline means you cannot build muscle",
-      "cardio will make you lose muscle",
-      "you need to go heavy every single session",
-      "more exercise always means better results",
-      "supplements are essential",
-      "you need to feel destroyed after every session",
-      "protein shakes are necessary to build muscle",
-      "you need to train every day to see progress",
-      "gut and belly fat cannot be shifted after 40",
-      "running is bad for your knees",
-      "you need a personal trainer to get results",
-      "bulk then cut is the only way",
-      "strength training is for younger people"
+      "you need to train at high intensity to get results — what moderate resistance training actually produces",
+      "testosterone levels make it impossible to build muscle after 50 — the evidence says otherwise",
+      "cardio kills muscle gains — what the research actually shows about concurrent training",
+      "you need to train six days a week to see progress — the two sessions per week evidence",
+      "protein shakes are essential for muscle building — what you can get from food",
+      "gut fat in men over 40 cannot be shifted — what visceral fat research actually shows",
+      "running is bad for your knees — what long term studies on runners found",
+      "more sets and more volume always means better results — the law of diminishing returns",
+      "you need to feel destroyed after a session for it to count — what recovery science says",
+      "supplements significantly accelerate results — what independent research found versus industry funded research",
+      "strength training is dangerous for men with joint issues — what rehabilitation research shows",
+      "you lose all your gains quickly if you stop training — muscle memory and the science of detraining",
+      "creatine is only for young bodybuilders — what research shows for men over 40",
+      "you need to bulk and cut — why body recomposition is possible and more practical",
+      "stretching before exercise prevents injury — what the warmup research actually recommends"
     ],
     everyone: [
-      "spot reduction works",
-      "more exercise is always better",
-      "you need to cut carbs to lose fat",
-      "stretching before exercise prevents injury",
-      "muscle turns to fat if you stop training",
-      "the scales are the best measure of progress",
-      "you need to detox after a bad week",
-      "no pain no gain",
-      "you need to be at the gym every day",
-      "expensive supplements make a big difference",
-      "you need to be young to get fit",
-      "cardio is better than weights for health",
-      "the best time to train is in the morning",
-      "you need to be motivated to be consistent",
-      "a bad diet can be outrun"
+      "spot reduction works — why fat loss is systemic not localised and what the studies show",
+      "the scales are the best way to measure progress — what body composition research recommends instead",
+      "you need to detox after a bad week of eating — what your liver and kidneys actually do",
+      "no pain no gain — the difference between productive discomfort and injury risk",
+      "motivation is what drives consistent behaviour — what behavioural psychology research says instead",
+      "you need to be fit to start training — what deconditioned populations actually respond to",
+      "expensive supplements make a significant difference — what independent analysis of the supplement industry found",
+      "you need to cut carbs to lose fat — what calorie balance research shows versus low carb marketing",
+      "more exercise always produces better results — the inverted U relationship between volume and adaptation",
+      "muscle turns to fat when you stop training — why this is biologically impossible",
+      "the best time to train is in the morning — what chronobiology research shows about training timing",
+      "a bad diet can be outrun — the arithmetic of exercise versus food intake",
+      "you need to be sore after every session — what DOMS actually indicates",
+      "longer workouts are better workouts — what research shows about session duration and outcomes",
+      "genetics determine everything about your fitness potential — what epigenetics and training research shows"
     ]
   },
   evidence: {
     women: [
-      "resistance training and bone density after 35",
-      "post-meal walks and blood sugar",
-      "protein needs increasing after 35",
-      "sleep and cortisol belly fat connection",
-      "strength training raising metabolic rate for 48 hours",
-      "muscle loss per decade without resistance training",
-      "perimenopause and strength training benefits",
-      "insulin sensitivity and resistance training in women",
-      "cortisol and abdominal fat storage",
-      "sleep deprivation and muscle recovery",
-      "protein timing and muscle retention",
-      "walking and cardiovascular health in women over 35",
-      "stress management and body composition",
-      "hydration and physical performance",
-      "the link between strength training and mental health"
+      "resistance training increases bone mineral density in women over 35 — the specific research findings",
+      "a 10 minute walk after meals reduces blood glucose spikes by up to 22 percent in studies",
+      "women need 1.6 to 2.2 grams of protein per kilogram of bodyweight to maintain muscle — most eat half that",
+      "resistance training raises resting metabolic rate for 24 to 48 hours after a session — cardio does not",
+      "muscle mass declines at 3 to 8 percent per decade from age 30 without resistance training",
+      "oestrogen decline in perimenopause increases cardiovascular risk — resistance training measurably counteracts this",
+      "strength training reduces visceral fat more effectively than cardio in postmenopausal women — the trial data",
+      "women who resistance train have significantly better insulin sensitivity than those who only do cardio",
+      "chronic elevated cortisol causes preferential fat storage in the abdomen — how training affects cortisol",
+      "grip strength in women over 40 is one of the strongest predictors of long term mobility and independence",
+      "two sessions of resistance training per week is enough to produce measurable muscle gain in women over 35",
+      "protein synthesis requires a minimum of 30 to 40 grams per meal to trigger muscle building after 40",
+      "women who exercise regularly have a 30 to 35 percent lower risk of type 2 diabetes",
+      "resistance training reduces symptoms of depression and anxiety as effectively as medication in multiple trials",
+      "balance and coordination decline from age 40 — resistance training slows this significantly"
     ],
     men: [
-      "testosterone and resistance training",
-      "visceral fat and resistance exercise",
-      "protein synthesis slowing after 40",
-      "sleep and testosterone production",
-      "compound movements and hormone response",
-      "cardiovascular benefits of moderate resistance training",
-      "back pain and strength training",
-      "metabolic health markers and muscle mass",
-      "grip strength as a predictor of longevity",
-      "muscle mass and insulin sensitivity in men over 40",
-      "resting metabolic rate and strength training",
-      "sleep quality and exercise",
-      "stress hormones and training intensity",
-      "protein per meal for muscle synthesis after 40",
-      "sitting disease and what resistance training counteracts"
+      "testosterone declines approximately 1 percent per year after 30 — resistance training measurably slows this",
+      "visceral fat around organs is independently associated with heart disease — resistance training reduces it more than cardio",
+      "after age 40 men need 40 grams or more of protein per meal to trigger the same muscle protein synthesis as younger men",
+      "men who maintain muscle mass into their 50s have significantly better blood pressure, cholesterol and blood sugar markers",
+      "compound movements like squats and deadlifts produce the highest anabolic hormone response of any exercise",
+      "men getting less than 6 hours of sleep have measurably lower testosterone than those getting 7 to 9 hours",
+      "resistance training reduces the risk of cardiovascular disease in men over 40 independent of cardio fitness",
+      "grip strength in men is a better predictor of heart attack risk than blood pressure in some studies",
+      "two to three sessions of resistance training per week reduces all cause mortality risk by 23 percent",
+      "sedentary men lose 3 to 5 percent of muscle mass per decade — this accelerates metabolic decline",
+      "back pain affects 80 percent of adults — resistance training targeting posterior chain reduces it significantly",
+      "men who resistance train have significantly lower rates of cognitive decline as they age",
+      "moderate resistance training lowers resting blood pressure comparably to antihypertensive medication in some trials",
+      "muscle mass is inversely correlated with insulin resistance — the more muscle you have the better your blood sugar control",
+      "men who train with others are 40 percent more likely to still be training six months later"
     ],
     everyone: [
-      "longevity and muscle mass",
-      "7000 steps vs 10000 steps research",
-      "stress and body composition",
-      "dehydration and performance",
-      "post-meal walks and blood sugar",
-      "mental health benefits of consistent exercise",
-      "consistency vs intensity for long term results",
-      "strength training for healthy ageing",
-      "sleep and recovery",
-      "the compound effect of two sessions per week over a year",
-      "social exercise and adherence",
-      "progressive overload and adaptation",
-      "rest days and muscle growth",
-      "nutrition and training synergy",
-      "the science of habit formation and exercise"
+      "people with higher muscle mass live longer — muscle is now considered one of the top five predictors of longevity",
+      "7000 to 8000 steps per day is associated with a 50 to 70 percent reduction in all cause mortality — more steps do not add more benefit",
+      "resistance training reduces symptoms of anxiety and depression as effectively as antidepressants in several randomised trials",
+      "two sessions of resistance training per week reduces all cause mortality risk by up to 23 percent",
+      "progressive overload — gradually increasing the demand on the body — is the single mechanism behind all strength adaptation",
+      "people who exercise in a social environment are significantly more likely to maintain the habit at 12 months",
+      "dehydration of just 2 percent of bodyweight reduces physical performance by up to 20 percent",
+      "post meal walks of 10 minutes are more effective at managing blood sugar than a 30 minute walk at another time",
+      "the minimum effective dose of resistance training for health benefits is two sessions per week",
+      "people who strength train regularly have significantly better cognitive function as they age",
+      "chronic stress raises cortisol which causes muscle breakdown, fat storage and immune suppression — exercise is one of the most effective interventions",
+      "the anabolic window after training is several hours long — protein timing matters less than total daily protein intake",
+      "people who train consistently report better quality of life, sleep and mood regardless of physical changes",
+      "body recomposition — losing fat while gaining muscle simultaneously — is possible and well documented in people new to training",
+      "physical strength in midlife is one of the strongest predictors of independence and quality of life in later decades"
     ]
   },
   quickwin: {
     women: [
-      "protein at breakfast changing the rest of the day",
-      "habit stacking movement onto the school run",
-      "walking after dinner and blood sugar",
-      "meal prepping one thing on Sunday",
-      "getting to bed 30 minutes earlier",
-      "drinking water before coffee in the morning",
-      "a 5 minute mobility routine before bed",
-      "keeping protein snacks visible in the fridge",
-      "eating protein first at every meal",
-      "reducing alcohol on weeknights",
-      "a 10 minute walk at lunch",
-      "batch cooking one protein source on Sunday",
-      "setting out gym kit the night before",
-      "a consistent wake time even on weekends",
-      "replacing one processed snack with a protein option"
+      "eating 30 grams of protein at breakfast — what it does to hunger and energy through the morning",
+      "a 10 minute walk after dinner — the specific blood sugar benefit and how quickly it works",
+      "keeping hard boiled eggs in the fridge — the easiest high protein snack that requires zero effort",
+      "swapping a mid morning biscuit for Greek yoghurt — what this does to your afternoon energy",
+      "setting out gym kit the night before — the research on reducing friction in habit formation",
+      "eating your main meal earlier in the evening — what early time restricted eating does to body composition",
+      "adding a handful of spinach to anything — the magnesium and iron benefit most women over 35 are deficient in",
+      "a 5 minute hip flexor stretch after sitting for 2 hours — what shortened hip flexors do to posture and back pain",
+      "batch cooking chicken or mince on Sunday — how this changes the quality of weekday eating",
+      "reducing alcohol on training days — the specific effect of alcohol on muscle protein synthesis",
+      "drinking 500ml of water before eating — the appetite regulation research",
+      "eating protein before carbohydrates at a meal — what this does to blood glucose response",
+      "a consistent wake time 7 days a week — what circadian rhythm research shows about energy and metabolism",
+      "replacing one processed snack with whole food — what ultra processed food does to satiety hormones",
+      "adding a resistance band to your desk setup — the movements that counteract sitting posture"
     ],
     men: [
-      "protein at lunch without meal prep",
-      "a 5 minute mobility routine for a stiff back",
-      "walking meetings instead of sitting",
-      "getting off screens 30 minutes before bed",
-      "keeping a water bottle at your desk",
-      "10 minute walk after lunch",
-      "eating protein first at every meal",
-      "reducing alcohol during the week",
-      "a consistent bedtime",
-      "standing up every hour at a desk job",
-      "replacing one takeaway per week with a high protein meal",
-      "a 5 minute stretch routine after waking",
-      "cutting the third coffee and adding water instead",
-      "preparing gym kit the night before",
-      "eating slowly and without a screen"
+      "eating 40 grams of protein at lunch — the specific threshold for muscle protein synthesis after 40",
+      "a 10 minute walk after lunch — what this does to afternoon energy and blood sugar in desk workers",
+      "a 5 minute hip flexor and thoracic spine routine on waking — what this does for back pain within two weeks",
+      "reducing alcohol to weekends only — the specific effect on body composition over 8 weeks",
+      "keeping Greek yoghurt or cottage cheese in the fridge — highest protein to calorie ratio of any food",
+      "replacing one takeaway per week with a high protein home meal — what this does to weekly calorie balance",
+      "standing up and walking for 2 minutes every hour at a desk — the cardiovascular research on sedentary breaks",
+      "eating a proper breakfast instead of skipping — what this does to cortisol and fat storage in men over 40",
+      "a cold shower for 2 minutes after training — what research shows about inflammation and recovery",
+      "cutting the third or fourth coffee and replacing with water — what caffeine does to cortisol after midday",
+      "getting outside in natural light within an hour of waking — the circadian rhythm and testosterone research",
+      "front loading calories earlier in the day — what chrononutrition research shows about meal timing",
+      "writing down three things you did well in training — what positive reinforcement does to habit maintenance",
+      "cooking double portions at dinner — the simplest form of meal prep that actually works",
+      "a 20 minute nap between 1pm and 3pm if possible — what the NASA and military research shows about performance"
     ],
     everyone: [
-      "habit stacking — attaching new habits to existing ones",
-      "the power of a consistent sleep time",
-      "protein at every meal not just dinner",
-      "movement snacks throughout a desk-based day",
-      "preparing kit the night before",
-      "logging water intake for one week",
-      "walking after meals",
-      "reducing ultra processed food one meal at a time",
-      "a 10 minute walk at lunch every day this week",
-      "swapping one high sugar snack for a protein option",
-      "getting outside in natural light first thing",
-      "a consistent morning routine that takes 10 minutes",
-      "reducing screen time before bed by 30 minutes",
-      "one alcohol free evening per week",
-      "eating at a table without your phone"
+      "habit stacking — attaching a new health behaviour to something you already do every day without thinking",
+      "eating protein first at every meal before carbohydrates — what this does to blood glucose and satiety",
+      "a 10 minute walk after any main meal — the most evidence backed single behaviour change for metabolic health",
+      "preparing kit and meals the night before — what reducing morning decision fatigue does to follow through",
+      "reducing ultra processed food by one item per day — what the NOVA classification research shows about satiety",
+      "keeping a full water bottle visible on your desk — the nudge research on passive behaviour change",
+      "getting outside in natural light within 30 minutes of waking — what this does to cortisol and energy",
+      "a consistent bedtime within 30 minutes 7 days a week — what irregular sleep timing does to body composition",
+      "eating until 80 percent full — the Okinawan hara hachi bu principle and what calorie regulation research shows",
+      "replacing one alcohol evening per week with a non alcohol option — the cumulative effect on body composition",
+      "a 3 minute breathing exercise before bed — what parasympathetic activation does to recovery",
+      "writing down what you eat for 3 days — the awareness effect on calorie intake without dieting",
+      "adding one extra vegetable to one meal per day — the gut microbiome research on variety",
+      "taking magnesium before bed — the deficiency rates in adults and what it does to muscle function and sleep quality",
+      "doing 10 bodyweight squats every hour at a desk — what micro movement does to circulation and lower back"
+    ]
+  },
+  education: {
+    women: [
+      "the benefits of strength training specifically for women over 35 — bone density, metabolic rate, hormonal health",
+      "what perimenopause does to body composition and how resistance training counteracts it",
+      "how muscle mass protects women against type 2 diabetes as they age",
+      "the role of oestrogen in muscle retention and what its decline means for training",
+      "why women over 40 need more protein than they did in their 20s — the science",
+      "what happens to bone density from age 35 and why resistance training is the most effective intervention",
+      "the relationship between strength training and cardiovascular health in women",
+      "how cortisol affects body composition in women and what training does to regulate it",
+      "the difference between aerobic fitness and strength — why women need both and which to prioritise",
+      "what research shows about the minimum effective dose of resistance training for women over 35",
+      "how resistance training affects mood and mental health in women — the neuroscience",
+      "the role of magnesium and vitamin D in muscle function — what deficiency looks like in women",
+      "what progressive overload means and why it is the mechanism behind all physical adaptation",
+      "how sleep affects muscle recovery and body composition in women over 35",
+      "the long term benefits of resistance training for women — what the 10 and 20 year data shows"
+    ],
+    men: [
+      "what happens to testosterone, muscle mass and metabolism in men from age 40 — the actual numbers",
+      "why visceral fat increases in men after 40 and what specifically reduces it",
+      "the cardiovascular benefits of resistance training in men over 40 — what the research shows",
+      "how compound movements like squats and deadlifts affect hormone production in older men",
+      "what protein synthesis is and why men need more protein per meal after 40 to trigger it",
+      "the relationship between muscle mass and insulin resistance in men — why this matters",
+      "what grip strength predicts about long term health in men and how to improve it",
+      "how back pain develops in desk workers and what specific training addresses the root cause",
+      "the neuroscience of strength training — what it does to brain health and cognitive function as men age",
+      "what detraining does to muscle and how quickly you can regain it — the muscle memory research",
+      "how resistance training affects blood pressure and cholesterol in men over 40",
+      "the role of creatine in men over 40 — what independent research shows",
+      "what progressive overload is and why training without it produces no long term adaptation",
+      "the difference between training for aesthetics and training for longevity — what the health data recommends",
+      "why men who strength train into their 60s and 70s maintain independence and function significantly better"
+    ],
+    everyone: [
+      "the strength training and longevity connection — why muscle mass is now considered one of the top predictors of lifespan",
+      "how the body adapts to resistance training — the mechanism of progressive overload explained",
+      "what body recomposition is and why it is possible and practical for people new to training",
+      "the science of habit formation — why the first 12 weeks of a new training habit are critical",
+      "how post-meal walks work to reduce blood glucose spikes — the mechanism and the research",
+      "what NEAT is — non exercise activity thermogenesis — and why it matters more than gym sessions for most people",
+      "the gut microbiome and exercise — what resistance training does to gut bacteria diversity",
+      "how chronic stress affects body composition and physical performance — the cortisol mechanism",
+      "what inflammation does to the body over time and how regular exercise reduces chronic inflammation",
+      "the research on social exercise — why training with others produces better adherence and results",
+      "how the nervous system adapts to strength training before muscles visibly change",
+      "what the research says about the minimum effective dose of exercise for health and longevity",
+      "the difference between type 1 and type 2 muscle fibres and why preserving type 2 matters as you age",
+      "how resistance training affects mental health — the neurotransmitter and neuroplasticity research",
+      "what the research shows about recovery — why rest days are not optional, they are when adaptation happens"
     ]
   },
   bodyblast: {
-    women: ["evergreen Bodyblast programme for women returning or starting fresh — focus on structure, coached environment, no experience needed"],
-    men: ["evergreen Bodyblast programme for men getting back into structured training — focus on clear plan, right level, real results without destroying yourself"],
-    everyone: ["evergreen Bodyblast programme open to all — focus on what makes it different, community, structure, coaching"]
+    women: ["the Bodyblast programme for women over 30 who are new or returning — structure, coaching, no experience needed, evergreen"],
+    men: ["the Bodyblast programme for men in their 40s and 50s getting back into training — clear plan, right level, coached, evergreen"],
+    everyone: ["the Bodyblast programme for anyone wanting structure and coaching — what makes it different from a regular gym, evergreen"]
   },
   behindscenes: {
     women: [
-      "what a typical SPS session looks like for a woman — the warmup, the coaching, the atmosphere",
-      "why sessions are different every time and what that does for your body",
-      "what the coach looks for when programming for women over 30",
-      "what happens in the first session when someone new joins"
+      "what a typical SPS session looks like for a woman — from walking in to walking out",
+      "how sessions are programmed specifically for women over 30 and why it differs from generic gym programming",
+      "what the first session is like for someone who has never trained in a gym before",
+      "why every session is different and what that does physiologically for adaptation"
     ],
     men: [
-      "what a typical SPS session looks like for a man in his 40s or 50s",
-      "how sessions are programmed to get results without destroying your body",
-      "what the coach looks for when programming for men over 40",
-      "the difference between training at SPS and training alone"
+      "what a typical SPS session looks like for a man in his 40s or 50s — the reality",
+      "how sessions are programmed to get results without the injury risk of high intensity training",
+      "what the coach is actually looking at when designing a session for men over 40",
+      "the difference between training at SPS and trying to figure it out yourself at a commercial gym"
     ],
     everyone: [
-      "what actually happens inside an SPS Fitness session from start to finish",
-      "how the programming works and why it changes every session",
-      "what makes small group training different from a regular gym",
-      "the atmosphere in a session and why it matters for results"
+      "what actually happens inside an SPS Fitness session from warmup to finish",
+      "how the programming is built and why it changes every session — the adaptation science",
+      "what makes small group coached training different from a solo gym session",
+      "what new members say surprised them most in the first four weeks"
     ]
   },
   faq: {
     women: [
-      "am I too unfit to start",
-      "will I be the only one struggling",
-      "do I need experience before joining",
-      "what if I cannot keep up with everyone else",
-      "is it too late to start at my age",
-      "will I look stupid not knowing what I am doing",
-      "what if I have an old injury",
-      "how quickly will I actually see results"
+      "am I too unfit to start — the honest answer and what sessions look like for complete beginners",
+      "will I be the only one who struggles — what the reality of a new member experience looks like",
+      "I have not exercised properly in years, is it too late — what deconditioning research shows about comebacks",
+      "what if I have a bad back or old injury — how coaching adapts movements to work around limitations",
+      "how quickly will I actually see results — the realistic timeline for different types of progress",
+      "will I have to weigh myself or track calories — what the SPS approach to progress measurement looks like",
+      "I tried the gym before and hated it — what makes small group coaching different",
+      "what do I need to eat around my sessions — simple practical guidance not a diet plan"
     ],
     men: [
-      "am I too far gone to make a real difference",
-      "will I look out of place next to fitter people",
-      "what if I cannot do all the exercises",
-      "is it too late to build muscle in my 40s",
-      "how quickly will I see results",
-      "what if my back or knees are playing up",
-      "is small group training right for someone at my level",
-      "what do I need to do outside of sessions to see results"
+      "I am in my 50s and have not trained properly in a decade — is it too late to make a real difference",
+      "will I look out of place next to people who are clearly fitter than me",
+      "my knees and back are not what they were — can I still train effectively",
+      "how many sessions per week do I actually need to see results",
+      "what is the difference between what SPS does and just going to a commercial gym",
+      "I travel a lot for work — how does inconsistency affect progress",
+      "what do I actually need to eat to support the training — without going on a diet",
+      "will I be coached or just told to get on with it"
     ],
     everyone: [
-      "what makes SPS different from a regular gym",
-      "how quickly will I see results",
-      "what if I have an injury or health issue",
-      "do I need to be fit to start",
-      "what does a typical session involve",
-      "how many sessions per week do I need",
-      "what should I eat around my sessions",
-      "what happens if I miss a session"
+      "what makes SPS Fitness different from every other gym in Halesowen",
+      "how does the small group format work — what does a session of 12 actually feel like",
+      "do I need to book sessions in advance or can I just turn up",
+      "what happens if I have to miss sessions — does progress get lost",
+      "is there a contract or can I start and stop as I need to",
+      "what should I do on days I am not training at SPS",
+      "how does the coaching work — is it personal training or more like a class",
+      "what does the first month typically look like for a new member"
     ]
   },
   seasonal: {
     everyone: [
-      "January — fresh start without the pressure or guilt",
-      "summer approaching — sustainable progress not crash dieting",
-      "back to school September — routines returning and training windows opening up",
-      "dark evenings October onwards — staying consistent when motivation drops",
-      "Christmas period — keeping momentum without perfection"
+      "January — what actually works versus the annual gym rush that fails by February",
+      "approaching summer — why sustainable habits beat crash approaches every time",
+      "September back to school — why this is actually the best time to start or restart",
+      "October and November — why the dark evenings are when consistency matters most",
+      "December — how to keep momentum without perfection through Christmas"
     ],
     women: [
-      "January reset for busy women — what actually works",
-      "summer body pressure and why to ignore it",
-      "September routine reset after the chaos of summer holidays",
-      "winter and the urge to hibernate — why this is when it matters most",
-      "new year energy — channelling it into something sustainable"
+      "January for women — cutting through the noise of diet culture and resolution marketing",
+      "summer and the annual pressure on women's bodies — the alternative framing",
+      "September reset — what returning to routine after summer looks like for busy women",
+      "winter and the urge to hibernate — why this is when the habit either solidifies or disappears",
+      "spring — energy returning and using it to build something that lasts"
     ],
     men: [
-      "new year without the gym bro clichés",
-      "summer and actually feeling good — not just looking it",
-      "autumn back to structure after a summer of inconsistency",
-      "the January gym rush and why it fails — what works instead",
-      "Christmas and not undoing months of progress"
+      "January for men — what actually works versus what the fitness industry sells in week one",
+      "summer — wanting to feel good in a t-shirt without doing something stupid to get there",
+      "autumn back to structure — why September is when serious people restart",
+      "the Christmas period — what maintaining momentum through December actually looks like",
+      "the new year that starts in September not January — why autumn is the better reset point"
     ]
   },
   local: {
     everyone: [
-      "being an independent gym not a chain — what that means for members",
-      "Halesowen community — training with people who live nearby",
-      "knowing your members by name — not a number",
-      "training close to home or work — convenience that becomes consistency",
-      "what a local independent gym actually offers that chains cannot"
+      "what it means to be an independent gym in Halesowen — not a franchise, not a chain",
+      "the difference between training with your community versus a gym full of strangers",
+      "why people drive past three commercial gyms to come to SPS",
+      "what local independent coaching offers that a national gym chain structurally cannot",
+      "Halesowen and the West Midlands community that trains at SPS"
     ],
     women: [
-      "a local gym that knows you — not a factory fitness model",
-      "Halesowen women who train together — the community that keeps people coming back",
-      "why local matters when life is already busy enough"
+      "a local Halesowen gym where the coach actually knows your name, your limitations and your history",
+      "why women in Halesowen and the surrounding area choose SPS over the bigger options nearby",
+      "training close to home — why convenience is one of the most underrated factors in consistency"
     ],
     men: [
-      "training locally with people at your level — no intimidation",
-      "a Halesowen gym that actually programmes for men over 40",
-      "local and independent — what that means for how you are coached"
+      "a Halesowen gym that programmes specifically for men over 40 — not a generic approach",
+      "why men in their 40s and 50s across the West Midlands choose small group over commercial",
+      "local, independent, accountable — what that means in practice for your training"
     ]
   }
-};;
+};;;
 
 function getUnusedAngle(type, aud) {
   // Get angles for this type — prefer audience-specific, fall back to everyone
@@ -2018,12 +2082,12 @@ function buildBatchPlan(days) {
     {type:"myth",         aud:"men"},
     {type:"faq",          aud:"men"},
     {type:"motivation",   aud:"men"},
-    {type:"local",        aud:"everyone"},
+    {type:"education",    aud:"women"},
     {type:"evidence",     aud:"women"},
     {type:"faq",          aud:"women"},
     {type:"bodyblast",    aud:"men"},
     {type:"motivation",   aud:"everyone"},
-    {type:"behindscenes", aud:"men"},
+    {type:"education",    aud:"men"},
     {type:"myth",         aud:"everyone"},
     {type:"quickwin",     aud:"women"},
     {type:"evidence",     aud:"men"}
