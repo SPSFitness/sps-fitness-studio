@@ -30,7 +30,7 @@ exports.handler = async function(event) {
 
     // Step 1 — get contacts directly, not via conversations
     var contactsRes = await fetch(
-      "https://services.leadconnectorhq.com/contacts/?locationId=" + GHL_LOC + "&limit=100&sortBy=date_added&sortOrder=desc",
+      "https://services.leadconnectorhq.com/contacts/?locationId=" + GHL_LOC + "&limit=100",
       { headers: ghlHeaders }
     );
 
