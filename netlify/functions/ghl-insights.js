@@ -16,7 +16,6 @@ exports.handler = async function(event) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: "Missing API keys" }) };
   }
 
-  // Standard headers for all GHL requests
   var ghlHeaders = {
     "Authorization": "Bearer " + GHL_KEY,
     "Version": "2021-07-28",
@@ -27,93 +26,120 @@ exports.handler = async function(event) {
   try {
     var allMessages = [];
     var contactsAnalysed = 0;
-    var conversationsFound = 0;
+    var debugLog = [];
 
-    // Step 1 — get recent conversations
-    var convUrl = "https://services.leadconnectorhq.com/conversations/search?locationId=" + GHL_LOC + "&limit=50&sortBy=last_message_date&sortOrder=desc";
-    var convRes = await fetch(convUrl, { headers: ghlHeaders });
+    // Step 1 — get contacts directly, not via conversations
+    var contactsRes = await fetch(
+      "https://services.leadconnectorhq.com/contacts/?locationId=" + GHL_LOC + "&limit=100&sortBy=date_added&sortOrder=desc",
+      { headers: ghlHeaders }
+    );
 
-    if (!convRes.ok) {
-      var errText = await convRes.text();
-      return { statusCode: 200, headers, body: JSON.stringify({ error: "GHL conversations error: " + convRes.status + " " + errText, themes: [], commonQuestions: [], commonObjections: [], keyPhrases: [], contactsAnalysed: 0, messagesAnalysed: 0, lastUpdated: new Date().toISOString() }) };
+    if (!contactsRes.ok) {
+      var errText = await contactsRes.text();
+      return { statusCode: 200, headers, body: JSON.stringify({
+        error: "Contacts fetch failed: " + contactsRes.status + " " + errText,
+        themes: [], commonQuestions: [], commonObjections: [], keyPhrases: [],
+        contactsAnalysed: 0, messagesAnalysed: 0, lastUpdated: new Date().toISOString()
+      })};
     }
 
-    var convData = await convRes.json();
-    var conversations = convData.conversations || convData.data || [];
-    conversationsFound = conversations.length;
+    var contactsData = await contactsRes.json();
+    var contacts = contactsData.contacts || contactsData.data || [];
+    debugLog.push("Total contacts found: " + contacts.length);
 
-    var thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-    var processed = new Set();
+    // Filter out AI off tagged contacts
+    var leads = contacts.filter(function(c) {
+      var tags = (c.tags || []).map(function(t) { return String(t).toLowerCase(); });
+      return !tags.some(function(t) { return t.includes("ai off") || t.includes("ai-off"); });
+    });
+    debugLog.push("Leads without AI off tag: " + leads.length);
 
-    for (var i = 0; i < conversations.length; i++) {
-      var conv = conversations[i];
-      if (!conv.contactId) continue;
-      if (processed.has(conv.contactId)) continue;
-      processed.add(conv.contactId);
-
-      // Check contact for AI off tag
-      try {
-        var contactRes = await fetch(
-          "https://services.leadconnectorhq.com/contacts/" + conv.contactId,
-          { headers: ghlHeaders }
-        );
-        if (contactRes.ok) {
-          var cData = await contactRes.json();
-          var contact = cData.contact || cData;
-          var tags = (contact.tags || []).map(function(t) { return String(t).toLowerCase(); });
-          if (tags.some(function(t) { return t.includes("ai off") || t.includes("ai-off"); })) continue;
-        }
-      } catch(e) {}
-
+    // Step 2 — for each lead get their conversations
+    for (var i = 0; i < Math.min(leads.length, 50); i++) {
+      var lead = leads[i];
       contactsAnalysed++;
 
-      // Get messages
       try {
-        var msgRes = await fetch(
-          "https://services.leadconnectorhq.com/conversations/" + conv.id + "/messages?limit=50",
+        // Get conversations for this specific contact
+        var convRes = await fetch(
+          "https://services.leadconnectorhq.com/conversations/search?locationId=" + GHL_LOC + "&contactId=" + lead.id + "&limit=10",
           { headers: ghlHeaders }
         );
-        if (!msgRes.ok) continue;
-        var msgData = await msgRes.json();
-        var messages = msgData.messages || [];
-        if (messages.messages) messages = messages.messages;
-        if (!Array.isArray(messages)) messages = [];
 
-        messages.forEach(function(m) {
-          if (!m.body || m.body.length < 5) return;
-          var msgTime = m.dateAdded ? new Date(m.dateAdded).getTime() : Date.now();
-          if (msgTime < thirtyDaysAgo) return;
-          if (m.direction === "inbound") {
-            allMessages.push(m.body.substring(0, 400));
-          }
-        });
-      } catch(e) {}
+        if (!convRes.ok) continue;
+        var convData = await convRes.json();
+        var conversations = convData.conversations || convData.data || [];
 
-      if (contactsAnalysed >= 40) break;
+        for (var j = 0; j < conversations.length; j++) {
+          var conv = conversations[j];
+
+          try {
+            var msgRes = await fetch(
+              "https://services.leadconnectorhq.com/conversations/" + conv.id + "/messages?limit=50",
+              { headers: ghlHeaders }
+            );
+
+            if (!msgRes.ok) continue;
+            var msgData = await msgRes.json();
+
+            var messages = [];
+            if (Array.isArray(msgData)) messages = msgData;
+            else if (Array.isArray(msgData.messages)) messages = msgData.messages;
+            else if (msgData.messages && Array.isArray(msgData.messages.messages)) messages = msgData.messages.messages;
+            else if (Array.isArray(msgData.data)) messages = msgData.data;
+
+            messages.forEach(function(m) {
+              var body = m.body || m.message || m.text || m.content || "";
+              var dir = m.direction || m.type || "";
+              if (body && body.length > 5 && (dir === "inbound" || dir === "incoming" || dir === 1 || String(dir) === "1")) {
+                allMessages.push(body.substring(0, 400));
+              }
+            });
+
+          } catch(e) {}
+        }
+
+      } catch(e) {
+        debugLog.push("Lead " + lead.id + " error: " + e.message);
+      }
     }
 
-    // Step 2 — if no inbound messages found, grab any messages for debugging
-    var debugInfo = {};
-    if (allMessages.length === 0 && conversations.length > 0) {
-      debugInfo.note = "No inbound messages in last 30 days. Trying all directions...";
-      for (var i = 0; i < Math.min(5, conversations.length); i++) {
+    debugLog.push("Total inbound messages found: " + allMessages.length);
+
+    // If still 0 inbound, grab outbound too for context
+    if (allMessages.length === 0) {
+      debugLog.push("No inbound messages — trying all message types");
+      for (var i = 0; i < Math.min(leads.length, 20); i++) {
+        var lead = leads[i];
         try {
-          var msgRes = await fetch(
-            "https://services.leadconnectorhq.com/conversations/" + conversations[i].id + "/messages?limit=10",
+          var convRes = await fetch(
+            "https://services.leadconnectorhq.com/conversations/search?locationId=" + GHL_LOC + "&contactId=" + lead.id + "&limit=5",
             { headers: ghlHeaders }
           );
-          if (!msgRes.ok) continue;
-          var msgData = await msgRes.json();
-          var messages = msgData.messages || [];
-          if (messages.messages) messages = messages.messages;
-          if (!Array.isArray(messages)) messages = [];
-          messages.forEach(function(m) {
-            if (m.body && m.body.length > 5) {
-              allMessages.push("[" + (m.direction||"?") + "] " + m.body.substring(0, 300));
-            }
-          });
+          if (!convRes.ok) continue;
+          var convData = await convRes.json();
+          var conversations = convData.conversations || [];
+
+          for (var j = 0; j < conversations.length; j++) {
+            var msgRes = await fetch(
+              "https://services.leadconnectorhq.com/conversations/" + conversations[j].id + "/messages?limit=20",
+              { headers: ghlHeaders }
+            );
+            if (!msgRes.ok) continue;
+            var msgData = await msgRes.json();
+            var messages = Array.isArray(msgData.messages) ? msgData.messages : [];
+            if (messages.messages) messages = messages.messages;
+
+            messages.forEach(function(m) {
+              var body = m.body || m.message || m.text || "";
+              if (body && body.length > 5) {
+                allMessages.push("[" + (m.direction||"?") + "] " + body.substring(0, 300));
+              }
+            });
+          }
         } catch(e) {}
       }
+      debugLog.push("After trying all types: " + allMessages.length + " messages");
     }
 
     if (allMessages.length === 0) {
@@ -121,15 +147,15 @@ exports.handler = async function(event) {
         statusCode: 200, headers,
         body: JSON.stringify({
           themes: [], commonQuestions: [], commonObjections: [], keyPhrases: [],
-          contactsAnalysed, messagesAnalysed: 0, conversationsFound,
-          debug: debugInfo,
-          message: "No messages found in the last 30 days from leads without AI off tag.",
+          contactsAnalysed, messagesAnalysed: 0,
+          message: "Found " + leads.length + " leads but no messages. " + debugLog.join(" | "),
+          debug: debugLog,
           lastUpdated: new Date().toISOString()
         })
       };
     }
 
-    // Step 3 — Claude analysis
+    // Claude analysis
     var messagesText = allMessages.slice(0, 60).join("\n---\n");
     var claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -138,7 +164,7 @@ exports.handler = async function(event) {
         model: "claude-sonnet-4-5",
         max_tokens: 1000,
         system: "You analyse messages from fitness gym leads. Return ONLY valid JSON: { themes: string[], commonQuestions: string[], commonObjections: string[], keyPhrases: string[] }. Be specific to what actually appears in the messages.",
-        messages: [{ role: "user", content: "Analyse these gym lead messages and extract themes:\n\n" + messagesText }]
+        messages: [{ role: "user", content: "Analyse these gym lead messages:\n\n" + messagesText }]
       })
     });
 
@@ -150,7 +176,7 @@ exports.handler = async function(event) {
 
     insights.contactsAnalysed = contactsAnalysed;
     insights.messagesAnalysed = allMessages.length;
-    insights.conversationsFound = conversationsFound;
+    insights.debug = debugLog;
     insights.lastUpdated = new Date().toISOString();
 
     return { statusCode: 200, headers, body: JSON.stringify(insights) };
