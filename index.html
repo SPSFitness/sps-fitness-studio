@@ -984,7 +984,7 @@ function doMemberDownload() {
   setTimeout(function() { hideStatus("memberStatus"); }, 3000);
 }
 
-var CYCLE = ["motivation","behindscenes","evidence","quickwin","local","myth","faq"];
+var CYCLE = ["motivation","fromleads","evidence","quickwin","behindscenes","myth","faq"];
 var CYCLE_AUD = ["women","everyone","men","women","everyone","men","everyone"];
 var BADGE = {motivation:"bm",myth:"bmyth",evidence:"be",quickwin:"bq",bodyblast:"bbb",results:"bresults",behindscenes:"bbehind",faq:"bfaq",seasonal:"bseasonal",local:"blocal",education:"beducation",fromleads:"bfromleads"};
 var ICONS = {motivation:"&#x1F525;",myth:"&#x1F4A1;",evidence:"&#x1F52C;",quickwin:"&#x26A1;",bodyblast:"&#x1F4AA;",results:"&#x1F4AF;",behindscenes:"&#x1F3A5;",faq:"&#x2753;",seasonal:"&#x1F4C5;",local:"&#x1F4CD;",education:"&#x1F4DA;",fromleads:"&#x1F4AC;"};
@@ -1767,7 +1767,7 @@ function doWeek() {
     var aud = CYCLE_AUD[i % CYCLE_AUD.length];
     var sys = aud === "women" ? SYS_WOMEN : (aud === "men" ? SYS_MEN : SYS_ALL);
     var idx = i;
-    callAPI(sys, getPrompt(type, aud, ""), function(err, text) {
+    callAPI(sys, type === "fromleads" ? (getLeadInsightsPrompt(type, aud) || getPrompt(type, aud, "")) : getPrompt(type, aud, ""), function(err, text) {
       if (!err && text) {
         var wMedia = imageLibrary.length ? findBestImage(type, aud) : null;
         if (wMedia) markImageUsed(wMedia.id);
@@ -2271,7 +2271,7 @@ function do10Days() {
     var p = plan[i];
     var sys = p.aud === "women" ? SYS_WOMEN : (p.aud === "men" ? SYS_MEN : SYS_ALL);
     var idx = i;
-    callAPI(sys, getPrompt(p.type, p.aud, p.angle), function(err, text) {
+    callAPI(sys, p.type === "fromleads" ? (getLeadInsightsPrompt(p.type, p.aud) || getPrompt(p.type, p.aud, p.angle)) : getPrompt(p.type, p.aud, p.angle), function(err, text) {
       done++;
       var prog = document.getElementById("prog10");
       if (prog) prog.textContent = done;
@@ -2346,7 +2346,7 @@ function do30Days() {
     var plan = PLAN[i];
     var sys = plan.aud === "women" ? SYS_WOMEN : (plan.aud === "men" ? SYS_MEN : SYS_ALL);
     var idx = i;
-    callAPI(sys, getPrompt(plan.type, plan.aud, plan.angle || ""), function(err, text) {
+    callAPI(sys, plan.type === "fromleads" ? (getLeadInsightsPrompt(plan.type, plan.aud) || getPrompt(plan.type, plan.aud, plan.angle || "")) : getPrompt(plan.type, plan.aud, plan.angle || ""), function(err, text) {
       done++;
       var prog = document.getElementById("prog30");
       if (prog) prog.textContent = done;
