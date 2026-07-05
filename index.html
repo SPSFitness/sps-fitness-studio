@@ -97,6 +97,8 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
 .bseasonal{background:rgba(249,115,22,0.2);color:#f97316;}
 .blocal{background:rgba(236,72,153,0.2);color:#ec4899;}
 .beducation{background:rgba(99,102,241,0.2);color:#818cf8;}
+.bfromleads{background:rgba(251,191,36,0.2);color:#fbbf24;}
+.tb[data-type="fromleads"].sel{border-color:#fbbf24;background:rgba(251,191,36,0.12);color:#fff;}
 .tb[data-type="education"].sel{border-color:#818cf8;background:rgba(99,102,241,0.12);color:#fff;}
 .cnr{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
 .cnb{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 16px;border-radius:var(--rs);cursor:pointer;font-size:16px;}
@@ -207,6 +209,7 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
         </div>
         <div class="tg" style="grid-template-columns:repeat(3,1fr)">
           <div class="tb" data-type="education" id="tb-education" onclick="selectType('education')"><div class="ti">&#x1F4DA;</div><div class="tl">Education</div></div>
+          <div class="tb" data-type="fromleads" id="tb-fromleads" onclick="selectType('fromleads')" style="border-color:rgba(251,191,36,0.4)"><div class="ti">&#x1F4AC;</div><div class="tl">From leads</div></div>
         </div>
         <div class="cl">Focus <span style="font-weight:400;text-transform:none;font-size:12px;color:var(--faint)">(optional)</span></div>
         <input type="text" id="extraCtx" placeholder="e.g. Monday energy, strength training, sleep, stress..." style="margin-bottom:12px" />
@@ -474,6 +477,11 @@ var PROMPTS = {
     women: "Write a post with a local Halesowen or West Midlands feel for women over 30. Reference the local community, the fact this is a local gym not a chain, the benefit of training near home, being part of something local. Warm and community-focused.",
     men: "Write a post with a local Halesowen or West Midlands feel for men in their 40s and 50s. Reference being a local gym, training close to home or work, being part of a local community. Direct and grounded.",
     everyone: "Write a post celebrating the local community feel of SPS Fitness in Halesowen. Reference being independent and local, not a chain, knowing your members by name, being part of the West Midlands community."
+  },
+  fromleads: {
+    women: "Write a Facebook post for SPS Fitness that directly addresses a real concern or question from actual leads. Use the lead intelligence provided to write something that speaks to people who are on the fence about joining. Honest, warm, specific. No pressure. British English. Under 180 words.",
+    men: "Write a Facebook post for SPS Fitness that directly addresses a real concern or question from actual male leads. Use the lead intelligence provided. Direct, honest, no hype. British English. Under 180 words.",
+    everyone: "Write a Facebook post for SPS Fitness that directly addresses a real concern or barrier from actual leads. Use the lead intelligence provided to write something that speaks directly to people considering joining. British English. Under 180 words."
   },
   education: {
     women: "Write an educational Facebook post for women over 30 about the specific topic provided. This should be genuinely informative — explain what is happening in the body, why it matters at this life stage, and what the practical implication is. Use real mechanisms not vague claims. Reference research findings where relevant but keep it accessible. No selling, no CTA pushing Bodyblast. End with something that makes her feel informed and more confident about her training choices.",
@@ -978,9 +986,9 @@ function doMemberDownload() {
 
 var CYCLE = ["motivation","behindscenes","evidence","quickwin","local","myth","faq"];
 var CYCLE_AUD = ["women","everyone","men","women","everyone","men","everyone"];
-var BADGE = {motivation:"bm",myth:"bmyth",evidence:"be",quickwin:"bq",bodyblast:"bbb",results:"bresults",behindscenes:"bbehind",faq:"bfaq",seasonal:"bseasonal",local:"blocal",education:"beducation"};
-var ICONS = {motivation:"&#x1F525;",myth:"&#x1F4A1;",evidence:"&#x1F52C;",quickwin:"&#x26A1;",bodyblast:"&#x1F4AA;",results:"&#x1F4AF;",behindscenes:"&#x1F3A5;",faq:"&#x2753;",seasonal:"&#x1F4C5;",local:"&#x1F4CD;",education:"&#x1F4DA;"};
-var IBGS = {motivation:"rgba(26,111,255,0.15)",myth:"rgba(0,229,255,0.12)",evidence:"rgba(57,217,138,0.1)",quickwin:"rgba(255,184,0,0.12)",bodyblast:"rgba(255,60,120,0.12)",results:"rgba(255,184,0,0.12)",behindscenes:"rgba(139,92,246,0.12)",faq:"rgba(16,185,129,0.12)",seasonal:"rgba(249,115,22,0.12)",local:"rgba(236,72,153,0.12)",education:"rgba(99,102,241,0.12)"};
+var BADGE = {motivation:"bm",myth:"bmyth",evidence:"be",quickwin:"bq",bodyblast:"bbb",results:"bresults",behindscenes:"bbehind",faq:"bfaq",seasonal:"bseasonal",local:"blocal",education:"beducation",fromleads:"bfromleads"};
+var ICONS = {motivation:"&#x1F525;",myth:"&#x1F4A1;",evidence:"&#x1F52C;",quickwin:"&#x26A1;",bodyblast:"&#x1F4AA;",results:"&#x1F4AF;",behindscenes:"&#x1F3A5;",faq:"&#x2753;",seasonal:"&#x1F4C5;",local:"&#x1F4CD;",education:"&#x1F4DA;",fromleads:"&#x1F4AC;"};
+var IBGS = {motivation:"rgba(26,111,255,0.15)",myth:"rgba(0,229,255,0.12)",evidence:"rgba(57,217,138,0.1)",quickwin:"rgba(255,184,0,0.12)",bodyblast:"rgba(255,60,120,0.12)",results:"rgba(255,184,0,0.12)",behindscenes:"rgba(139,92,246,0.12)",faq:"rgba(16,185,129,0.12)",seasonal:"rgba(249,115,22,0.12)",local:"rgba(236,72,153,0.12)",education:"rgba(99,102,241,0.12)",fromleads:"rgba(251,191,36,0.12)"};
 
 function syncLeadInsights() {
   showStatus("insightsStatus", "Analysing lead conversations... this takes 20-30 seconds.", "info");
@@ -1042,10 +1050,33 @@ function renderLeadInsights() {
 
 function getLeadInsightsContext() {
   if (!leadInsights || !leadInsights.themes || !leadInsights.themes.length) return "";
-  var themes = leadInsights.themes.slice(0, 6).join(", ");
-  var questions = (leadInsights.commonQuestions || []).slice(0, 3).join("; ");
-  var objections = (leadInsights.commonObjections || []).slice(0, 3).join("; ");
-  return " LEAD INTELLIGENCE — your actual leads are currently expressing these concerns and asking these questions: Themes: [" + themes + "]. Questions they ask: [" + questions + "]. Barriers they mention: [" + objections + "]. Where relevant, write content that speaks directly to these real concerns — this makes posts resonate with the people who are actually considering joining.";
+  var themes = leadInsights.themes.join(", ");
+  var questions = (leadInsights.commonQuestions || []).join("; ");
+  var objections = (leadInsights.commonObjections || []).join("; ");
+  var phrases = (leadInsights.keyPhrases || []).join(", ");
+  return " REAL LEAD INTELLIGENCE — these are the ACTUAL concerns, questions and barriers your real leads have expressed recently. Use this to make the post speak directly to people who are on the fence about joining: Real concerns people have: [" + themes + "]. Questions they actually ask: [" + questions + "]. Barriers stopping them: [" + objections + "]. Words and phrases they actually use: [" + phrases + "]. Write the post as if you know exactly what is holding this person back — because you do. Address one or two of these real concerns naturally within the post without listing them explicitly.";
+}
+
+function getLeadInsightsPrompt(type, aud) {
+  if (!leadInsights || !leadInsights.themes || !leadInsights.themes.length) return null;
+  var themes = leadInsights.themes;
+  var questions = leadInsights.commonQuestions || [];
+  var objections = leadInsights.commonObjections || [];
+  var phrases = leadInsights.keyPhrases || [];
+
+  // Pick one theme and one objection to focus on
+  var theme = themes[Math.floor(Math.random() * Math.min(themes.length, 6))];
+  var objection = objections.length ? objections[Math.floor(Math.random() * Math.min(objections.length, 4))] : null;
+  var question = questions.length ? questions[Math.floor(Math.random() * Math.min(questions.length, 4))] : null;
+
+  var audienceCtx = aud === "women" ? "women over 30" : aud === "men" ? "men in their 40s and 50s" : "adults over 30";
+
+  var prompt = 'Write a Facebook post for SPS Fitness that directly addresses this real concern from actual leads: ' + theme + '.';
+  if (objection) prompt += ' This specific barrier is also common: ' + objection + '.';
+  if (question) prompt += ' People also commonly ask: ' + question + '.';
+  prompt += " The audience is " + audienceCtx + ". Address the concern honestly and specifically — not with hype or pressure. Make the reader feel understood. Use the language and framing of someone who has heard this exact concern hundreds of times and knows how to respond to it genuinely. The post type is " + type + ".";
+  prompt += " British English. Under 180 words. Max 3 hashtags including #SPSFitness #HalesowenGym. No markdown. No dashes or em dashes.";
+  return prompt;
 }
 
 function showPanel(name) {
@@ -1064,7 +1095,7 @@ function showPanel(name) {
 
 function selectType(t) {
   selType = t;
-  var types = ["motivation","myth","evidence","quickwin","bodyblast","results","behindscenes","faq","seasonal","local","education"];
+  var types = ["motivation","myth","evidence","quickwin","bodyblast","results","behindscenes","faq","seasonal","local","education","fromleads"];
   for (var i = 0; i < types.length; i++) {
     var el = document.getElementById("tb-" + types[i]);
     if (el) el.classList.remove("sel");
@@ -1171,9 +1202,16 @@ function doGenerate() {
   var ctx = document.getElementById("extraCtx").value.trim();
   var customTopic = document.getElementById("customTopic").value.trim();
   var sys = getSys();
-  var prompt = customTopic
-    ? getPrompt(selType, selAud, ctx) + " The specific topic for this post is: " + customTopic + ". Write the post about this topic specifically, keeping the correct tone and audience in mind."
-    : getPrompt(selType, selAud, ctx);
+  var prompt;
+  if (selType === "fromleads") {
+    // Use lead-specific prompt if available
+    var leadPrompt = getLeadInsightsPrompt(selType, selAud);
+    prompt = leadPrompt || getPrompt(selType, selAud, ctx);
+  } else {
+    prompt = customTopic
+      ? getPrompt(selType, selAud, ctx) + " The specific topic for this post is: " + customTopic + ". Write the post about this topic specifically, keeping the correct tone and audience in mind."
+      : getPrompt(selType, selAud, ctx);
+  }
   var card = document.getElementById("outputCard");
   var out = document.getElementById("postOutput");
   card.style.display = "block";
@@ -1977,6 +2015,11 @@ var TOPIC_ANGLES = {
       "doing 10 bodyweight squats every hour at a desk — what micro movement does to circulation and lower back"
     ]
   },
+  fromleads: {
+    women: "Write a Facebook post for SPS Fitness that directly addresses a real concern or question from actual leads. Use the lead intelligence provided to write something that speaks to people who are on the fence about joining. Honest, warm, specific. No pressure. British English. Under 180 words.",
+    men: "Write a Facebook post for SPS Fitness that directly addresses a real concern or question from actual male leads. Use the lead intelligence provided. Direct, honest, no hype. British English. Under 180 words.",
+    everyone: "Write a Facebook post for SPS Fitness that directly addresses a real concern or barrier from actual leads. Use the lead intelligence provided to write something that speaks directly to people considering joining. British English. Under 180 words."
+  },
   education: {
     women: [
       "the benefits of strength training specifically for women over 35 — bone density, metabolic rate, hormonal health",
@@ -2183,7 +2226,7 @@ function buildBatchPlan(days) {
     {type:"local",        aud:"everyone"},
     {type:"myth",         aud:"women"},
     {type:"evidence",     aud:"everyone"},
-    {type:"seasonal",     aud:"everyone"},
+    {type:"fromleads",    aud:"everyone"},
     {type:"motivation",   aud:"women"},
     {type:"bodyblast",    aud:"women"},
     {type:"quickwin",     aud:"everyone"},
@@ -2268,7 +2311,7 @@ function do30Days() {
     {type:"local",        aud:"everyone"},
     {type:"myth",         aud:"women"},
     {type:"evidence",     aud:"everyone"},
-    {type:"seasonal",     aud:"everyone"},
+    {type:"fromleads",    aud:"everyone"},
     {type:"motivation",   aud:"women"},
     {type:"bodyblast",    aud:"women"},
     {type:"quickwin",     aud:"everyone"},
