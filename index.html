@@ -1559,7 +1559,14 @@ function updateGoogleAuthUI() {
   }
 }
 
-// Check for OAuth callback code in URL
+// Listen for OAuth callback from popup window
+window.addEventListener("message", function(e) {
+  if (e.data && e.data.type === "google-oauth" && e.data.code) {
+    handleOAuthCallback(e.data.code);
+  }
+});
+
+// Also check for OAuth callback code in URL (redirect flow)
 (function() {
   var params = new URLSearchParams(window.location.search);
   var code = params.get("code");

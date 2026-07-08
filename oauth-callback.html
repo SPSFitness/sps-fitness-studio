@@ -9,24 +9,36 @@ p{color:rgba(255,255,255,0.6);font-size:14px;}
 </style>
 </head>
 <body>
-<div style="font-size:32px">✓</div>
-<div style="font-size:18px;font-weight:600">Connected to Google Drive</div>
-<p>Returning to SPS Fitness Content Studio...</p>
+<div style="font-size:32px">⟳</div>
+<div style="font-size:18px;font-weight:600">Connecting to Google Drive...</div>
+<p id="msg">Please wait...</p>
 <script>
-// Pass the auth code back to the main app window
 var params = new URLSearchParams(window.location.search);
 var code = params.get("code");
 var error = params.get("error");
-if (code && window.opener) {
-  // Send code to parent window
-  window.opener.postMessage({ type: "google-oauth", code: code }, "*");
-  window.close();
+
+if (error) {
+  document.querySelector("div:nth-child(2)").textContent = "Connection failed";
+  document.getElementById("msg").textContent = error;
 } else if (code) {
-  // Redirect back to main app with code in URL
-  window.location.href = "/?code=" + encodeURIComponent(code);
-} else if (error) {
-  document.querySelector("div:nth-child(2)").textContent = "Connection failed: " + error;
-  document.querySelector("p").textContent = "Please close this window and try again.";
+  // Try postMessage to opener first
+  if (window.opener && !window.opener.closed) {
+    try {
+      window.opener.postMessage({ type: "google-oauth", code: code }, "*");
+      document.querySelector("div:nth-child(1)").textContent = "✓";
+      document.querySelector("div:nth-child(2)").textContent = "Connected!";
+      document.getElementById("msg").textContent = "Closing window...";
+      setTimeout(function() { window.close(); }, 1500);
+    } catch(e) {
+      // Fall back to redirect
+      window.location.href = "/?code=" + encodeURIComponent(code);
+    }
+  } else {
+    // No opener — redirect to main app with code
+    window.location.href = "/?code=" + encodeURIComponent(code);
+  }
+} else {
+  document.getElementById("msg").textContent = "No code received. Please try again.";
 }
 </script>
 </body>
