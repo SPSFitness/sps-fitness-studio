@@ -1494,8 +1494,10 @@ function handleOAuthCallback(code) {
     googleRefreshToken = d.refresh_token;
     googleTokenExpiry = Date.now() + (d.expires_in * 1000);
     saveGoogleAuth();
+    // Force UI update — show images panel with updated button
+    showPanel("images");
     updateGoogleAuthUI();
-    alert("Google Drive connected! Used photos will now be moved automatically after export.");
+    showStatus("imgStatus", "Google Drive connected! Used photos will be moved automatically after each export.", "success");
   })
   .catch(function(e) { alert("Auth error: " + e.message); });
 }
