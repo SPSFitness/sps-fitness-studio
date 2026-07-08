@@ -1,4 +1,3 @@
-// Google OAuth handler — exchange code for tokens and store refresh token
 exports.handler = async function(event) {
   var headers = {
     "Access-Control-Allow-Origin": "*",
@@ -13,26 +12,53 @@ exports.handler = async function(event) {
   var CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
   var REDIRECT_URI = "https://merry-flan-9e55eb.netlify.app/oauth-callback";
 
+  // Debug — return env var status without exposing values
+  if (event.httpMethod === "GET") {
+    return { statusCode: 200, headers, body: JSON.stringify({
+      hasClientId: !!CLIENT_ID,
+      hasClientSecret: !!CLIENT_SECRET,
+      clientIdEnd: CLIENT_ID ? CLIENT_ID.slice(-10) : null,
+      clientSecretEnd: CLIENT_SECRET ? CLIENT_SECRET.slice(-4) : null
+    })};
+  }
+  var REDIRECT_URI = "https://merry-flan-9e55eb.netlify.app/oauth-callback";
+
   var body;
   try { body = JSON.parse(event.body || "{}"); } catch(e) { body = {}; }
 
-  // Exchange auth code for tokens
+  // DEBUG — return what we have (remove after testing)
+  if (body.debug) {
+    return { statusCode: 200, headers, body: JSON.stringify({
+      hasClientId: !!CLIENT_ID,
+      hasClientSecret: !!CLIENT_SECRET,
+      clientIdStart: CLIENT_ID ? CLIENT_ID.substring(0, 20) : "missing",
+      clientSecretStart: CLIENT_SECRET ? CLIENT_SECRET.substring(0, 10) : "missing",
+      redirectUri: REDIRECT_URI
+    })};
+  }
+
   if (body.code) {
     try {
+      var params = new URLSearchParams({
+        code: body.code,
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        redirect_uri: REDIRECT_URI,
+        grant_type: "authorization_code"
+      });
+
       var tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          code: body.code,
-          client_id: CLIENT_ID,
-          client_secret: CLIENT_SECRET,
-          redirect_uri: REDIRECT_URI,
-          grant_type: "authorization_code"
-        })
+        body: params
       });
       var tokenData = await tokenRes.json();
+
       if (tokenData.error) {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: tokenData.error_description || tokenData.error }) };
+        return { statusCode: 400, headers, body: JSON.stringify({
+          error: tokenData.error_description || tokenData.error,
+          fullResponse: tokenData
+        })};
       }
       return { statusCode: 200, headers, body: JSON.stringify({
         access_token: tokenData.access_token,
@@ -44,7 +70,6 @@ exports.handler = async function(event) {
     }
   }
 
-  // Refresh access token using refresh token
   if (body.refresh_token) {
     try {
       var refreshRes = await fetch("https://oauth2.googleapis.com/token", {
