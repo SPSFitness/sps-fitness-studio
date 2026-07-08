@@ -4,3 +4,7 @@
 
 [functions]
   node_bundler = "esbuild"
+
+[build.environment]
+  GOOGLE_CLIENT_ID = "693809245418-f0c4pv4rov2k2go7tlp3d22q06o6gee1.apps.googleusercontent.com"
+  GOOGLE_CLIENT_SECRET = "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"
