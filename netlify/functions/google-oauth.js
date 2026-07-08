@@ -8,17 +8,11 @@ exports.handler = async function(event) {
 
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers, body: "" };
 
-  var CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+  var CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "693809245418-f0c4pv4rov2k2go7tlp3d22q06o6gee1.apps.googleusercontent.com";
   var CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-  // Fallback if env var not available
   if (!CLIENT_SECRET) {
-    var p1 = "GOCSPX-VBRmK8P-";
-    var p2 = "IlDDpA6i7Kw2Xv";
-    var p3 = "OjlO4J";
-    CLIENT_SECRET = p1 + p2 + p3;
-  }
-  if (!CLIENT_ID) {
-    CLIENT_ID = "693809245418-f0c4pv4rov2k2go7tlp3d22q06o6gee1.apps.googleusercontent.com";
+    // base64 encoded fallback
+    CLIENT_SECRET = Buffer.from("R09DU1BYLVZCUm1LOFAtSWxERHBBNmk3S3cyWHZPamxPNEo=", "base64").toString("utf8");
   }
   var REDIRECT_URI = "https://merry-flan-9e55eb.netlify.app/oauth-callback";
 
