@@ -98,6 +98,10 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
 .blocal{background:rgba(236,72,153,0.2);color:#ec4899;}
 .beducation{background:rgba(99,102,241,0.2);color:#818cf8;}
 .bfromleads{background:rgba(251,191,36,0.2);color:#fbbf24;}
+.bvalue{background:rgba(34,197,94,0.2);color:#22c55e;}
+.breels{background:rgba(239,68,68,0.2);color:#ef4444;}
+.tb[data-type="reels"].sel{border-color:#ef4444;background:rgba(239,68,68,0.12);color:#fff;}
+.tb[data-type="value"].sel{border-color:#22c55e;background:rgba(34,197,94,0.12);color:#fff;}
 .tb[data-type="fromleads"].sel{border-color:#fbbf24;background:rgba(251,191,36,0.12);color:#fff;}
 .tb[data-type="education"].sel{border-color:#818cf8;background:rgba(99,102,241,0.12);color:#fff;}
 .cnr{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
@@ -210,6 +214,8 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
         <div class="tg" style="grid-template-columns:repeat(3,1fr)">
           <div class="tb" data-type="education" id="tb-education" onclick="selectType('education')"><div class="ti">&#x1F4DA;</div><div class="tl">Education</div></div>
           <div class="tb" data-type="fromleads" id="tb-fromleads" onclick="selectType('fromleads')" style="border-color:rgba(251,191,36,0.4)"><div class="ti">&#x1F4AC;</div><div class="tl">From leads</div></div>
+          <div class="tb" data-type="value" id="tb-value" onclick="selectType('value')" style="border-color:rgba(34,197,94,0.4)"><div class="ti">&#x1F91D;</div><div class="tl">Community</div></div>
+          <div class="tb" data-type="reels" id="tb-reels" onclick="selectType('reels')" style="border-color:rgba(239,68,68,0.4)"><div class="ti">&#x1F3AC;</div><div class="tl">Reels/Video</div></div>
         </div>
         <div class="cl">Focus <span style="font-weight:400;text-transform:none;font-size:12px;color:var(--faint)">(optional)</span></div>
         <input type="text" id="extraCtx" placeholder="e.g. Monday energy, strength training, sleep, stress..." style="margin-bottom:12px" />
@@ -300,14 +306,43 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
           </div>
           <button class="btn bp" style="width:auto;font-size:14px;letter-spacing:1px;padding:10px 20px" onclick="syncDrive()">&#x21BA; SYNC NOW</button>
         </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border);margin-top:8px">
+          <div style="font-size:13px;color:var(--muted)" id="googleAuthStatus">Connect to automatically move used photos after export.</div>
+          <button class="btn bc" id="googleAuthBtn" onclick="connectGoogle()">Connect Google Drive</button>
+        </div>
         <div class="sb" id="imgStatus"></div>
       </div>
       <div class="card" id="imgLibraryCard" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <div class="cl" style="margin-bottom:0">Your photos (<span id="imgCount">0</span>)</div>
+          <div class="cl" style="margin-bottom:0">Your photos &amp; videos (<span id="imgCount">0</span>)</div>
           <button class="btn bg" style="font-size:12px;padding:5px 12px" onclick="clearAllImages()">Clear all</button>
         </div>
         <div class="img-grid" id="imgGrid"></div>
+      </div>
+      <div class="card" id="fromVideoCard" style="display:none">
+        <div class="cl">Generate post from video</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Pick a video from your library — Claude will watch it and write a post around what is actually in it</div>
+        <div id="videoPickerGrid" class="img-grid" style="margin-bottom:14px"></div>
+        <div id="fromVideoOutput" style="display:none">
+          <div class="cl">Selected video</div>
+          <div id="fromVideoSelected" style="background:var(--surface2);border-radius:var(--rs);padding:12px;margin-bottom:12px;font-size:13px;color:var(--muted)"></div>
+          <div class="ag" style="margin-bottom:14px">
+            <div class="ab sel" id="fvaud-everyone" onclick="selectFvAud('everyone')">&#x1F465; Everyone</div>
+            <div class="ab" id="fvaud-women" onclick="selectFvAud('women')">&#x1F469; Women 30+</div>
+            <div class="ab" id="fvaud-men" onclick="selectFvAud('men')">&#x1F468; Men 40s/50s</div>
+          </div>
+          <button class="btn bp" onclick="generateFromVideo()">&#x1F3AC; GENERATE POST FROM THIS VIDEO</button>
+          <div class="sb" id="fromVideoStatus" style="margin-top:12px"></div>
+          <div id="fromVideoResult" style="display:none">
+            <div class="cl" style="margin-top:16px">Your post</div>
+            <div class="pb" id="fromVideoPost"></div>
+            <div class="br">
+              <button class="btn bg" onclick="generateFromVideo()">&#x21BA; Regenerate</button>
+              <button class="btn bg" onclick="copyFromVideo()">&#x2398; Copy</button>
+              <button class="btn bc" onclick="schedFromVideo()">&#x1F4C5; Schedule</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -325,6 +360,7 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
         </div>
         <div class="tg" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
           <div class="tb" data-type="mindset" id="mtb-mindset" onclick="selectMemberType('mindset')"><div class="ti">&#x1F9E0;</div><div class="tl">Mindset</div></div>
+          <div class="tb" data-type="reels" id="mtb-reels" onclick="selectMemberType('reels')"><div class="ti">&#x1F3AC;</div><div class="tl">Reels/Video</div></div>
           <div class="tb" data-type="progress" id="mtb-progress" onclick="selectMemberType('progress')"><div class="ti">&#x1F4C8;</div><div class="tl">Progress</div></div>
           <div class="tb" data-type="spotlight" id="mtb-spotlight" onclick="selectMemberType('spotlight')"><div class="ti">&#x2B50;</div><div class="tl">Spotlight</div></div>
         </div>
@@ -393,9 +429,31 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
       <div class="ps">Configure defaults</div>
       <div class="al"></div>
       <div class="card">
-        <div class="cl">Default post time</div>
+        <div class="cl">Daily post times</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Auto-fill will spread posts across these times each day. Leave blank to skip that slot.</div>
+        <div class="sr" style="grid-template-columns:repeat(4,1fr);gap:10px">
+          <div>
+            <div class="sl">Slot 1</div>
+            <input type="time" id="timeSlot1" value="07:00" />
+          </div>
+          <div>
+            <div class="sl">Slot 2</div>
+            <input type="time" id="timeSlot2" value="11:00" />
+          </div>
+          <div>
+            <div class="sl">Slot 3</div>
+            <input type="time" id="timeSlot3" value="14:00" />
+          </div>
+          <div>
+            <div class="sl">Slot 4</div>
+            <input type="time" id="timeSlot4" value="19:00" />
+          </div>
+        </div>
+        <div class="sh" style="margin-top:8px">Posts per day = number of active slots. 4 slots = 4 posts per day = 28 posts per week.</div>
+      </div>
+      <div class="card">
+        <div class="cl">Legacy single time <span style="font-weight:400;font-size:11px;color:var(--faint)">(used for manual scheduling only)</span></div>
         <input type="time" id="defaultTime" value="19:00" style="max-width:180px;margin-bottom:6px" />
-        <div class="sh">Auto-fill posts will use this time daily</div>
       </div>
       <div class="card">
         <div class="cl">How to publish posts</div>
@@ -419,18 +477,23 @@ var postHistory = []; // tracks recent posts to avoid repetition
 var SHEETS_URL = "https://script.google.com/macros/s/AKfycbyPSdZtx3IXDfiYfqwjKN1b5o-7sr43By0bvz9OlfOnaDQGFaicgEmgjkvKG1IR6wkpDQ/exec";
 var sheetsReady = false;
 var leadInsights = null; // cached GHL lead insights
+var googleAccessToken = null;
+var googleRefreshToken = null;
+var googleTokenExpiry = 0;
+var GOOGLE_CLIENT_ID = "693809245418-f0c4pv4rov2k2go7tlp3d22q06o6gee1.apps.googleusercontent.com";
+var GOOGLE_SCOPES = "https://www.googleapis.com/auth/drive";
 var imageLibrary = []; // {id, dataUrl, filename, tags, tagString, hostedUrl}
 // ImgBB key is stored server-side
 var SPS_LOGO = new Image();
 SPS_LOGO.src = "data:image/jpeg;base64,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";
 
-var SYS_BASE = "You write Facebook posts for SPS Fitness, a small group personal training gym in Halesowen, West Midlands. Run by the coach. The tone is straight-talking, warm, specific and real — never generic, never preachy, never corporate. Posts feel like they come from a knowledgeable friend who gets real life. Short sentences. Direct. Occasionally dry or funny. Never waffy. Vary the CTA — sometimes a question, sometimes invite a comment, sometimes just make them think. Max 3 hashtags. Under 180 words. British English. When using location hashtags always spell it #Halesowen (H-a-l-e-s-o-w-e-n) — never any other spelling. Approved hashtags: #SPSFitness #HalesowenGym #Halesowen #SmallGroupTraining #PersonalTraining #WestMidlands #StrengthTraining #Over30Fitness #Over40Fitness #WomenWhoLift. MEMBER INTELLIGENCE — these are real themes from SPS Fitness member reviews, use them to make posts feel specific and real: members often felt intimidated by regular gyms before joining; many had tried other gyms and been let down; several came back after illness or long gaps; results go beyond weight loss — members say they feel the fittest they have ever been; members did not expect to actually enjoy training but did; the small group makes people feel seen and not lost in a crowd; a different workout every time keeps it from getting boring; the coach understands each person's fitness level and pushes them correctly; the atmosphere is described as supportive and community-like; members often say they wish they had found it sooner. Draw on these real experiences to make posts feel authentic and specific to this community. STRICT FORMATTING RULES: Never use dash symbols (-) or em dashes (—) anywhere in the post — not to start lines, not mid-sentence, not to separate clauses. Use full stops or line breaks instead. This is a hard rule with no exceptions. Never end with meta-commentary like 'That is it. That is the post.' or 'Simple as that.' or any self-referential closing line. Just end the post naturally on the message itself. Never use markdown formatting — no asterisks, no bold, no bullet points with asterisks, no **text**. Plain text only. Never use the phrase your future self will thank you or any variation of it. Never suggest sleeping in gym clothes or wearing gym clothes to bed. Never write posts that sound trivial, gimmicky or desperate for engagement. Avoid overused fitness clichés like DOMS, beast mode, level up, game changer, hustle, grind, feel the burn, trust the process — use them sparingly if ever, and never in consecutive posts. OPENING LINE RULES: Never start a post with You, Your, We, Here is, Here are, If you, What if, The truth, Did you know, Most people, Everyone knows. Vary the opening completely every time — start with a statement, a fact, a scenario, a question that does not begin with You, or an observation. No two posts in a batch should have the same opening structure.";
+var SYS_BASE = "You write Facebook posts for SPS Fitness, a small group personal training gym in Halesowen, West Midlands. Run by the coach. You are writing in the voice of someone who has coached real people in this gym for years and has seen everything. These are the things you actually know from being on the gym floor every day: members who never liked exercise in their lives now miss sessions when they cannot come. People join for the fitness and stay for the friendships. The support in the room is something members talk about more than the training itself. With new members, getting them moving matters more than perfect form at the start. Confidence and consistency beat technique obsession every time, and the movement improves naturally as they get stronger. The memory in the ladies sessions is genuinely shocking in the funniest way. You can demo an exercise, turn around, and thirty seconds later someone asks what they are supposed to be doing. That is one of the best things about the job. About half the members are over 50 and they are some of the most committed people in the building. People come in exhausted from their week and leave feeling better than when they walked in, every single time. ON VALUE: People say SPS is expensive. It is not. The problem is people cannot attach a value to something they do not yet understand. They have never experienced proper coached small group training so they compare it to a gym membership they barely use. Once they are in and feel the difference, nobody questions the cost. The posts should help people understand what they are actually getting before they ever walk through the door. Not by listing features. By making them feel what it is worth. ON HATERS AND NEGATIVITY: Some people will have someone in their life telling them not to bother, laughing at the idea, or just being quietly discouraging. A partner, a friend, a colleague. It happens more than people admit. The message is simple: never let someone else's opinion of your potential become your ceiling. Other people's noise is not your business. Getting stronger, feeling better and showing up for yourself is. These are the real things. Let them come through in posts naturally. Do not state them as facts. Let them colour the writing so it sounds like it came from someone who was actually there. TONE: Straight-talking, warm, occasionally dry and funny, never preachy, never corporate, never generic. Short sentences. Direct. Sounds like a real person not a fitness brand. Never waffy. FORMATTING: Max 3 hashtags. Under 180 words. British English. No markdown. No dashes or em dashes anywhere in the post. Use full stops or line breaks instead. This is a hard rule with no exceptions. Never end with meta-commentary. Just end naturally on the message itself. No post should start with: You, Your, We, Here is, Here are, If you, What if, The truth, Did you know, Most people, Everyone knows. Vary the opening every time. Never use: your future self will thank you, beast mode, level up, game changer, hustle, grind, feel the burn, trust the process, smash your goals, crush it, journey, transformation. Never suggest sleeping in gym clothes. Never write posts that sound trivial, gimmicky or desperate for engagement. Hashtags: always spell #Halesowen correctly. Approved: #SPSFitness #HalesowenGym #Halesowen #SmallGroupTraining #PersonalTraining #WestMidlands #StrengthTraining #Over30Fitness #Over40Fitness #WomenWhoLift. COMMUNITY CONTEXT: approximately 50 percent of SPS members are over 50, training alongside people in their 30s and 40s. SPS has been established in Halesowen for years with real members, real results and real relationships. SPS is available now, no waiting list, just start.";
 
-var SYS_WOMEN = SYS_BASE + " This post is specifically for women over 30. These women are juggling full-time work, kids, partners, school runs, and not enough hours in the day. They are time-poor, often exhausted, and have probably tried and failed at fitness before — including other gyms that felt intimidating or impersonal. They are smart and do not need lecturing. Be specific about the reality of life over 30 for women: hormones, perimenopause, metabolism changes, guilt about not doing enough, fitting exercise around chaos. Some are coming back after illness, injury or years away from exercise. Many feel stuck and do not know where to start. The SPS difference that resonates with them: small groups so you are never lost in a crowd, sessions tailored to your level, actually enjoying training for the first time, feeling the fittest they have ever been not just lighter. Never use these phrases: ladies, girls, you need to, you should, your future self, no judgement, no judgment, no pressure, we are all in the same boat, most of us are in the same boat, honestly, and honestly, just curious, just putting it out there, your future self will thank you, future you will thank you.";
+var SYS_WOMEN = SYS_BASE + " This post is specifically for women over 30 — including women in their 50s and 60s. These women are juggling full-time work, kids, partners, school runs, and not enough hours in the day. They are time-poor, often exhausted, and have probably tried and failed at fitness before — including other gyms that felt intimidating or impersonal. They are smart and do not need lecturing. Be specific about the reality of life over 30 for women: hormones, perimenopause, metabolism changes, guilt about not doing enough, fitting exercise around chaos. Some are coming back after illness, injury or years away from exercise. Many feel stuck and do not know where to start. The SPS difference that resonates with them: small groups so you are never lost in a crowd, sessions tailored to your level, actually enjoying training for the first time, feeling the fittest they have ever been not just lighter. Never use these phrases: ladies, girls, you need to, you should, your future self, no judgement, no judgment, no pressure, we are all in the same boat, most of us are in the same boat, honestly, and honestly, just curious, just putting it out there, your future self will thank you, future you will thank you.";
 
-var SYS_MEN = SYS_BASE + " This post is specifically for men in their 40s and 50s. These men are dealing with things their younger selves did not expect: testosterone decline, belly fat that appeared from nowhere, joints that creak, slower recovery, back pain from a desk job, less energy than they used to have, and maybe some embarrassment about how far their fitness has slipped. Many have tried other gyms and found them intimidating, impersonal or just not right for where they are now. Some are coming back after illness, injury or a long gap. They are often busy with career and family. They do not want to be talked down to or sold miracle solutions. The SPS difference that resonates: small group environment so no one is watching or judging, training that actually matches where you are now not where you were at 25, a different session every time so it never gets boring, and coaching that pushes you correctly without destroying you. Be direct, practical and honest. Never use these phrases: you need to, you should, it is never too late, you have got this, no judgement, no judgment, no pressure, honestly, and honestly, just curious, most of us are in the same boat, your future self will thank you, future you will thank you.";
+var SYS_MEN = SYS_BASE + " This post is specifically for men in their 40s, 50s and beyond. These men are in their 40s, 50s and 60s dealing with things their younger selves did not expect: testosterone decline, belly fat that appeared from nowhere, joints that creak, slower recovery, back pain from a desk job, less energy than they used to have, and maybe some embarrassment about how far their fitness has slipped. Around half of SPS members are over 50 — this is a community where men in their 50s and 60s train alongside people in their 40s and get real results. Many have tried other gyms and found them intimidating, impersonal or just not right for where they are now. Some are coming back after illness, injury or a long gap. They are often busy with career and family. They do not want to be talked down to or sold miracle solutions. The SPS difference that resonates: small group environment so no one is watching or judging, training that actually matches where you are now not where you were at 25, a different session every time so it never gets boring, and coaching that pushes you correctly without destroying you. Be direct, practical and honest. Never use these phrases: you need to, you should, it is never too late, you have got this, no judgement, no judgment, no pressure, honestly, and honestly, just curious, most of us are in the same boat, your future self will thank you, future you will thank you.";
 
-var SYS_ALL = SYS_BASE + " This post is for the whole SPS Fitness community — women over 30 and men in their 40s and 50s. Write something that resonates with anyone who is busy, time-poor, and trying to get fit or stay fit around a full life. Be inclusive without being vague. Speak to real shared experiences: not having enough time, feeling like fitness keeps slipping down the priority list, wanting to feel stronger and have more energy, having tried other gyms and been let down, feeling intimidated by big gyms, coming back after a gap or illness and not knowing where to start, discovering they actually enjoy training when it is done right. The SPS difference: small group sessions, different workout every time, coaching that meets you where you are, a community where people genuinely support each other.";
+var SYS_ALL = SYS_BASE + " This post is for the whole SPS Fitness community — women and men from their 30s through their 50s and beyond. Around half of SPS members are over 50, training alongside members in their 30s and 40s. This is a mixed age community where everyone trains together. Write something that resonates with anyone who is busy, time-poor, and trying to get fit or stay fit around a full life. Be inclusive without being vague. Speak to real shared experiences: not having enough time, feeling like fitness keeps slipping down the priority list, wanting to feel stronger and have more energy, having tried other gyms and been let down, feeling intimidated by big gyms, coming back after a gap or illness and not knowing where to start, discovering they actually enjoy training when it is done right. The SPS difference: small group sessions, different workout every time, coaching that meets you where you are, a community where people genuinely support each other.";
 
 var PROMPTS = {
   motivation: {
@@ -483,6 +546,54 @@ var PROMPTS = {
     men: "Write a Facebook post for SPS Fitness that directly addresses a real concern or question from actual male leads. Use the lead intelligence provided. Direct, honest, no hype. British English. Under 180 words.",
     everyone: "Write a Facebook post for SPS Fitness that directly addresses a real concern or barrier from actual leads. Use the lead intelligence provided to write something that speaks directly to people considering joining. British English. Under 180 words."
   },
+  reels: {
+    women: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. Keep it dead simple — the coach is coaching not producing content. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (optional — one line to say to camera if talking, or leave blank if just filming the session), CAPTION (ready to paste post text, under 80 words, no hashtag waffle, ends with a soft CTA or question). Women over 30 audience. Make it feel real and spontaneous not staged.",
+    men: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. Dead simple — no production. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (one line to say to camera if needed, or blank if just filming), CAPTION (ready to paste, under 80 words, soft CTA). Men in their 40s 50s and 60s audience. Real, unpolished, genuine.",
+    everyone: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. No production needed — just a phone. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (one line to camera if needed, blank if just filming the action), CAPTION (ready to paste, under 80 words, soft CTA or question). Mixed audience. Keep it real and unplanned feeling."
+  },
+  value: {
+    women: "Write a Facebook post for SPS Fitness about what makes coached small group training genuinely different. Someone who knows your name, your history, your limitations, your goals. Not a class. Not a generic programme. Actual coaching that adapts to you. For women from their 30s through their 60s. No waiting list. Real community. Real results. No naming competitors. Make it feel like something worth being part of.",
+    men: "Write a Facebook post for SPS Fitness about what makes SPS the right environment for men in their 40s 50s and 60s. Real coaching, a mixed age community where men over 50 are getting stronger every month, sessions that fit around life. No faff. No waiting around. Available now. Make it feel like the obvious place to be.",
+    everyone: "Write a Facebook post for SPS Fitness about what makes the SPS community special. Adults from their 30s through their 60s all training together, getting stronger, supporting each other. Years of results. Coaches who actually know you. A gym that has been part of Halesowen for years. No waiting list. Start this week. Make it feel like a community worth being part of.",
+    thirty_plus: "Write a Facebook post for SPS Fitness about why strength training for longevity, bone density and muscle mass matters from your 30s onwards — not just your 50s. The adults who start in their 30s and 40s have the biggest long term advantage. SPS has members across this full age range all benefiting from the same approach. Make it feel like genuinely useful information."
+  },
+  reels: {
+    women: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. Keep it dead simple — the coach is coaching not producing content. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (optional — one line to say to camera if talking, or leave blank if just filming the session), CAPTION (ready to paste post text, under 80 words, no hashtag waffle, ends with a soft CTA or question). Women over 30 audience. Make it feel real and spontaneous not staged.",
+    men: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. Dead simple — no production. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (one line to say to camera if needed, or blank if just filming), CAPTION (ready to paste, under 80 words, soft CTA). Men in their 40s 50s and 60s audience. Real, unpolished, genuine.",
+    everyone: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. No production needed — just a phone. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (one line to camera if needed, blank if just filming the action), CAPTION (ready to paste, under 80 words, soft CTA or question). Mixed audience. Keep it real and unplanned feeling."
+  },
+  value: {
+    women: [
+      "why 50 percent of SPS members are over 50 — what a mixed age community offers that age-specific gyms cannot",
+      "strength training in your 50s and 60s at SPS — available now, no waiting list, start this week",
+      "the cost of coached small group training versus never quite getting started — what each actually costs over a year",
+      "less than £20 a week for coaching that knows your name your history and your limitations",
+      "strength training for women in their 30s and 40s — why starting now has more long term benefit than waiting until 50",
+      "no waiting list, no consultation gatekeeping, no minimum commitment — start this week",
+      "bone density muscle mass and balance are not just concerns for people over 50 — the research on women from 35",
+      "what proper coaching actually means versus a class a DVD or a generic online programme",
+      "adults from 30 upward — why SPS serves the people other specialist gyms turn away"
+    ],
+    men: [
+      "the cost of doing nothing versus less than £20 a week — what five years of inaction costs physically",
+      "coached strength training for men in their 40s — no waiting list, no months long intake process, available now",
+      "longevity strength and muscle mass matter from 40 not just from 50 — what the research shows",
+      "the difference between a gym you pay for and never use and coaching that actually produces results",
+      "no minimum age, no maximum age — SPS works with men from their 30s through their 50s and beyond",
+      "strength training that fits around work and family — two sessions a week, no faff, real results"
+    ],
+    everyone: [
+      "why people say SPS is expensive before they join and never say it again after they do",
+      "the problem with comparing coached training to a gym membership you barely use",
+      "you cannot put a value on something you have never experienced — what changes when you do",
+      "what people are actually paying for when they join SPS — and why it is not what most people think",
+      "what less than £20 a week buys at SPS versus what it buys anywhere else",
+      "strength training for longevity is not a niche for the over 50s — it matters from 30 onwards",
+      "available now, no waiting list, start this week — what accessibility actually means",
+      "the same benefits — strength bone density muscle mass balance — at a fraction of what specialist programmes charge",
+      "coached small group training from your 30s through your 50s — one programme that grows with you"
+    ]
+  },
   education: {
     women: "Write an educational Facebook post for women over 30 about the specific topic provided. This should be genuinely informative — explain what is happening in the body, why it matters at this life stage, and what the practical implication is. Use real mechanisms not vague claims. Reference research findings where relevant but keep it accessible. No selling, no CTA pushing Bodyblast. End with something that makes her feel informed and more confident about her training choices.",
     men: "Write an educational Facebook post for men in their 40s and 50s about the specific topic provided. This should be genuinely informative — explain the physiology, the research, the practical implications. Use real numbers and mechanisms where relevant. Direct and factual. No selling, no Bodyblast CTA. End with a practical takeaway.",
@@ -503,6 +614,7 @@ var curMediaId = null; // tracks currently displayed matched image
 var MEMBER_SYS = "You write Facebook group posts for SPS Fitness members — people who already train with their coach at SPS Fitness in Halesowen. These members are coached in every session — their coach tells them exactly what to do. They do not programme their own training. So posts should never give them generic gym tips or tell them what to do in sessions. Instead posts should: explain the thinking behind what they are already doing in sessions, help them understand why certain things are programmed, cover the lifestyle factors outside the gym that affect their results — sleep, nutrition, stress, recovery, hydration — and celebrate their progress as a community. The tone is warm, direct and coach-like — like a knowledgeable friend who knows them and their training. No selling, no CTAs pushing new programmes. Short sentences. Real. Occasionally funny. British English. Under 150 words. No markdown, no asterisks. No headers. Plain text only.";
 
 var MEMBER_PROMPTS = {
+  reels: "Generate a simple phone video idea for an SPS Fitness coach to film during or after a session for the members Facebook group. Dead simple. Output format: WHAT TO FILM (one sentence), SAY THIS (one line if talking to camera, blank if just filming), CAPTION (warm, under 60 words, no selling, feels like it is from the coach to members). Keep it spontaneous and real.",
   mindset: "Write a mindset post for existing SPS Fitness members. Cover the mental side of training — dealing with the voice that says skip today, staying consistent when motivation dips, not comparing yourself to others in the group, celebrating small wins. Frame it as insight from someone who coaches people through this every week. Warm, honest, no toxic positivity.",
   progress: "Write a post for existing SPS Fitness members about how to track progress beyond the scales. Cover: strength improvements, energy levels, sleep quality, clothes fitting differently, keeping up with kids, less back pain, improved mood. Help them recognise the wins they might be overlooking. Encouraging without being preachy.",
   spotlight: "Write a member spotlight post for the SPS Fitness members group. Celebrate an anonymous member milestone — someone who has been coming consistently for 3 months, someone who hit a new personal best, someone who came back after injury, someone who turned up when life was hard. Make it feel real and warm. Do not use names. Make other members recognise the feeling.",
@@ -986,9 +1098,9 @@ function doMemberDownload() {
 
 var CYCLE = ["motivation","fromleads","evidence","quickwin","behindscenes","myth","faq"];
 var CYCLE_AUD = ["women","everyone","men","women","everyone","men","everyone"];
-var BADGE = {motivation:"bm",myth:"bmyth",evidence:"be",quickwin:"bq",bodyblast:"bbb",results:"bresults",behindscenes:"bbehind",faq:"bfaq",seasonal:"bseasonal",local:"blocal",education:"beducation",fromleads:"bfromleads"};
-var ICONS = {motivation:"&#x1F525;",myth:"&#x1F4A1;",evidence:"&#x1F52C;",quickwin:"&#x26A1;",bodyblast:"&#x1F4AA;",results:"&#x1F4AF;",behindscenes:"&#x1F3A5;",faq:"&#x2753;",seasonal:"&#x1F4C5;",local:"&#x1F4CD;",education:"&#x1F4DA;",fromleads:"&#x1F4AC;"};
-var IBGS = {motivation:"rgba(26,111,255,0.15)",myth:"rgba(0,229,255,0.12)",evidence:"rgba(57,217,138,0.1)",quickwin:"rgba(255,184,0,0.12)",bodyblast:"rgba(255,60,120,0.12)",results:"rgba(255,184,0,0.12)",behindscenes:"rgba(139,92,246,0.12)",faq:"rgba(16,185,129,0.12)",seasonal:"rgba(249,115,22,0.12)",local:"rgba(236,72,153,0.12)",education:"rgba(99,102,241,0.12)",fromleads:"rgba(251,191,36,0.12)"};
+var BADGE = {motivation:"bm",myth:"bmyth",evidence:"be",quickwin:"bq",bodyblast:"bbb",results:"bresults",behindscenes:"bbehind",faq:"bfaq",seasonal:"bseasonal",local:"blocal",education:"beducation",fromleads:"bfromleads",value:"bvalue",reels:"breels"};
+var ICONS = {motivation:"&#x1F525;",myth:"&#x1F4A1;",evidence:"&#x1F52C;",quickwin:"&#x26A1;",bodyblast:"&#x1F4AA;",results:"&#x1F4AF;",behindscenes:"&#x1F3A5;",faq:"&#x2753;",seasonal:"&#x1F4C5;",local:"&#x1F4CD;",education:"&#x1F4DA;",fromleads:"&#x1F4AC;",value:"&#x1F4B0;"};
+var IBGS = {motivation:"rgba(26,111,255,0.15)",myth:"rgba(0,229,255,0.12)",evidence:"rgba(57,217,138,0.1)",quickwin:"rgba(255,184,0,0.12)",bodyblast:"rgba(255,60,120,0.12)",results:"rgba(255,184,0,0.12)",behindscenes:"rgba(139,92,246,0.12)",faq:"rgba(16,185,129,0.12)",seasonal:"rgba(249,115,22,0.12)",local:"rgba(236,72,153,0.12)",education:"rgba(99,102,241,0.12)",fromleads:"rgba(251,191,36,0.12)",value:"rgba(34,197,94,0.12)",reels:"rgba(239,68,68,0.12)"};
 
 function syncLeadInsights() {
   showStatus("insightsStatus", "Analysing lead conversations... this takes 20-30 seconds.", "info");
@@ -1090,12 +1202,12 @@ function showPanel(name) {
   if (name === "members") { /* members panel init */ }
   if (name === "queue") renderQueue();
   if (name === "insights") renderLeadInsights();
-  if (name === "images") renderImgLibrary();
+  if (name === "images") { renderImgLibrary(); updateGoogleAuthUI(); }
 }
 
 function selectType(t) {
   selType = t;
-  var types = ["motivation","myth","evidence","quickwin","bodyblast","results","behindscenes","faq","seasonal","local","education","fromleads"];
+  var types = ["motivation","myth","evidence","quickwin","bodyblast","results","behindscenes","faq","seasonal","local","education","fromleads","value","reels"];
   for (var i = 0; i < types.length; i++) {
     var el = document.getElementById("tb-" + types[i]);
     if (el) el.classList.remove("sel");
@@ -1329,6 +1441,134 @@ function copyQ(id) {
 var GDRIVE_FOLDER = "1611vCEdMo-ikeYBzhjv0LqYtTqo3ewnG";
 var GDRIVE_KEY = "AIzaSyDZQK_0tzhKKoNMMvjlmMs_LnfBxCM9v1I";
 
+// ── GOOGLE OAUTH ──────────────────────────────────────────────────────────
+
+function loadGoogleAuth() {
+  try {
+    var saved = localStorage.getItem("sps_google_auth");
+    if (saved) {
+      var auth = JSON.parse(saved);
+      googleRefreshToken = auth.refreshToken || null;
+      googleAccessToken = auth.accessToken || null;
+      googleTokenExpiry = auth.expiry || 0;
+    }
+  } catch(e) {}
+}
+
+function saveGoogleAuth() {
+  try {
+    localStorage.setItem("sps_google_auth", JSON.stringify({
+      refreshToken: googleRefreshToken,
+      accessToken: googleAccessToken,
+      expiry: googleTokenExpiry
+    }));
+  } catch(e) {}
+}
+
+function isGoogleConnected() {
+  return !!(googleRefreshToken);
+}
+
+function connectGoogle() {
+  var params = new URLSearchParams({
+    client_id: GOOGLE_CLIENT_ID,
+    redirect_uri: "https://merry-flan-9e55eb.netlify.app/oauth-callback",
+    response_type: "code",
+    scope: GOOGLE_SCOPES,
+    access_type: "offline",
+    prompt: "consent"
+  });
+  window.open("https://accounts.google.com/o/oauth2/v2/auth?" + params.toString(), "_blank", "width=500,height=600");
+}
+
+function handleOAuthCallback(code) {
+  fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/google-oauth", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ code: code })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.error) { alert("Google auth failed: " + d.error); return; }
+    googleAccessToken = d.access_token;
+    googleRefreshToken = d.refresh_token;
+    googleTokenExpiry = Date.now() + (d.expires_in * 1000);
+    saveGoogleAuth();
+    updateGoogleAuthUI();
+    alert("Google Drive connected! Used photos will now be moved automatically after export.");
+  })
+  .catch(function(e) { alert("Auth error: " + e.message); });
+}
+
+function getValidAccessToken(cb) {
+  if (googleAccessToken && Date.now() < googleTokenExpiry - 60000) {
+    cb(null, googleAccessToken);
+    return;
+  }
+  if (!googleRefreshToken) { cb("Not connected to Google"); return; }
+  fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/google-oauth", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ refresh_token: googleRefreshToken })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.error) { cb(d.error); return; }
+    googleAccessToken = d.access_token;
+    googleTokenExpiry = Date.now() + (d.expires_in * 1000);
+    saveGoogleAuth();
+    cb(null, googleAccessToken);
+  })
+  .catch(function(e) { cb(e.message); });
+}
+
+function moveUsedFilesToDrive(driveIds, cb) {
+  if (!driveIds.length) { if(cb) cb(0); return; }
+  getValidAccessToken(function(err, token) {
+    if (err) { console.warn("Drive move skipped:", err); if(cb) cb(0); return; }
+    fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/drive-move", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ accessToken: token, driveIds: driveIds })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) { if(cb) cb(d.moved || 0, d.errors); })
+    .catch(function() { if(cb) cb(0); });
+  });
+}
+
+function updateGoogleAuthUI() {
+  var btn = document.getElementById("googleAuthBtn");
+  var status = document.getElementById("googleAuthStatus");
+  if (!btn) return;
+  if (isGoogleConnected()) {
+    btn.textContent = "✓ Google Drive Connected";
+    btn.className = "btn bgreen";
+    btn.onclick = function() {
+      if (confirm("Disconnect Google Drive? Used photos will no longer be moved automatically.")) {
+        googleAccessToken = null; googleRefreshToken = null; googleTokenExpiry = 0;
+        saveGoogleAuth(); updateGoogleAuthUI();
+      }
+    };
+    if (status) status.textContent = "Used photos will be moved to a Used subfolder in Drive after each export.";
+  } else {
+    btn.textContent = "Connect Google Drive";
+    btn.className = "btn bc";
+    btn.onclick = connectGoogle;
+    if (status) status.textContent = "Connect to automatically move used photos to a Used subfolder after export.";
+  }
+}
+
+// Check for OAuth callback code in URL
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  var code = params.get("code");
+  if (code) {
+    history.replaceState({}, "", window.location.pathname);
+    handleOAuthCallback(code);
+  }
+})();
+
 function syncDrive() {
   showStatus("imgStatus", "Syncing with Google Drive...", "info");
   var url = "https://www.googleapis.com/drive/v3/files?q=%27" + GDRIVE_FOLDER + "%27+in+parents+and+(mimeType+contains+%27image%27+or+mimeType+contains+%27video%27)+and+trashed%3Dfalse&fields=files(id,name,mimeType)&key=" + GDRIVE_KEY;
@@ -1464,6 +1704,7 @@ function renderImgLibrary() {
   if (!imageLibrary.length) { card.style.display = "none"; return; }
   card.style.display = "block";
   count.textContent = imageLibrary.length;
+  renderVideoPickerGrid();
   grid.innerHTML = imageLibrary.map(function(img) {
     var mediaEl = img.isVideo
         ? '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:var(--surface3);font-size:32px">&#x1F3A5;</div>'
@@ -1475,6 +1716,115 @@ function renderImgLibrary() {
       '<button class="img-del" onclick="removeImg(' + img.id + ')" title="Remove">&times;</button>' +
       '</div>';
   }).join("");
+}
+
+var selFvAud = "everyone";
+var selFvMedia = null;
+
+function selectFvAud(a) {
+  selFvAud = a;
+  ["everyone","women","men"].forEach(function(x) {
+    var el = document.getElementById("fvaud-" + x);
+    if (el) el.classList.toggle("sel", x === a);
+  });
+}
+
+function renderVideoPickerGrid() {
+  var videos = imageLibrary.filter(function(img) { return img.isVideo && !img.analyzing; });
+  var card = document.getElementById("fromVideoCard");
+  var grid = document.getElementById("videoPickerGrid");
+  if (!videos.length) { if (card) card.style.display = "none"; return; }
+  if (card) card.style.display = "block";
+  grid.innerHTML = videos.map(function(v) {
+    var vBorder = (selFvMedia && String(selFvMedia.id) === String(v.id)) ? "var(--blue2)" : "var(--border)";
+    return '<div class="img-card" style="cursor:pointer;border:2px solid ' + vBorder + '" onclick="selectVideoForPost(' + JSON.stringify(String(v.id)) + ')">' +
+      '<div class="q-img-video" style="height:100%">&#x1F3A5;</div>' +
+      '<div class="img-overlay">' + v.filename + '</div>' +
+      '</div>';
+  }).join("");
+}
+
+function selectVideoForPost(id) {
+  selFvMedia = null;
+  for (var i = 0; i < imageLibrary.length; i++) {
+    if (String(imageLibrary[i].id) === String(id)) { selFvMedia = imageLibrary[i]; break; }
+  }
+  if (!selFvMedia) return;
+  renderVideoPickerGrid();
+  var output = document.getElementById("fromVideoOutput");
+  var selected = document.getElementById("fromVideoSelected");
+  if (output) output.style.display = "block";
+  if (selected) selected.textContent = "Selected: " + selFvMedia.filename + (selFvMedia.tagString ? " — " + selFvMedia.tagString : "");
+  document.getElementById("fromVideoResult").style.display = "none";
+}
+
+function generateFromVideo() {
+  if (!selFvMedia) return;
+  var status = document.getElementById("fromVideoStatus");
+  var result = document.getElementById("fromVideoResult");
+  var postEl = document.getElementById("fromVideoPost");
+  showStatus("fromVideoStatus", "Claude is analysing the video and writing your post...", "info");
+  result.style.display = "none";
+
+  var audCtx = selFvAud === "women" ? "women over 30" : selFvAud === "men" ? "men in their 40s 50s and 60s" : "adults over 30 including men and women in their 30s 40s 50s and 60s";
+  var sys = selFvAud === "women" ? SYS_WOMEN : selFvAud === "men" ? SYS_MEN : SYS_ALL;
+
+  var prompt = "Watch this video from an SPS Fitness session in Halesowen. Write a Facebook post based specifically on what you can see happening in the video. The post should feel like it was written by someone who was in the room — specific, real, grounded in what is actually happening on screen. Do not describe the video — write a post that uses what is in the video as the jumping off point. Audience: " + audCtx + ". Under 180 words. Max 3 hashtags including #SPSFitness. No markdown. No dashes. End naturally.";
+
+  // Call API with video URL as image source
+  fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/generate", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      system: sys,
+      messages: [{
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "url",
+              url: selFvMedia.hostedUrl
+            }
+          },
+          { type: "text", text: prompt }
+        ]
+      }]
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.error) { showStatus("fromVideoStatus", "Error: " + JSON.stringify(d.error), "error"); return; }
+    var text = d.content ? d.content.map(function(b) { return b.text||""; }).join("") : "";
+    text = text.split("**").join("").split("*").join("").trim();
+    hideStatus("fromVideoStatus");
+    postEl.textContent = text;
+    result.style.display = "block";
+    addToPostHistory("reels", selFvAud, text);
+  })
+  .catch(function(e) { showStatus("fromVideoStatus", "Error: " + e.message, "error"); });
+}
+
+function copyFromVideo() {
+  var t = document.getElementById("fromVideoPost").textContent;
+  if (!t) return;
+  navigator.clipboard.writeText(t).then(function() {
+    showStatus("fromVideoStatus", "Copied!", "success");
+    setTimeout(function() { hideStatus("fromVideoStatus"); }, 2000);
+  });
+}
+
+function schedFromVideo() {
+  var t = document.getElementById("fromVideoPost").textContent;
+  if (!t || !selFvMedia) return;
+  curPost = t;
+  selType = "reels";
+  selAud = selFvAud;
+  curMediaId = selFvMedia.id;
+  showPanel("generate");
+  document.getElementById("outputCard").style.display = "block";
+  document.getElementById("postOutput").textContent = t;
+  doSchedOpen();
 }
 
 function removeImg(id) {
@@ -1748,33 +2098,41 @@ function renderQueue() {
 }
 
 function doWeek() {
-  var defTime = document.getElementById("defaultTime").value || "19:00";
+  var slots = getTimeSlots();
   var startInput = document.getElementById("planStartDate").value;
   var today = startInput ? new Date(startInput + "T12:00:00") : new Date();
   showPanel("queue");
-  document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x2726;</div><p>Generating 7 posts... about 30 seconds!</p></div>';
+  var days = 7;
+  var total = days * slots.length;
+  var plan = buildBatchPlan(total);
+  document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x2726;</div><p>Generating ' + total + ' posts across 7 days... <span id="prog7">0</span> of ' + total + ' done.</p></div>';
+  var done = 0;
   var i = 0;
   function next() {
-    if (i >= 7) {
+    if (i >= plan.length) {
       queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
       renderQueue(); updateBadge();
-      showStatus("queueStatus", "7 posts ready! Copy each into Meta Business Suite.", "success");
+      showStatus("queueStatus", total + " posts ready across 7 days!", "success");
       return;
     }
-    var d = new Date(today); d.setDate(today.getDate() + i);
+    var dayIndex = Math.floor(i / slots.length);
+    var slotIndex = i % slots.length;
+    var d = new Date(today); d.setDate(today.getDate() + dayIndex);
     var ds = d.toISOString().split("T")[0];
-    var type = CYCLE[i % CYCLE.length];
-    var aud = CYCLE_AUD[i % CYCLE_AUD.length];
-    var sys = aud === "women" ? SYS_WOMEN : (aud === "men" ? SYS_MEN : SYS_ALL);
+    var slotTime = slots[slotIndex];
+    var p = plan[i];
+    var sys = p.aud === "women" ? SYS_WOMEN : (p.aud === "men" ? SYS_MEN : SYS_ALL);
     var idx = i;
-    callAPI(sys, type === "fromleads" ? (getLeadInsightsPrompt(type, aud) || getPrompt(type, aud, "")) : getPrompt(type, aud, ""), function(err, text) {
+    callAPI(sys, p.type === "fromleads" ? (getLeadInsightsPrompt(p.type, p.aud) || getPrompt(p.type, p.aud, p.angle || "")) : getPrompt(p.type, p.aud, p.angle || ""), function(err, text) {
+      done++;
+      var prog = document.getElementById("prog7");
+      if (prog) prog.textContent = done;
       if (!err && text) {
-        var wMedia = imageLibrary.length ? findBestImage(type, aud) : null;
+        var wMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (wMedia) markImageUsed(wMedia.id);
-        queue.push({id: Date.now()+idx, type: type, aud: aud, text: text, date: ds, time: defTime, mediaId: wMedia ? wMedia.id : null});
+        queue.push({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, mediaId: wMedia ? wMedia.id : null});
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
-        // Add to history so next post avoids this angle
-        addToPostHistory(type, aud, text);
+        addToPostHistory(p.type, p.aud, text);
         renderQueue(); updateBadge();
       }
       i++; next();
@@ -1791,6 +2149,9 @@ var TOPIC_ANGLES = {
   motivation: {
     women: [
       "returning to training after months away — the guilt, the resistance, what actually helps",
+      "training in your 50s and what it actually feels like to be getting stronger at this age",
+      "why women over 50 at SPS are some of the strongest people in the room",
+      "what training in a mixed age group does that a 50-only programme cannot",
       "training around a full-time job, kids, school runs and no time left for yourself",
       "feeling like you have lost all the progress you made and starting again",
       "the mental shift when you stop training for how you look and start training for how you feel",
@@ -1813,6 +2174,9 @@ var TOPIC_ANGLES = {
     ],
     men: [
       "the moment you realise your body is not recovering the way it used to",
+      "what training in your 50s and 60s actually feels like when it is done right",
+      "men over 50 at SPS getting stronger every month — what that actually looks like",
+      "why starting strength training at 55 or 60 is not too late — the research on late starters",
       "training in your 40s and 50s — what is different, what is the same, what matters more",
       "coming back to training after years away and not knowing where to start",
       "the quiet frustration of being unfit when you used to play sport or train regularly",
@@ -1853,7 +2217,11 @@ var TOPIC_ANGLES = {
       "what members say surprises them most after three months at SPS",
       "why people who have tried and failed at fitness before often thrive in small group training",
       "the long game — what training looks like as a lifestyle not a short term fix",
-      "what you are actually building when you turn up week after week"
+      "what you are actually building when you turn up week after week",
+      "the person who said you were wasting your money — and what you want to say six months later",
+      "not being able to put a number on feeling strong, capable and less like you are running on empty",
+      "the background noise from people who do not want to see you change — and why that noise is not about you at all",
+      "doing something for yourself when someone in your life thinks it is a waste of time or money"
     ]
   },
   myth: {
@@ -2019,6 +2387,54 @@ var TOPIC_ANGLES = {
     women: "Write a Facebook post for SPS Fitness that directly addresses a real concern or question from actual leads. Use the lead intelligence provided to write something that speaks to people who are on the fence about joining. Honest, warm, specific. No pressure. British English. Under 180 words.",
     men: "Write a Facebook post for SPS Fitness that directly addresses a real concern or question from actual male leads. Use the lead intelligence provided. Direct, honest, no hype. British English. Under 180 words.",
     everyone: "Write a Facebook post for SPS Fitness that directly addresses a real concern or barrier from actual leads. Use the lead intelligence provided to write something that speaks directly to people considering joining. British English. Under 180 words."
+  },
+  reels: {
+    women: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. Keep it dead simple — the coach is coaching not producing content. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (optional — one line to say to camera if talking, or leave blank if just filming the session), CAPTION (ready to paste post text, under 80 words, no hashtag waffle, ends with a soft CTA or question). Women over 30 audience. Make it feel real and spontaneous not staged.",
+    men: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. Dead simple — no production. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (one line to say to camera if needed, or blank if just filming), CAPTION (ready to paste, under 80 words, soft CTA). Men in their 40s 50s and 60s audience. Real, unpolished, genuine.",
+    everyone: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. No production needed — just a phone. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (one line to camera if needed, blank if just filming the action), CAPTION (ready to paste, under 80 words, soft CTA or question). Mixed audience. Keep it real and unplanned feeling."
+  },
+  value: {
+    women: "Write a Facebook post for SPS Fitness about what makes coached small group training genuinely different. Someone who knows your name, your history, your limitations, your goals. Not a class. Not a generic programme. Actual coaching that adapts to you. For women from their 30s through their 60s. No waiting list. Real community. Real results. No naming competitors. Make it feel like something worth being part of.",
+    men: "Write a Facebook post for SPS Fitness about what makes SPS the right environment for men in their 40s 50s and 60s. Real coaching, a mixed age community where men over 50 are getting stronger every month, sessions that fit around life. No faff. No waiting around. Available now. Make it feel like the obvious place to be.",
+    everyone: "Write a Facebook post for SPS Fitness about what makes the SPS community special. Adults from their 30s through their 60s all training together, getting stronger, supporting each other. Years of results. Coaches who actually know you. A gym that has been part of Halesowen for years. No waiting list. Start this week. Make it feel like a community worth being part of.",
+    thirty_plus: "Write a Facebook post for SPS Fitness about why strength training for longevity, bone density and muscle mass matters from your 30s onwards — not just your 50s. The adults who start in their 30s and 40s have the biggest long term advantage. SPS has members across this full age range all benefiting from the same approach. Make it feel like genuinely useful information."
+  },
+  reels: {
+    women: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. Keep it dead simple — the coach is coaching not producing content. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (optional — one line to say to camera if talking, or leave blank if just filming the session), CAPTION (ready to paste post text, under 80 words, no hashtag waffle, ends with a soft CTA or question). Women over 30 audience. Make it feel real and spontaneous not staged.",
+    men: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. Dead simple — no production. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (one line to say to camera if needed, or blank if just filming), CAPTION (ready to paste, under 80 words, soft CTA). Men in their 40s 50s and 60s audience. Real, unpolished, genuine.",
+    everyone: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. No production needed — just a phone. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (one line to camera if needed, blank if just filming the action), CAPTION (ready to paste, under 80 words, soft CTA or question). Mixed audience. Keep it real and unplanned feeling."
+  },
+  value: {
+    women: [
+      "why 50 percent of SPS members are over 50 — what a mixed age community offers that age-specific gyms cannot",
+      "strength training in your 50s and 60s at SPS — available now, no waiting list, start this week",
+      "the cost of coached small group training versus never quite getting started — what each actually costs over a year",
+      "less than £20 a week for coaching that knows your name your history and your limitations",
+      "strength training for women in their 30s and 40s — why starting now has more long term benefit than waiting until 50",
+      "no waiting list, no consultation gatekeeping, no minimum commitment — start this week",
+      "bone density muscle mass and balance are not just concerns for people over 50 — the research on women from 35",
+      "what proper coaching actually means versus a class a DVD or a generic online programme",
+      "adults from 30 upward — why SPS serves the people other specialist gyms turn away"
+    ],
+    men: [
+      "the cost of doing nothing versus less than £20 a week — what five years of inaction costs physically",
+      "coached strength training for men in their 40s — no waiting list, no months long intake process, available now",
+      "longevity strength and muscle mass matter from 40 not just from 50 — what the research shows",
+      "the difference between a gym you pay for and never use and coaching that actually produces results",
+      "no minimum age, no maximum age — SPS works with men from their 30s through their 50s and beyond",
+      "strength training that fits around work and family — two sessions a week, no faff, real results"
+    ],
+    everyone: [
+      "why people say SPS is expensive before they join and never say it again after they do",
+      "the problem with comparing coached training to a gym membership you barely use",
+      "you cannot put a value on something you have never experienced — what changes when you do",
+      "what people are actually paying for when they join SPS — and why it is not what most people think",
+      "what less than £20 a week buys at SPS versus what it buys anywhere else",
+      "strength training for longevity is not a niche for the over 50s — it matters from 30 onwards",
+      "available now, no waiting list, start this week — what accessibility actually means",
+      "the same benefits — strength bone density muscle mass balance — at a fraction of what specialist programmes charge",
+      "coached small group training from your 30s through your 50s — one programme that grows with you"
+    ]
   },
   education: {
     women: [
@@ -2218,7 +2634,7 @@ function buildBatchPlan(days) {
     {type:"myth",         aud:"everyone"},
     {type:"bodyblast",    aud:"everyone"},
     {type:"motivation",   aud:"men"},
-    {type:"behindscenes", aud:"everyone"},
+    {type:"reels",        aud:"women"},
     {type:"evidence",     aud:"women"},
     {type:"faq",          aud:"everyone"},
     {type:"quickwin",     aud:"men"},
@@ -2251,23 +2667,28 @@ function buildBatchPlan(days) {
 }
 
 function do10Days() {
-  var defTime = document.getElementById("defaultTime").value || "19:00";
+  var slots = getTimeSlots();
   var startInput = document.getElementById("planStartDate").value;
   var today = startInput ? new Date(startInput + "T12:00:00") : new Date();
   showPanel("queue");
-  var plan = buildBatchPlan(10);
-  document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x1F4C5;</div><p>Generating 10 posts... <span id="prog10">0</span> of 10 done.</p></div>';
+  var days = 10;
+  var total = days * slots.length;
+  var plan = buildBatchPlan(total);
+  document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x1F4C5;</div><p>Generating ' + total + ' posts... <span id="prog10">0</span> of ' + total + ' done.</p></div>';
   var done = 0;
   var i = 0;
   function next() {
     if (i >= plan.length) {
       queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
       renderQueue(); updateBadge();
-      showStatus("queueStatus", "10 posts ready!", "success");
+      showStatus("queueStatus", total + " posts ready across 10 days!", "success");
       return;
     }
-    var d = new Date(today); d.setDate(today.getDate() + i);
+    var dayIndex = Math.floor(i / slots.length);
+    var slotIndex = i % slots.length;
+    var d = new Date(today); d.setDate(today.getDate() + dayIndex);
     var ds = d.toISOString().split("T")[0];
+    var slotTime = slots[slotIndex];
     var p = plan[i];
     var sys = p.aud === "women" ? SYS_WOMEN : (p.aud === "men" ? SYS_MEN : SYS_ALL);
     var idx = i;
@@ -2278,7 +2699,7 @@ function do10Days() {
       if (!err && text) {
         var pMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (pMedia) markImageUsed(pMedia.id);
-        queue.push({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: defTime, mediaId: pMedia ? pMedia.id : null});
+        queue.push({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, mediaId: pMedia ? pMedia.id : null});
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         addToPostHistory(p.type, p.aud, text);
         renderQueue(); updateBadge();
@@ -2290,59 +2711,33 @@ function do10Days() {
 }
 
 function do30Days() {
-  if (!confirm("This will generate 30 posts — about 3-4 minutes. Ready?")) return;
-  var defTime = document.getElementById("defaultTime").value || "19:00";
+  var slots = getTimeSlots();
+  var days = 30;
+  var totalPosts = days * slots.length;
+  if (!confirm("This will generate " + totalPosts + " posts (" + days + " days x " + slots.length + " posts per day). Ready?")) return;
   var startInput = document.getElementById("planStartDate").value;
   var today = startInput ? new Date(startInput + "T12:00:00") : new Date();
   showPanel("queue");
 
-  var PLAN = [
-    {type:"motivation",   aud:"women"},
-    {type:"evidence",     aud:"men"},
-    {type:"quickwin",     aud:"women"},
-    {type:"myth",         aud:"everyone"},
-    {type:"bodyblast",    aud:"everyone"},
-    {type:"motivation",   aud:"men"},
-    {type:"behindscenes", aud:"everyone"},
-    {type:"evidence",     aud:"women"},
-    {type:"faq",          aud:"everyone"},
-    {type:"quickwin",     aud:"men"},
-    {type:"motivation",   aud:"everyone"},
-    {type:"local",        aud:"everyone"},
-    {type:"myth",         aud:"women"},
-    {type:"evidence",     aud:"everyone"},
-    {type:"fromleads",    aud:"everyone"},
-    {type:"motivation",   aud:"women"},
-    {type:"bodyblast",    aud:"women"},
-    {type:"quickwin",     aud:"everyone"},
-    {type:"myth",         aud:"men"},
-    {type:"faq",          aud:"men"},
-    {type:"motivation",   aud:"men"},
-    {type:"local",        aud:"everyone"},
-    {type:"evidence",     aud:"women"},
-    {type:"behindscenes", aud:"men"},
-    {type:"bodyblast",    aud:"men"},
-    {type:"motivation",   aud:"everyone"},
-    {type:"evidence",     aud:"men"},
-    {type:"myth",         aud:"everyone"},
-    {type:"quickwin",     aud:"women"},
-    {type:"faq",          aud:"women"}
-  ];
+  var PLAN = buildBatchPlan(totalPosts);
 
   var total = PLAN.length;
   var done = 0;
-  document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x1F4C5;</div><p>Generating 30 posts... <span id="prog30">0</span> of 30 done. This takes 3-4 minutes.</p></div>';
+  document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x1F4C5;</div><p>Generating ' + total + ' posts across 30 days... <span id="prog30">0</span> of ' + total + ' done.</p></div>';
 
   var i = 0;
   function next() {
     if (i >= total) {
       queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
       renderQueue(); updateBadge();
-      showStatus("queueStatus", "30 posts generated! Your full month is ready. Export CSV to upload to High Level.", "success");
+      showStatus("queueStatus", total + " posts generated across 30 days! Export CSV to upload to High Level.", "success");
       return;
     }
-    var d = new Date(today); d.setDate(today.getDate() + i);
+    var dayIndex = Math.floor(i / slots.length);
+    var slotIndex = i % slots.length;
+    var d = new Date(today); d.setDate(today.getDate() + dayIndex);
     var ds = d.toISOString().split("T")[0];
+    var slotTime = slots[slotIndex];
     var plan = PLAN[i];
     var sys = plan.aud === "women" ? SYS_WOMEN : (plan.aud === "men" ? SYS_MEN : SYS_ALL);
     var idx = i;
@@ -2353,7 +2748,7 @@ function do30Days() {
       if (!err && text) {
         var pMedia = imageLibrary.length ? findBestImage(plan.type, plan.aud) : null;
         if (pMedia) markImageUsed(pMedia.id);
-        queue.push({id: Date.now()+idx, type: plan.type, aud: plan.aud, text: text, date: ds, time: defTime, mediaId: pMedia ? pMedia.id : null});
+        queue.push({id: Date.now()+idx, type: plan.type, aud: plan.aud, text: text, date: ds, time: slotTime, mediaId: pMedia ? pMedia.id : null});
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         // Add to history so next post avoids this angle
         addToPostHistory(plan.type, plan.aud, text);
@@ -2420,8 +2815,9 @@ function exportCSV() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 
-  // Remove exported images from library so they are never reused in future exports
+  // Remove exported images from library and move to Used folder in Drive
   var usedMediaIds = {};
+  var usedDriveIds = [];
   for (var qi = 0; qi < queue.length; qi++) {
     if (queue[qi].mediaId) usedMediaIds[String(queue[qi].mediaId)] = true;
   }
@@ -2429,7 +2825,11 @@ function exportCSV() {
   if (Object.keys(usedMediaIds).length) {
     var before = imageLibrary.length;
     imageLibrary = imageLibrary.filter(function(img) {
-      return !usedMediaIds[String(img.id)];
+      if (usedMediaIds[String(img.id)]) {
+        if (img.driveId) usedDriveIds.push(img.driveId);
+        return false;
+      }
+      return true;
     });
     removedCount = before - imageLibrary.length;
     if (removedCount > 0) {
@@ -2440,12 +2840,34 @@ function exportCSV() {
 
   var msg = "Downloaded " + queue.length + " posts in High Level format. Ready to upload!";
   if (removedCount > 0) msg += " " + removedCount + " used photo" + (removedCount !== 1 ? "s" : "") + " removed from library.";
-  showStatus("queueStatus", msg, "success");
+
+  // Move used files to Used subfolder in Drive if connected
+  if (usedDriveIds.length && isGoogleConnected()) {
+    msg += " Moving to Used folder in Drive...";
+    showStatus("queueStatus", msg, "success");
+    moveUsedFilesToDrive(usedDriveIds, function(moved, errors) {
+      var finalMsg = "Downloaded " + queue.length + " posts. " + removedCount + " photos removed from library.";
+      if (moved > 0) finalMsg += " " + moved + " moved to Used folder in Drive.";
+      if (errors && errors.length) finalMsg += " " + errors.length + " failed to move.";
+      showStatus("queueStatus", finalMsg, "success");
+    });
+  } else {
+    showStatus("queueStatus", msg, "success");
+  }
 }
 
 function doClearQueue() {
   if (!queue.length) return;
   if (confirm("Clear all scheduled posts?")) { queue = []; renderQueue(); updateBadge(); }
+}
+
+function getTimeSlots() {
+  var slots = [];
+  ["timeSlot1","timeSlot2","timeSlot3","timeSlot4"].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el && el.value) slots.push(el.value);
+  });
+  return slots.length ? slots : ["19:00"];
 }
 
 function updateBadge() {
@@ -2494,8 +2916,27 @@ function renderCal() {
   document.getElementById("calGrid").innerHTML = html;
 }
 
-loadImageLibrary();
+loadGoogleAuth();
+  loadImageLibrary();
   loadLeadInsights();
+  // Auto-sync leads silently in background on load
+  setTimeout(function() {
+    fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/ghl-insights", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d.error && d.themes && d.themes.length) {
+        leadInsights = d;
+        saveLeadInsights();
+        renderLeadInsights();
+        console.log("Lead insights auto-synced: " + d.contactsAnalysed + " leads, " + d.messagesAnalysed + " messages");
+      }
+    })
+    .catch(function() {}); // Silent fail — not critical
+  }, 3000); // 3 second delay so app loads first
   loadPostHistory();
   // Load from Google Sheets (overrides localStorage if data exists)
   loadFromSheets(function() {
