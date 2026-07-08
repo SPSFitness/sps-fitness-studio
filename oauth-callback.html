@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Connecting...</title>
+<style>
+body{background:#0a0a0a;color:#fff;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;flex-direction:column;gap:16px;}
+p{color:rgba(255,255,255,0.6);font-size:14px;}
+</style>
+</head>
+<body>
+<div style="font-size:32px">✓</div>
+<div style="font-size:18px;font-weight:600">Connected to Google Drive</div>
+<p>Returning to SPS Fitness Content Studio...</p>
+<script>
+// Pass the auth code back to the main app window
+var params = new URLSearchParams(window.location.search);
+var code = params.get("code");
+var error = params.get("error");
+if (code && window.opener) {
+  // Send code to parent window
+  window.opener.postMessage({ type: "google-oauth", code: code }, "*");
+  window.close();
+} else if (code) {
+  // Redirect back to main app with code in URL
+  window.location.href = "/?code=" + encodeURIComponent(code);
+} else if (error) {
+  document.querySelector("div:nth-child(2)").textContent = "Connection failed: " + error;
+  document.querySelector("p").textContent = "Please close this window and try again.";
+}
+</script>
+</body>
+</html>
