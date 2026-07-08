@@ -11,8 +11,7 @@ exports.handler = async function(event) {
   var CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "693809245418-f0c4pv4rov2k2go7tlp3d22q06o6gee1.apps.googleusercontent.com";
   var CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
   if (!CLIENT_SECRET) {
-    // base64 encoded fallback
-    CLIENT_SECRET = Buffer.from("R09DU1BYLVZCUm1LOFAtSWxERHBBNmk3S3cyWHZPamxPNEo=", "base64").toString("utf8");
+    return { statusCode: 500, headers, body: JSON.stringify({ error: "GOOGLE_CLIENT_SECRET environment variable not set in Netlify" }) };
   }
   var REDIRECT_URI = "https://merry-flan-9e55eb.netlify.app/oauth-callback";
 
