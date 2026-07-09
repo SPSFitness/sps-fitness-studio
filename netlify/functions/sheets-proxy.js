@@ -1,4 +1,4 @@
-// Proxies all Google Sheets requests to avoid CORS issues from non-Netlify domains
+// Proxies Google Sheets requests — uses GET only to avoid CORS preflight
 exports.handler = async function(event) {
   var headers = {
     "Access-Control-Allow-Origin": "*",
@@ -10,46 +10,30 @@ exports.handler = async function(event) {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers, body: "" };
 
   var SHEETS_URL = "https://script.google.com/macros/s/AKfycbyPSdZtx3IXDfiYfqwjKN1b5o-7sr43By0bvz9OlfOnaDQGFaicgEmgjkvKG1IR6wkpDQ/exec";
-
   var params = event.queryStringParameters || {};
   var action = params.action;
 
-  if (!action) {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: "No action specified" }) };
-  }
+  if (!action) return { statusCode: 400, headers, body: JSON.stringify({ error: "No action" }) };
 
   try {
-    var url = SHEETS_URL + "?action=" + encodeURIComponent(action);
-    var res;
-
-    if (event.httpMethod === "POST" && event.body) {
-      // Apps Script needs the data in the POST body as plain text
-      // It reads via e.postData.contents
-      res = await fetch(url, {
-        method: "POST",
-        redirect: "follow",
-        body: event.body
-      });
+    var url;
+    
+    // For write operations encode data in URL as GET param to avoid CORS preflight
+    if (event.body && event.httpMethod === "POST") {
+      var encoded = encodeURIComponent(event.body);
+      url = SHEETS_URL + "?action=" + action + "&data=" + encoded;
     } else {
-      res = await fetch(url, {
-        method: "GET",
-        redirect: "follow"
-      });
+      url = SHEETS_URL + "?action=" + action;
     }
 
+    var res = await fetch(url, { method: "GET", redirect: "follow" });
     var text = await res.text();
 
-    // Check if we got HTML back (error page or redirect failed)
-    if (text.trim().startsWith("<!")) {
-      return { statusCode: 502, headers, body: JSON.stringify({ 
-        error: "Sheets returned HTML — possible redirect issue",
-        status: res.status,
-        url: res.url
-      })};
+    if (text.trim().startsWith("<")) {
+      return { statusCode: 502, headers, body: JSON.stringify({ error: "Sheets returned HTML", status: res.status }) };
     }
 
     return { statusCode: 200, headers, body: text };
-
   } catch(err) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
   }
