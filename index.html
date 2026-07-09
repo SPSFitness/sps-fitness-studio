@@ -1608,13 +1608,13 @@ function syncDrive() {
       var isVideo = file.mimeType && file.mimeType.indexOf("video") !== -1;
       var hostedUrl = "https://lh3.googleusercontent.com/d/" + file.id;
       var thumbUrl = isVideo ? "" : "https://lh3.googleusercontent.com/d/" + file.id + "=w400";
-      imageLibrary.push({id: id, driveId: file.id, dataUrl: thumbUrl, filename: file.name, tags: [], tagString: "analysing...", analyzing: true, hostedUrl: hostedUrl, isVideo: isVideo});
+      imageLibrary.push({id: id, driveId: file.id, dataUrl: thumbUrl, filename: file.name, tags: [], tagString: "analysing...", analyzing: true, hostedUrl: hostedUrl, isVideo: isVideo, gender: "none", bestFor: "any", usedCount: 0});
       renderImgLibrary();
       saveImageLibrary();
-      analyseImageByUrl(id, hostedUrl, function() {
+      analyseImageByUrl(id, file.id, function() {
         done++;
         if (done === newFiles.length) {
-          showStatus("imgStatus", newFiles.length + " new photo" + (newFiles.length !== 1 ? "s" : "") + " added and tagged! Total: " + imageLibrary.length, "success");
+          showStatus("imgStatus", newFiles.length + " photo" + (newFiles.length !== 1 ? "s" : "") + " added and tagged! Total: " + imageLibrary.length, "success");
           setTimeout(function() { hideStatus("imgStatus"); }, 4000);
         }
         renderImgLibrary();
@@ -1631,15 +1631,37 @@ function addImageUrls() {
   // Legacy function kept for compatibility
 }
 
-function analyseImageByUrl(id, url, cb) {
-  var sys = "You are an image tagger for SPS Fitness gym. Analyse this photo carefully and return ONLY a JSON object with exactly these fields: tags (array of 3-6 lowercase descriptive tags), bestFor (one of: motivation, myth, evidence, quickwin, bodyblast, results, behindscenes, faq, seasonal, local, any), gender (one of: women, men, mixed, none — based ONLY on who is visible in the photo: if only women visible use women, if only men visible use men, if both use mixed, if no people use none). Be precise about gender — only tag as women if you can clearly see women, only tag as men if you can clearly see men. Return only valid JSON, nothing else.";
-  fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/generate", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({
-      system: sys,
-      messages: [{role: "user", content: [{type: "image", source: {type: "url", url: url}}, {type: "text", text: "Tag this fitness photo."}]}]
-    })
+function analyseImageByUrl(id, driveFileId, cb) {
+  // Fetch image as base64 via imgproxy then send to Claude for analysis
+  var proxyUrl = "https://merry-flan-9e55eb.netlify.app/.netlify/functions/imgproxy?url=" + encodeURIComponent("https://lh3.googleusercontent.com/d/" + driveFileId + "=w800");
+  fetch(proxyUrl)
+  .then(function(r) {
+    if (!r.ok) throw new Error("imgproxy failed: " + r.status);
+    return r.blob();
+  })
+  .then(function(blob) {
+    return new Promise(function(resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function(e) { resolve(e.target.result); };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  })
+  .then(function(dataUrl) {
+    var base64 = dataUrl.split(",")[1];
+    var mimeType = dataUrl.split(";")[0].split(":")[1] || "image/jpeg";
+    var sys = "You are an image tagger for SPS Fitness gym. Analyse this photo carefully and return ONLY a JSON object with exactly these fields: tags (array of 3-6 lowercase descriptive tags), bestFor (one of: motivation, myth, evidence, quickwin, bodyblast, results, behindscenes, faq, seasonal, local, any), gender (one of: women, men, mixed, none — based ONLY on who is clearly visible: if only women visible use women, if only men visible use men, if both genders visible use mixed, if no people or unclear use none). Be precise — wrong gender causes posts to be shown to wrong audience. Return only valid JSON, nothing else.";
+    return fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/generate", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        system: sys,
+        messages: [{role: "user", content: [
+          {type: "image", source: {type: "base64", media_type: mimeType, data: base64}},
+          {type: "text", text: "Analyse this fitness gym photo and return the JSON tags."}
+        ]}]
+      })
+    });
   })
   .then(function(r) { return r.json(); })
   .then(function(d) {
