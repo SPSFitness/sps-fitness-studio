@@ -1,12 +1,9 @@
-// Netlify Blobs storage — replaces Google Sheets backend
-// Works from any domain, no CORS issues, free on Netlify
-const { getStore } = require("@netlify/blobs");
-
+// Simple key-value store using Netlify Blobs REST API
 exports.handler = async function(event) {
   var headers = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Content-Type": "application/json"
   };
 
@@ -15,45 +12,43 @@ exports.handler = async function(event) {
   var params = event.queryStringParameters || {};
   var action = params.action;
 
-  const store = getStore("sps-fitness");
+  var SITE_ID = process.env.SITE_ID || process.env.NETLIFY_SITE_ID;
+  var TOKEN = process.env.NETLIFY_BLOBS_TOKEN || process.env.NETLIFY_TOKEN;
+
+  // Use Netlify Blobs API
+  var BASE = "https://api.netlify.com/api/v1/sites/" + SITE_ID + "/blobs";
+  var authHeaders = { "Authorization": "Bearer " + TOKEN, "Content-Type": "application/json" };
+
+  var keyMap = {
+    getImages: "images", saveImages: "images",
+    getHistory: "history", saveHistory: "history",
+    getQueue: "queue", saveQueue: "queue"
+  };
+
+  var key = keyMap[action];
+
+  if (action === "ping") return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
+
+  if (!key) return { statusCode: 400, headers, body: JSON.stringify({ error: "Unknown action: " + action }) };
 
   try {
-    // GET actions
-    if (action === "getImages") {
-      var val = await store.get("images");
-      return { statusCode: 200, headers, body: JSON.stringify({ images: val ? JSON.parse(val) : [] }) };
-    }
-    if (action === "getHistory") {
-      var val = await store.get("history");
-      return { statusCode: 200, headers, body: JSON.stringify({ history: val ? JSON.parse(val) : [] }) };
-    }
-    if (action === "getQueue") {
-      var val = await store.get("queue");
-      return { statusCode: 200, headers, body: JSON.stringify({ queue: val ? JSON.parse(val) : [] }) };
-    }
-    if (action === "ping") {
+    if (action.startsWith("get")) {
+      var res = await fetch(BASE + "/" + key, { headers: authHeaders });
+      if (res.status === 404) {
+        var empty = key === "images" ? { images: [] } : key === "history" ? { history: [] } : { queue: [] };
+        return { statusCode: 200, headers, body: JSON.stringify(empty) };
+      }
+      var text = await res.text();
+      return { statusCode: 200, headers, body: text };
+    } else {
+      var body = event.body || "{}";
+      var res = await fetch(BASE + "/" + key, {
+        method: "PUT",
+        headers: authHeaders,
+        body: body
+      });
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
     }
-
-    // POST actions
-    var body = {};
-    try { body = JSON.parse(event.body || "{}"); } catch(e) {}
-
-    if (action === "saveImages") {
-      await store.set("images", JSON.stringify(body.images || []));
-      return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
-    }
-    if (action === "saveHistory") {
-      await store.set("history", JSON.stringify(body.history || []));
-      return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
-    }
-    if (action === "saveQueue") {
-      await store.set("queue", JSON.stringify(body.queue || []));
-      return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
-    }
-
-    return { statusCode: 400, headers, body: JSON.stringify({ error: "Unknown action: " + action }) };
-
   } catch(err) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
   }
