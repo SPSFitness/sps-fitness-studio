@@ -547,9 +547,9 @@ var PROMPTS = {
     everyone: "Write a Facebook post for SPS Fitness that directly addresses a real concern or barrier from actual leads. Use the lead intelligence provided to write something that speaks directly to people considering joining. British English. Under 180 words."
   },
   reels: {
-    women: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. Keep it dead simple — the coach is coaching not producing content. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (optional — one line to say to camera if talking, or leave blank if just filming the session), CAPTION (ready to paste post text, under 80 words, no hashtag waffle, ends with a soft CTA or question). Women over 30 audience. Make it feel real and spontaneous not staged.",
-    men: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. Dead simple — no production. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (one line to say to camera if needed, or blank if just filming), CAPTION (ready to paste, under 80 words, soft CTA). Men in their 40s 50s and 60s audience. Real, unpolished, genuine.",
-    everyone: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. No production needed — just a phone. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (one line to camera if needed, blank if just filming the action), CAPTION (ready to paste, under 80 words, soft CTA or question). Mixed audience. Keep it real and unplanned feeling."
+    women: "Write a Facebook or Instagram caption for a short video post from SPS Fitness aimed at women over 30. Write it as if the video shows a real moment from a coached session — someone working hard, a coaching interaction, the group atmosphere, a member hitting something they could not do before. The caption should feel like it was written by the coach in the moment. Real, warm, direct. Under 120 words. Max 3 hashtags. No direction notes, no filming instructions — just the post text ready to publish.",
+    men: "Write a Facebook or Instagram caption for a short video post from SPS Fitness aimed at men in their 40s 50s and 60s. Write it as if the video shows a real moment from a coached session — effort, coaching, progress, the atmosphere of men training together. Direct, honest, written in the moment. Under 120 words. Max 3 hashtags. Just the post text ready to publish — no filming notes.",
+    everyone: "Write a Facebook or Instagram caption for a short video post from SPS Fitness for a mixed audience. Write it as if the video shows a real moment — training, coaching, community, energy. Like the coach grabbed the phone and wrote something genuine about what just happened in the session. Under 120 words. Max 3 hashtags. Post text only, ready to publish."
   },
   value: {
     women: "Write a Facebook post for SPS Fitness about what makes coached small group training genuinely different. Someone who knows your name, your history, your limitations, your goals. Not a class. Not a generic programme. Actual coaching that adapts to you. For women from their 30s through their 60s. No waiting list. Real community. Real results. No naming competitors. Make it feel like something worth being part of.",
@@ -558,9 +558,9 @@ var PROMPTS = {
     thirty_plus: "Write a Facebook post for SPS Fitness about why strength training for longevity, bone density and muscle mass matters from your 30s onwards — not just your 50s. The adults who start in their 30s and 40s have the biggest long term advantage. SPS has members across this full age range all benefiting from the same approach. Make it feel like genuinely useful information."
   },
   reels: {
-    women: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. Keep it dead simple — the coach is coaching not producing content. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (optional — one line to say to camera if talking, or leave blank if just filming the session), CAPTION (ready to paste post text, under 80 words, no hashtag waffle, ends with a soft CTA or question). Women over 30 audience. Make it feel real and spontaneous not staged.",
-    men: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. Dead simple — no production. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (one line to say to camera if needed, or blank if just filming), CAPTION (ready to paste, under 80 words, soft CTA). Men in their 40s 50s and 60s audience. Real, unpolished, genuine.",
-    everyone: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. No production needed — just a phone. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (one line to camera if needed, blank if just filming the action), CAPTION (ready to paste, under 80 words, soft CTA or question). Mixed audience. Keep it real and unplanned feeling."
+    women: "Write a Facebook or Instagram caption for a short video post from SPS Fitness aimed at women over 30. Write it as if the video shows a real moment from a coached session — someone working hard, a coaching interaction, the group atmosphere, a member hitting something they could not do before. The caption should feel like it was written by the coach in the moment. Real, warm, direct. Under 120 words. Max 3 hashtags. No direction notes, no filming instructions — just the post text ready to publish.",
+    men: "Write a Facebook or Instagram caption for a short video post from SPS Fitness aimed at men in their 40s 50s and 60s. Write it as if the video shows a real moment from a coached session — effort, coaching, progress, the atmosphere of men training together. Direct, honest, written in the moment. Under 120 words. Max 3 hashtags. Just the post text ready to publish — no filming notes.",
+    everyone: "Write a Facebook or Instagram caption for a short video post from SPS Fitness for a mixed audience. Write it as if the video shows a real moment — training, coaching, community, energy. Like the coach grabbed the phone and wrote something genuine about what just happened in the session. Under 120 words. Max 3 hashtags. Post text only, ready to publish."
   },
   value: {
     women: [
@@ -614,7 +614,7 @@ var curMediaId = null; // tracks currently displayed matched image
 var MEMBER_SYS = "You write Facebook group posts for SPS Fitness members — people who already train with their coach at SPS Fitness in Halesowen. These members are coached in every session — their coach tells them exactly what to do. They do not programme their own training. So posts should never give them generic gym tips or tell them what to do in sessions. Instead posts should: explain the thinking behind what they are already doing in sessions, help them understand why certain things are programmed, cover the lifestyle factors outside the gym that affect their results — sleep, nutrition, stress, recovery, hydration — and celebrate their progress as a community. The tone is warm, direct and coach-like — like a knowledgeable friend who knows them and their training. No selling, no CTAs pushing new programmes. Short sentences. Real. Occasionally funny. British English. Under 150 words. No markdown, no asterisks. No headers. Plain text only.";
 
 var MEMBER_PROMPTS = {
-  reels: "Generate a simple phone video idea for an SPS Fitness coach to film during or after a session for the members Facebook group. Dead simple. Output format: WHAT TO FILM (one sentence), SAY THIS (one line if talking to camera, blank if just filming), CAPTION (warm, under 60 words, no selling, feels like it is from the coach to members). Keep it spontaneous and real.",
+  reels: "Write a caption for a short video post in the SPS Fitness members Facebook group. Write it as if the video shows something real that just happened in a session — a member achievement, a funny moment, the group working hard together. Warm, direct, from the coach to the members. Under 80 words. No selling. Post text only.",
   mindset: "Write a mindset post for existing SPS Fitness members. Cover the mental side of training — dealing with the voice that says skip today, staying consistent when motivation dips, not comparing yourself to others in the group, celebrating small wins. Frame it as insight from someone who coaches people through this every week. Warm, honest, no toxic positivity.",
   progress: "Write a post for existing SPS Fitness members about how to track progress beyond the scales. Cover: strength improvements, energy levels, sleep quality, clothes fitting differently, keeping up with kids, less back pain, improved mood. Help them recognise the wins they might be overlooking. Encouraging without being preachy.",
   spotlight: "Write a member spotlight post for the SPS Fitness members group. Celebrate an anonymous member milestone — someone who has been coming consistently for 3 months, someone who hit a new personal best, someone who came back after injury, someone who turned up when life was hard. Make it feel real and warm. Do not use names. Make other members recognise the feeling.",
@@ -1244,6 +1244,7 @@ function getPrompt(type, aud, ctx) {
 }
 
 var _wakeLock = null;
+var _sessionUsedIds = new Set(); // tracks images used in current batch — hard stop on duplicates
 function requestWakeLock() {
   if ("wakeLock" in navigator) {
     navigator.wakeLock.request("screen").then(function(lock) {
@@ -1897,15 +1898,23 @@ function findBestImage(postType, aud) {
   if (!imageLibrary.length) return null;
   var ready = imageLibrary.filter(function(img) { return !img.analyzing; });
   if (!ready.length) return null;
-  // Reset usage if all images have been used
-  var allUsed = ready.every(function(img) { return img.usedCount && img.usedCount > 0; });
-  if (allUsed) {
-    for (var i = 0; i < imageLibrary.length; i++) { imageLibrary[i].usedCount = 0; }
+
+  // HARD STOP — exclude any image used in this batch session
+  var notUsedThisSession = ready.filter(function(img) { return !_sessionUsedIds.has(String(img.id)); });
+  // If all used this session, fall back to full pool (edge case with few images)
+  var pool = notUsedThisSession.length ? notUsedThisSession : ready;
+
+  // Within that pool prefer historically unused
+  var allUsed = pool.every(function(img) { return img.usedCount && img.usedCount > 0; });
+  if (allUsed && notUsedThisSession.length > 0) {
+    // Reset counts only for non-session-used images
+    for (var i = 0; i < imageLibrary.length; i++) {
+      if (!_sessionUsedIds.has(String(imageLibrary[i].id))) imageLibrary[i].usedCount = 0;
+    }
     saveImageLibrary();
   }
-  // Prefer unused first
-  var unused = ready.filter(function(img) { return !img.usedCount || img.usedCount === 0; });
-  var pool = unused.length ? unused : ready;
+  var unused = pool.filter(function(img) { return !img.usedCount || img.usedCount === 0; });
+  pool = unused.length ? unused : pool;
 
   // Gender matching: women posts get women/mixed photos, men posts get men/mixed photos
   var genderPool = pool;
@@ -2190,6 +2199,7 @@ function doWeek() {
   var total = days * slots.length;
   var plan = buildBatchPlan(total);
   requestWakeLock();
+  _sessionUsedIds = new Set(); // reset for new batch
   document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x2726;</div><p>Generating ' + total + ' posts across 7 days... <span id="prog7">0</span> of ' + total + ' done.</p></div>';
   var done = 0;
   var i = 0;
@@ -2475,9 +2485,9 @@ var TOPIC_ANGLES = {
     everyone: "Write a Facebook post for SPS Fitness that directly addresses a real concern or barrier from actual leads. Use the lead intelligence provided to write something that speaks directly to people considering joining. British English. Under 180 words."
   },
   reels: {
-    women: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. Keep it dead simple — the coach is coaching not producing content. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (optional — one line to say to camera if talking, or leave blank if just filming the session), CAPTION (ready to paste post text, under 80 words, no hashtag waffle, ends with a soft CTA or question). Women over 30 audience. Make it feel real and spontaneous not staged.",
-    men: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. Dead simple — no production. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (one line to say to camera if needed, or blank if just filming), CAPTION (ready to paste, under 80 words, soft CTA). Men in their 40s 50s and 60s audience. Real, unpolished, genuine.",
-    everyone: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. No production needed — just a phone. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (one line to camera if needed, blank if just filming the action), CAPTION (ready to paste, under 80 words, soft CTA or question). Mixed audience. Keep it real and unplanned feeling."
+    women: "Write a Facebook or Instagram caption for a short video post from SPS Fitness aimed at women over 30. Write it as if the video shows a real moment from a coached session — someone working hard, a coaching interaction, the group atmosphere, a member hitting something they could not do before. The caption should feel like it was written by the coach in the moment. Real, warm, direct. Under 120 words. Max 3 hashtags. No direction notes, no filming instructions — just the post text ready to publish.",
+    men: "Write a Facebook or Instagram caption for a short video post from SPS Fitness aimed at men in their 40s 50s and 60s. Write it as if the video shows a real moment from a coached session — effort, coaching, progress, the atmosphere of men training together. Direct, honest, written in the moment. Under 120 words. Max 3 hashtags. Just the post text ready to publish — no filming notes.",
+    everyone: "Write a Facebook or Instagram caption for a short video post from SPS Fitness for a mixed audience. Write it as if the video shows a real moment — training, coaching, community, energy. Like the coach grabbed the phone and wrote something genuine about what just happened in the session. Under 120 words. Max 3 hashtags. Post text only, ready to publish."
   },
   value: {
     women: "Write a Facebook post for SPS Fitness about what makes coached small group training genuinely different. Someone who knows your name, your history, your limitations, your goals. Not a class. Not a generic programme. Actual coaching that adapts to you. For women from their 30s through their 60s. No waiting list. Real community. Real results. No naming competitors. Make it feel like something worth being part of.",
@@ -2486,9 +2496,9 @@ var TOPIC_ANGLES = {
     thirty_plus: "Write a Facebook post for SPS Fitness about why strength training for longevity, bone density and muscle mass matters from your 30s onwards — not just your 50s. The adults who start in their 30s and 40s have the biggest long term advantage. SPS has members across this full age range all benefiting from the same approach. Make it feel like genuinely useful information."
   },
   reels: {
-    women: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. Keep it dead simple — the coach is coaching not producing content. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (optional — one line to say to camera if talking, or leave blank if just filming the session), CAPTION (ready to paste post text, under 80 words, no hashtag waffle, ends with a soft CTA or question). Women over 30 audience. Make it feel real and spontaneous not staged.",
-    men: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. Dead simple — no production. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (one line to say to camera if needed, or blank if just filming), CAPTION (ready to paste, under 80 words, soft CTA). Men in their 40s 50s and 60s audience. Real, unpolished, genuine.",
-    everyone: "Generate a simple phone video idea for an SPS Fitness coach to film in 30 seconds during or after a session. No production needed — just a phone. Output format: WHAT TO FILM (one sentence, exactly what to point the phone at), SAY THIS (one line to camera if needed, blank if just filming the action), CAPTION (ready to paste, under 80 words, soft CTA or question). Mixed audience. Keep it real and unplanned feeling."
+    women: "Write a Facebook or Instagram caption for a short video post from SPS Fitness aimed at women over 30. Write it as if the video shows a real moment from a coached session — someone working hard, a coaching interaction, the group atmosphere, a member hitting something they could not do before. The caption should feel like it was written by the coach in the moment. Real, warm, direct. Under 120 words. Max 3 hashtags. No direction notes, no filming instructions — just the post text ready to publish.",
+    men: "Write a Facebook or Instagram caption for a short video post from SPS Fitness aimed at men in their 40s 50s and 60s. Write it as if the video shows a real moment from a coached session — effort, coaching, progress, the atmosphere of men training together. Direct, honest, written in the moment. Under 120 words. Max 3 hashtags. Just the post text ready to publish — no filming notes.",
+    everyone: "Write a Facebook or Instagram caption for a short video post from SPS Fitness for a mixed audience. Write it as if the video shows a real moment — training, coaching, community, energy. Like the coach grabbed the phone and wrote something genuine about what just happened in the session. Under 120 words. Max 3 hashtags. Post text only, ready to publish."
   },
   value: {
     women: [
@@ -2762,6 +2772,7 @@ function do10Days() {
   showPanel("queue");
   var days = 10;
   var total = days * slots.length;
+  _sessionUsedIds = new Set();
   var plan = buildBatchPlan(total);
   document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x1F4C5;</div><p>Generating ' + total + ' posts... <span id="prog10">0</span> of ' + total + ' done.</p></div>';
   var done = 0;
@@ -2809,6 +2820,7 @@ function do30Days() {
   var today = startInput ? new Date(startInput + "T12:00:00") : new Date();
   showPanel("queue");
 
+  _sessionUsedIds = new Set();
   var PLAN = buildBatchPlan(totalPosts);
 
   var total = PLAN.length;
