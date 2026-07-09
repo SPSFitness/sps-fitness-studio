@@ -20,19 +20,34 @@ exports.handler = async function(event) {
 
   try {
     var url = SHEETS_URL + "?action=" + action;
-    var fetchOptions = { method: "GET" };
+    var fetchOptions;
 
     if (event.httpMethod === "POST" && event.body) {
+      // For POST requests, send as URL params since Apps Script reads them via e.parameter
       fetchOptions = {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "action=" + action
+      };
+      // But also pass the JSON body — Apps Script reads via e.postData.contents
+      fetchOptions = {
+        method: "POST",
+        redirect: "follow",
+        headers: { "Content-Type": "text/plain" },
         body: event.body
       };
       url = SHEETS_URL + "?action=" + action;
+    } else {
+      fetchOptions = { method: "GET", redirect: "follow" };
     }
 
     var res = await fetch(url, fetchOptions);
     var text = await res.text();
+
+    // Verify it's JSON
+    try { JSON.parse(text); } catch(e) {
+      return { statusCode: 502, headers, body: JSON.stringify({ error: "Sheets returned non-JSON", preview: text.substring(0, 100) }) };
+    }
 
     return { statusCode: 200, headers, body: text };
 
