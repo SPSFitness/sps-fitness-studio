@@ -1243,6 +1243,18 @@ function getPrompt(type, aud, ctx) {
   return p;
 }
 
+var _wakeLock = null;
+function requestWakeLock() {
+  if ("wakeLock" in navigator) {
+    navigator.wakeLock.request("screen").then(function(lock) {
+      _wakeLock = lock;
+    }).catch(function() {});
+  }
+}
+function releaseWakeLock() {
+  if (_wakeLock) { _wakeLock.release(); _wakeLock = null; }
+}
+
 function callAPI(sys, prompt, cb) {
   fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/generate", {
     method: "POST",
@@ -1911,9 +1923,16 @@ function findBestImage(postType, aud) {
     if (gp.length) genderPool = gp;
   }
 
+  // For reels posts prefer videos
+  if (postType === "reels") {
+    var videos = genderPool.filter(function(img) { return img.isVideo; });
+    if (videos.length) return videos[Math.floor(Math.random() * videos.length)];
+  }
+
   // Within gender pool prefer post type match
-  var exact = genderPool.filter(function(img) { return img.bestFor === postType; });
-  var finalPool = exact.length ? exact : genderPool;
+  var exact = genderPool.filter(function(img) { return img.bestFor === postType && !img.isVideo; });
+  var nonVideo = genderPool.filter(function(img) { return !img.isVideo; });
+  var finalPool = exact.length ? exact : (nonVideo.length ? nonVideo : genderPool);
   return finalPool[Math.floor(Math.random() * finalPool.length)];
   // NOTE: does NOT mark as used — call markImageUsed() separately when actually assigning
 }
@@ -2170,6 +2189,7 @@ function doWeek() {
   var days = 7;
   var total = days * slots.length;
   var plan = buildBatchPlan(total);
+  requestWakeLock();
   document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x2726;</div><p>Generating ' + total + ' posts across 7 days... <span id="prog7">0</span> of ' + total + ' done.</p></div>';
   var done = 0;
   var i = 0;
@@ -2177,6 +2197,7 @@ function doWeek() {
     if (i >= plan.length) {
       queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
       renderQueue(); updateBadge();
+      releaseWakeLock();
       showStatus("queueStatus", total + " posts ready across 7 days!", "success");
       return;
     }
@@ -2749,6 +2770,7 @@ function do10Days() {
     if (i >= plan.length) {
       queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
       renderQueue(); updateBadge();
+      releaseWakeLock();
       showStatus("queueStatus", total + " posts ready across 10 days!", "success");
       return;
     }
@@ -2798,6 +2820,7 @@ function do30Days() {
     if (i >= total) {
       queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
       renderQueue(); updateBadge();
+      releaseWakeLock();
       showStatus("queueStatus", total + " posts generated across 30 days! Export CSV to upload to High Level.", "success");
       return;
     }
