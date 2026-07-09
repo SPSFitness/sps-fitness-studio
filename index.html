@@ -474,7 +474,7 @@ var curPost = "";
 var queue = [];
 var calOff = 0;
 var postHistory = []; // tracks recent posts to avoid repetition
-var SHEETS_URL = "https://merry-flan-9e55eb.netlify.app/.netlify/functions/sheets-proxy";
+var SHEETS_URL = "https://script.google.com/macros/s/AKfycbyPSdZtx3IXDfiYfqwjKN1b5o-7sr43By0bvz9OlfOnaDQGFaicgEmgjkvKG1IR6wkpDQ/exec";
 var sheetsReady = false;
 var leadInsights = null; // cached GHL lead insights
 var googleAccessToken = null;
@@ -1719,9 +1719,12 @@ function renderImgLibrary() {
         ? '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:var(--surface3);font-size:32px">&#x1F3A5;</div>'
         : '<img src="' + img.dataUrl + '" alt="' + img.filename + '" crossorigin="anonymous" />';
       var videoBadge = img.isVideo ? '<span style="position:absolute;top:4px;left:4px;background:var(--blue);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px">VIDEO</span>' : '';
+      var genderColor = img.gender === "women" ? "#f472b6" : img.gender === "men" ? "#60a5fa" : img.gender === "mixed" ? "#34d399" : "rgba(255,255,255,0.3)";
+      var genderLabel = img.gender && img.gender !== "none" ? img.gender : "?";
+      var genderBtn = '<button onclick="cycleGender(' + JSON.stringify(String(img.id)) + ')" style="position:absolute;top:4px;right:26px;background:' + genderColor + ';border:none;color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;cursor:pointer">' + genderLabel + '</button>';
       return '<div class="img-card' + (img.analyzing ? " analyzing" : "") + '" id="imgcard-' + img.id + '">' +
-      mediaEl + videoBadge +
-      '<div class="img-overlay">' + (img.analyzing ? "analysing..." : img.tagString + (img.usedCount ? " | used " + img.usedCount + "x" : "")) + '</div>' +
+      mediaEl + videoBadge + genderBtn +
+      '<div class="img-overlay">' + (img.analyzing ? "analysing..." : (img.bestFor || "any") + (img.usedCount ? " | " + img.usedCount + "x" : "")) + '</div>' +
       '<button class="img-del" onclick="removeImg(' + img.id + ')" title="Remove">&times;</button>' +
       '</div>';
   }).join("");
@@ -1834,6 +1837,20 @@ function schedFromVideo() {
   document.getElementById("outputCard").style.display = "block";
   document.getElementById("postOutput").textContent = t;
   doSchedOpen();
+}
+
+function cycleGender(id) {
+  var order = ["none","women","men","mixed"];
+  for (var i = 0; i < imageLibrary.length; i++) {
+    if (String(imageLibrary[i].id) === String(id)) {
+      var current = imageLibrary[i].gender || "none";
+      var nextIdx = (order.indexOf(current) + 1) % order.length;
+      imageLibrary[i].gender = order[nextIdx];
+      saveImageLibrary();
+      renderImgLibrary();
+      break;
+    }
+  }
 }
 
 function removeImg(id) {
@@ -1985,7 +2002,10 @@ function savePostHistory() {
 function loadPostHistory() {
   try {
     var saved = localStorage.getItem("sps_post_history");
-    if (saved) postHistory = JSON.parse(saved);
+    if (saved) {
+      postHistory = JSON.parse(saved);
+      console.log("Post history loaded from localStorage:", postHistory.length, "entries");
+    }
   } catch(e) {}
 }
 
@@ -2006,7 +2026,9 @@ function addToPostHistory(type, aud, text) {
     date: new Date().toISOString().split("T")[0]
   });
   if (postHistory.length > 60) postHistory = postHistory.slice(-60);
-  savePostHistory();
+  // Always save to localStorage immediately — don't wait for Sheets
+  try { localStorage.setItem("sps_post_history", JSON.stringify(postHistory)); } catch(e) {}
+  savePostHistory(); // Also try Sheets in background
 }
 
 function getHistoryContext(type, aud) {
