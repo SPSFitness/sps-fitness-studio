@@ -1892,19 +1892,31 @@ function markImageUsed(id) {
 // ── GOOGLE SHEETS BACKEND ─────────────────────────────────────────────────
 
 function sheetsGet(action, cb) {
-  fetch(SHEETS_URL + "?action=" + action)
-    .then(function(r) { return r.json(); })
-    .then(function(d) { cb(null, d); })
-    .catch(function(e) { cb(e.message); });
+  fetch(SHEETS_URL + "?action=" + action, {
+    method: "GET",
+    headers: {"Content-Type": "application/json"}
+  })
+  .then(function(r) {
+    var ct = r.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) return cb("Sheets returned non-JSON");
+    return r.json();
+  })
+  .then(function(d) { if(d) cb(null, d); })
+  .catch(function(e) { cb(e.message); });
 }
 
 function sheetsPost(action, data, cb) {
   fetch(SHEETS_URL + "?action=" + action, {
     method: "POST",
+    headers: {"Content-Type": "application/json"},
     body: JSON.stringify(data)
   })
-  .then(function(r) { return r.json(); })
-  .then(function(d) { cb(null, d); })
+  .then(function(r) {
+    var ct = r.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) return cb("Sheets returned non-JSON");
+    return r.json();
+  })
+  .then(function(d) { if(d) cb(null, d); })
   .catch(function(e) { cb(e.message); });
 }
 
@@ -2601,8 +2613,11 @@ var TOPIC_ANGLES = {
 
 function getUnusedAngle(type, aud) {
   // Get angles for this type — prefer audience-specific, fall back to everyone
-  var audAngles = TOPIC_ANGLES[type] && TOPIC_ANGLES[type][aud] ? TOPIC_ANGLES[type][aud] : [];
-  var everyoneAngles = TOPIC_ANGLES[type] && TOPIC_ANGLES[type]["everyone"] ? TOPIC_ANGLES[type]["everyone"] : [];
+  if (!TOPIC_ANGLES[type]) return null;
+  var audAngles = TOPIC_ANGLES[type][aud];
+  var everyoneAngles = TOPIC_ANGLES[type]["everyone"];
+  if (!Array.isArray(audAngles)) audAngles = [];
+  if (!Array.isArray(everyoneAngles)) everyoneAngles = [];
   var angles = audAngles.length ? audAngles : everyoneAngles;
   if (!angles.length) return null;
 
