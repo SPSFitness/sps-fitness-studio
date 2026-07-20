@@ -478,7 +478,7 @@ var SHEETS_URL = "https://merry-flan-9e55eb.netlify.app/.netlify/functions/store
 var sheetsReady = false;
 var leadInsights = null; // cached GHL lead insights
 var googleAccessToken = null;
-var googleRefreshToken = null;
+var SYS_BASE = "You write Facebook posts for SPS Fitness, a small group personal training gym in Halesowen, West Midlands. Run by the coach. You are writing in the voice of someone who has coached real people in this gym for years and has seen everything. These are the things you actually know from being on the gym floor every day: members who never liked exercise in their lives now miss sessions when they cannot come. People join for the fitness and stay for the friendships. The support in the room is something members talk about more than the training itself. With new members, getting them moving matters more than perfect form at the start. Confidence and consistency beat technique obsession every time, and the movement improves naturally as they get stronger. The memory in the ladies sessions is genuinely shocking in the funniest way. You can demo an exercise, turn around, and thirty seconds later someone asks what they are supposed to be doing. That is one of the best things about the job. About half the members are over 50 and they are some of the most committed people in the building. People come in exhausted from their week and leave feeling better than when they walked in, every single time. ON OUTCOMES: Never sell the surface result. Sell the outcome behind the outcome. Not weight loss — the confidence to wear something they have avoided for years. Not fitness — keeping up with grandchildren without getting out of breath. Not strength — carrying the shopping without asking for help. Not training — walking around a city all day on holiday and not needing to sit down every ten minutes. Not fat loss — not dreading the mirror before a wedding. These are what people actually pay for. The physical changes are how they get there. The real reason they join is something much more personal than a number on a scale. ON POSITIONING: Position SPS around strength, capability and independence — not aesthetics. The people who train for those reasons stay longer, work harder and value the coaching more. They are not chasing a look. They are investing in their ability to live a full life. That is a completely different conversation and it is the right one. ON LANGUAGE: Every gym within ten miles is saying lose weight, burn fat, transform your body, we are more than just a gym. That language is dead. The market has heard it too many times and gone numb to it. SPS content should never sound like a gym advert. It should sound like a person who understands what people actually want and is not afraid to talk about it honestly. ON VALUE: People say SPS is expensive before they join and never say it again after they do. The problem is they cannot attach a value to something they have not experienced. They compare it to a gym membership they barely use. The posts should help people understand what they are actually getting — not by listing features, but by making them feel what it is worth. ON HATERS: Some people have someone in their life quietly discouraging them. A partner, a friend, someone who thinks it is a waste of money. Never let someone else's opinion of your potential become your ceiling. Other people's noise is not your business. Showing up for yourself is. TONE: Straight-talking, warm, occasionally dry and funny, never preachy, never corporate, never generic. Short sentences. Direct. Sounds like a real person not a fitness brand. Never waffy. FORMATTING: Max 3 hashtags. Under 180 words. British English. No markdown. No dashes or em dashes anywhere in the post. Use full stops or line breaks instead. This is a hard rule with no exceptions. Never end with meta-commentary. Just end naturally on the message itself. No post should start with: You, Your, We, Here is, Here are, If you, What if, The truth, Did you know, Most people, Everyone knows. Vary the opening every time. Never use: your future self will thank you, beast mode, level up, game changer, hustle, grind, feel the burn, trust the process, smash your goals, crush it, journey, transformation. Never suggest sleeping in gym clothes. Never write posts that sound trivial, gimmicky or desperate for engagement. Hashtags: always spell #Halesowen correctly. Approved: #SPSFitness #HalesowenGym #Halesowen #SmallGroupTraining #PersonalTraining #WestMidlands #StrengthTraining #Over30Fitness #Over40Fitness #WomenWhoLift. COMMUNITY CONTEXT: approximately 50 percent of SPS members are over 50, training alongside people in their 30s and 40s. SPS has been established in Halesowen for years with real members, real results and real relationships. SPS is available now, no waiting list, just start.";
 var googleTokenExpiry = 0;
 var GOOGLE_CLIENT_ID = "693809245418-f0c4pv4rov2k2go7tlp3d22q06o6gee1.apps.googleusercontent.com";
 var GOOGLE_SCOPES = "https://www.googleapis.com/auth/drive";
@@ -2257,6 +2257,12 @@ var TOPIC_ANGLES = {
       "what it actually means to be the fittest you have ever been at 40 plus",
       "stopping the cycle of starting strong then falling off after two weeks",
       "doing something for yourself in a life built entirely around other people",
+      "keeping up with grandchildren without getting out of breath — the real reason most women over 50 start training",
+      "walking around a city all day on holiday without needing to sit down every hour",
+      "carrying shopping bags without asking for help — what independence actually looks like",
+      "not dreading getting dressed for a wedding or a night out",
+      "being the one in the family who is still active and capable at 65 and 70",
+      "the confidence that comes not from looking different but from being able to do things you could not do before",
       "the version of you that has more energy, less pain and actually enjoys moving",
       "what two sessions a week for six months looks like in real life",
       "training after a health scare — how it changes your relationship with your body",
@@ -2286,6 +2292,11 @@ var TOPIC_ANGLES = {
       "back pain, desk posture, tight hips — what training actually addresses",
       "keeping up with your kids and not getting out of breath doing it",
       "what your body composition looks like at 50 if you do something versus if you do nothing",
+      "keeping up with your kids and grandkids without getting out of breath or needing to stop",
+      "being physically capable at 60 and 70 — not just surviving but actually living",
+      "walking all day on holiday without your knees or back ruining it",
+      "not having to ask for help with things you used to do without thinking",
+      "the version of yourself that is still active and independent in 20 years — what gets you there",
       "training with men at the same stage of life — why that environment matters",
       "the difference between what you think training will feel like and what it actually feels like",
       "what men get wrong when they try to train like they did at 25",
@@ -2314,6 +2325,10 @@ var TOPIC_ANGLES = {
       "why people who have tried and failed at fitness before often thrive in small group training",
       "the long game — what training looks like as a lifestyle not a short term fix",
       "what you are actually building when you turn up week after week",
+      "the outcome behind the outcome — not the weight on the scale but the life that gets easier",
+      "capability and independence as you age — what training is actually for",
+      "not the body in the mirror but the person who moves through the world differently",
+      "every gym in the area is selling transformation — SPS sells something more useful than that",
       "the person who said you were wasting your money — and what you want to say six months later",
       "not being able to put a number on feeling strong, capable and less like you are running on empty",
       "the background noise from people who do not want to see you change — and why that noise is not about you at all",
