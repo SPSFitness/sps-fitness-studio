@@ -319,31 +319,7 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
         </div>
         <div class="img-grid" id="imgGrid"></div>
       </div>
-      <div class="card" id="fromVideoCard" style="display:none">
-        <div class="cl">Generate post from video</div>
-        <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Pick a video from your library — Claude will watch it and write a post around what is actually in it</div>
-        <div id="videoPickerGrid" class="img-grid" style="margin-bottom:14px"></div>
-        <div id="fromVideoOutput" style="display:none">
-          <div class="cl">Selected video</div>
-          <div id="fromVideoSelected" style="background:var(--surface2);border-radius:var(--rs);padding:12px;margin-bottom:12px;font-size:13px;color:var(--muted)"></div>
-          <div class="ag" style="margin-bottom:14px">
-            <div class="ab sel" id="fvaud-everyone" onclick="selectFvAud('everyone')">&#x1F465; Everyone</div>
-            <div class="ab" id="fvaud-women" onclick="selectFvAud('women')">&#x1F469; Women 30+</div>
-            <div class="ab" id="fvaud-men" onclick="selectFvAud('men')">&#x1F468; Men 40s/50s</div>
-          </div>
-          <button class="btn bp" onclick="generateFromVideo()">&#x1F3AC; GENERATE POST FROM THIS VIDEO</button>
-          <div class="sb" id="fromVideoStatus" style="margin-top:12px"></div>
-          <div id="fromVideoResult" style="display:none">
-            <div class="cl" style="margin-top:16px">Your post</div>
-            <div class="pb" id="fromVideoPost"></div>
-            <div class="br">
-              <button class="btn bg" onclick="generateFromVideo()">&#x21BA; Regenerate</button>
-              <button class="btn bg" onclick="copyFromVideo()">&#x2398; Copy</button>
-              <button class="btn bc" onclick="schedFromVideo()">&#x1F4C5; Schedule</button>
-            </div>
-          </div>
-        </div>
-      </div>
+
     </div>
 
     <div class="panel" id="panel-members">
@@ -1663,7 +1639,7 @@ function analyseImageByUrl(id, driveFileId, cb) {
   .then(function(dataUrl) {
     var base64 = dataUrl.split(",")[1];
     var mimeType = dataUrl.split(";")[0].split(":")[1] || "image/jpeg";
-    var sys = "You are an image tagger for SPS Fitness gym. Analyse this photo carefully and return ONLY a JSON object with exactly these fields: tags (array of 3-6 lowercase descriptive tags), bestFor (one of: motivation, myth, evidence, quickwin, bodyblast, results, behindscenes, faq, seasonal, local, any), gender (one of: women, men, mixed, none — based ONLY on who is clearly visible: if only women visible use women, if only men visible use men, if both genders visible use mixed, if no people or unclear use none). Be precise — wrong gender causes posts to be shown to wrong audience. Return only valid JSON, nothing else.";
+    var sys = "You are an image tagger for SPS Fitness gym. Analyse this photo and return ONLY a JSON object with these fields: tags (array of 3-6 lowercase descriptive tags), bestFor (one of: motivation, myth, evidence, quickwin, bodyblast, results, behindscenes, faq, seasonal, local, any), gender (one of: women, men, mixed, none). GENDER RULES — be decisive: if the main subject is clearly a man or men, tag as men even if women are visible in the background. If the main subject is clearly a woman or women, tag as women even if others are in the background. Only use mixed if the photo clearly shows both genders as equal subjects. Use none if no people are visible. The main subject is whoever is most prominent and central in the frame. Return only valid JSON, nothing else.";
     return fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/generate", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
@@ -1748,7 +1724,6 @@ function renderImgLibrary() {
   if (!imageLibrary.length) { card.style.display = "none"; return; }
   card.style.display = "block";
   count.textContent = imageLibrary.length;
-  renderVideoPickerGrid();
   grid.innerHTML = imageLibrary.map(function(img) {
     var mediaEl = img.isVideo
         ? '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:var(--surface3);font-size:32px">&#x1F3A5;</div>'
@@ -1816,28 +1791,46 @@ function generateFromVideo() {
   var audCtx = selFvAud === "women" ? "women over 30" : selFvAud === "men" ? "men in their 40s 50s and 60s" : "adults over 30 including men and women in their 30s 40s 50s and 60s";
   var sys = selFvAud === "women" ? SYS_WOMEN : selFvAud === "men" ? SYS_MEN : SYS_ALL;
 
-  var prompt = "Watch this video from an SPS Fitness session in Halesowen. Write a Facebook post based specifically on what you can see happening in the video. The post should feel like it was written by someone who was in the room — specific, real, grounded in what is actually happening on screen. Do not describe the video — write a post that uses what is in the video as the jumping off point. Audience: " + audCtx + ". Under 180 words. Max 3 hashtags including #SPSFitness. No markdown. No dashes. End naturally.";
+  var prompt = "Write a Facebook post for SPS Fitness about this training video. The post should feel like it was written by the coach in the moment — real, grounded, specific to what is happening. Audience: " + audCtx + ". Under 180 words. Max 3 hashtags including #SPSFitness. No markdown. No dashes. End naturally.";
 
-  // Call API with video URL as image source
+  // Claude cannot watch video — try to find a matching thumbnail image in library
+  // Look for an image with same base filename as the video
+  var videoBaseName = selFvMedia.filename.replace(/\.[^.]+$/, "").toLowerCase();
+  var thumbnail = null;
+  for (var ti = 0; ti < imageLibrary.length; ti++) {
+    var imgBase = imageLibrary[ti].filename.replace(/\.[^.]+$/, "").toLowerCase();
+    if (!imageLibrary[ti].isVideo && (imgBase === videoBaseName || imgBase === videoBaseName + "_thumb" || imgBase === videoBaseName + "-thumb")) {
+      thumbnail = imageLibrary[ti];
+      break;
+    }
+  }
+
+  var messages;
+  if (thumbnail && thumbnail.dataUrl) {
+    // Use matching thumbnail image
+    messages = [{
+      role: "user",
+      content: [
+        { type: "image", source: { type: "url", url: thumbnail.dataUrl } },
+        { type: "text", text: "This is a thumbnail from a gym training video. " + prompt }
+      ]
+    }];
+  } else {
+    // No thumbnail — fetch video thumbnail via imgproxy and use first frame
+    var thumbProxyUrl = "https://merry-flan-9e55eb.netlify.app/.netlify/functions/imgproxy?url=" + encodeURIComponent("https://lh3.googleusercontent.com/d/" + selFvMedia.driveId + "=w800");
+    // Fall back to text-only post based on filename
+    var videoContext = "The video filename is: " + selFvMedia.filename + ". ";
+    if (selFvMedia.tagString) videoContext += "It has been tagged as: " + selFvMedia.tagString + ". ";
+    messages = [{
+      role: "user",
+      content: videoContext + prompt + " Write the post as if you know what is in the video based on the context provided."
+    }];
+  }
+
   fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/generate", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({
-      system: sys,
-      messages: [{
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: {
-              type: "url",
-              url: selFvMedia.hostedUrl
-            }
-          },
-          { type: "text", text: prompt }
-        ]
-      }]
-    })
+    body: JSON.stringify({ system: sys, messages: messages })
   })
   .then(function(r) { return r.json(); })
   .then(function(d) {
