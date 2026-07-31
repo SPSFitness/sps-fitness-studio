@@ -1233,6 +1233,28 @@ function releaseWakeLock() {
   if (_wakeLock) { _wakeLock.release(); _wakeLock = null; }
 }
 
+function cleanPostText(text) {
+  if (!text) return "";
+  text = text.split("**").join("").split("*").join("");
+  text = text.split("—").join("").split("–").join("").split("---").join("");
+  text = text.split(" - ").join(" ");
+  var lines = text.split("\n");
+  lines = lines.map(function(l) {
+    if (l.slice(0,2) === "- ") l = l.slice(2);
+    if (l.slice(0,4) === "### ") l = l.slice(4);
+    else if (l.slice(0,3) === "## ") l = l.slice(3);
+    else if (l.slice(0,2) === "# ") l = l.slice(2);
+    return l;
+  });
+  var result = [];
+  var blanks = 0;
+  lines.forEach(function(l) {
+    if (l.trim() === "") { blanks++; if (blanks <= 1) result.push(l); }
+    else { blanks = 0; result.push(l); }
+  });
+  return result.join("\n").trim();
+}
+
 function callAPI(sys, prompt, cb) {
   fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/generate", {
     method: "POST",
@@ -1839,9 +1861,7 @@ function generateFromVideo() {
   .then(function(d) {
     if (d.error) { showStatus("fromVideoStatus", "Error: " + JSON.stringify(d.error), "error"); return; }
     var text = d.content ? d.content.map(function(b) { return b.text||""; }).join("") : "";
-    text = text.split("**").join("").split("*").join("").trim();
-    // Hard strip all dashes and em dashes — AI ignores the prompt rule
-    text = text.replace(/—/g, "").replace(/–/g, "").replace(/ - /g, " ").replace(/^- /gm, "");
+    text = cleanPostText(text);
     hideStatus("fromVideoStatus");
     postEl.textContent = text;
     result.style.display = "block";
@@ -2218,6 +2238,7 @@ function doDay() {
       var prog = document.getElementById("prog1");
       if (prog) prog.textContent = done;
       if (!err && text) {
+        text = cleanPostText(text);
         var wMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (wMedia) markImageUsed(wMedia.id);
         queue.push({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, mediaId: wMedia ? wMedia.id : null});
@@ -2265,6 +2286,7 @@ function doWeek() {
       var prog = document.getElementById("prog7");
       if (prog) prog.textContent = done;
       if (!err && text) {
+        text = cleanPostText(text);
         var wMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (wMedia) markImageUsed(wMedia.id);
         queue.push({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, mediaId: wMedia ? wMedia.id : null});
