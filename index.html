@@ -1235,10 +1235,12 @@ function releaseWakeLock() {
 
 function cleanPostText(text) {
   if (!text) return "";
+  // Strip markdown formatting
   text = text.split("**").join("").split("*").join("");
   text = text.split("—").join("").split("–").join("").split("---").join("");
   text = text.split(" - ").join(" ");
   var lines = text.split("\n");
+  // Fix line-starting markdown
   lines = lines.map(function(l) {
     if (l.slice(0,2) === "- ") l = l.slice(2);
     if (l.slice(0,4) === "### ") l = l.slice(4);
@@ -1246,13 +1248,36 @@ function cleanPostText(text) {
     else if (l.slice(0,2) === "# ") l = l.slice(2);
     return l;
   });
+  // Separate body lines from hashtag lines
+  var bodyLines = [];
+  var hashLines = [];
+  lines.forEach(function(l) {
+    var trimmed = l.trim();
+    // A hashtag line is one where every word starts with #
+    var words = trimmed.split(" ").filter(function(w) { return w.length > 0; });
+    var isHashLine = words.length > 0 && words.every(function(w) { return w[0] === "#"; });
+    if (isHashLine) {
+      hashLines.push(trimmed);
+    } else {
+      bodyLines.push(l);
+    }
+  });
+  // Clean up excess blank lines from body
   var result = [];
   var blanks = 0;
-  lines.forEach(function(l) {
+  bodyLines.forEach(function(l) {
     if (l.trim() === "") { blanks++; if (blanks <= 1) result.push(l); }
     else { blanks = 0; result.push(l); }
   });
-  return result.join("\n").trim();
+  // Always put hashtags at the end
+  var body = result.join("\n").trim();
+  if (hashLines.length) {
+    body = body + "\n\n" + hashLines.join(" ");
+  } else {
+    // No hashtags found — add defaults
+    body = body + "\n\n#SPSFitness #HalesowenGym #Halesowen";
+  }
+  return body.trim();
 }
 
 function callAPI(sys, prompt, cb) {
