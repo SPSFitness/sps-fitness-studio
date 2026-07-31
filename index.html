@@ -1839,6 +1839,8 @@ function generateFromVideo() {
     if (d.error) { showStatus("fromVideoStatus", "Error: " + JSON.stringify(d.error), "error"); return; }
     var text = d.content ? d.content.map(function(b) { return b.text||""; }).join("") : "";
     text = text.split("**").join("").split("*").join("").trim();
+    // Hard strip all dashes and em dashes — AI ignores the prompt rule
+    text = text.replace(/—/g, "").replace(/–/g, "").replace(/ - /g, " ").replace(/^- /gm, "");
     hideStatus("fromVideoStatus");
     postEl.textContent = text;
     result.style.display = "block";
@@ -2934,17 +2936,26 @@ function exportCSV() {
   for (var qi = 0; qi < queue.length; qi++) {
     if (queue[qi].mediaId) usedMediaIds[String(queue[qi].mediaId)] = true;
   }
+  // Load existing exported IDs from localStorage
+  var exportedIds = {};
+  try { exportedIds = JSON.parse(localStorage.getItem("sps_exported_ids") || "{}"); } catch(e) {}
+
   var removedCount = 0;
   if (Object.keys(usedMediaIds).length) {
     var before = imageLibrary.length;
     imageLibrary = imageLibrary.filter(function(img) {
       if (usedMediaIds[String(img.id)]) {
-        if (img.driveId) usedDriveIds.push(img.driveId);
+        if (img.driveId) {
+          usedDriveIds.push(img.driveId);
+          exportedIds[img.driveId] = new Date().toISOString(); // permanent record
+        }
         return false;
       }
       return true;
     });
     removedCount = before - imageLibrary.length;
+    // Save permanent record of exported Drive IDs
+    try { localStorage.setItem("sps_exported_ids", JSON.stringify(exportedIds)); } catch(e) {}
     if (removedCount > 0) {
       saveImageLibrary();
       renderImgLibrary();
