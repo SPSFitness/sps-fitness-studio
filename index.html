@@ -265,6 +265,7 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
         </div>
       </div>
       <div class="br" style="margin-bottom:20px">
+        <button class="btn bg" style="flex:1" onclick="doDay()">&#x2726; 1 DAY</button>
         <button class="btn bp" style="flex:1" onclick="doWeek()">&#x2726; 7 DAYS</button>
         <button class="btn bc" style="flex:1" onclick="do10Days()">&#x1F4C5; 10 DAYS</button>
         <button class="btn bc" style="flex:1" onclick="do30Days()">&#x1F4C5; 30 DAYS</button>
@@ -2185,6 +2186,49 @@ function renderQueue() {
     html += '</div><button class="qdel" onclick="removeQ('+q.id+')">&times;</button></div>';
   }
   list.innerHTML = html;
+}
+
+function doDay() {
+  var slots = getTimeSlots();
+  var startInput = document.getElementById("planStartDate").value;
+  var today = startInput ? new Date(startInput + "T12:00:00") : new Date();
+  showPanel("queue");
+  var total = slots.length;
+  var plan = buildBatchPlan(total);
+  _sessionUsedIds = new Set();
+  document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x2726;</div><p>Generating ' + total + ' post' + (total !== 1 ? "s" : "") + ' for today... <span id="prog1">0</span> of ' + total + ' done.</p></div>';
+  var done = 0;
+  var ds = today.toISOString().split("T")[0];
+  var i = 0;
+  function next() {
+    if (i >= plan.length) {
+      queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
+      renderQueue(); updateBadge();
+      releaseWakeLock();
+      showStatus("queueStatus", total + " post" + (total !== 1 ? "s" : "") + " ready for today!", "success");
+      return;
+    }
+    var slotTime = slots[i % slots.length];
+    var p = plan[i];
+    var sys = p.aud === "women" ? SYS_WOMEN : (p.aud === "men" ? SYS_MEN : SYS_ALL);
+    var idx = i;
+    requestWakeLock();
+    callAPI(sys, p.type === "fromleads" ? (getLeadInsightsPrompt(p.type, p.aud) || getPrompt(p.type, p.aud, p.angle || "")) : getPrompt(p.type, p.aud, p.angle || ""), function(err, text) {
+      done++;
+      var prog = document.getElementById("prog1");
+      if (prog) prog.textContent = done;
+      if (!err && text) {
+        var wMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
+        if (wMedia) markImageUsed(wMedia.id);
+        queue.push({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, mediaId: wMedia ? wMedia.id : null});
+        queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
+        addToPostHistory(p.type, p.aud, text);
+        renderQueue(); updateBadge();
+      }
+      i++; next();
+    });
+  }
+  next();
 }
 
 function doWeek() {
