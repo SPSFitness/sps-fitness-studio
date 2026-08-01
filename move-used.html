@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Move Used Photos</title>
+<style>
+body{background:#0a0a0a;color:#fff;font-family:Arial,sans-serif;padding:40px;max-width:600px;margin:0 auto;}
+button{background:#1a6fff;color:#fff;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:16px;margin:10px 0;}
+button:disabled{opacity:0.5;}
+#log{background:#111;padding:16px;border-radius:8px;margin-top:20px;font-size:13px;line-height:1.8;white-space:pre-wrap;}
+</style>
+</head>
+<body>
+<h2>Move Used Photos to Drive</h2>
+<p>This will move the 28 photos from your exported CSV into the Used subfolder in Google Drive.</p>
+<button onclick="startMove()" id="btn">Start Move</button>
+<div id="log">Ready...</div>
+<script>
+var USED_IDS = [
+"1KW35V-1nCyQktUvu__U1vPUlARy2Is18",
+"1-6NHgfYAG3ZgmIdnl2VeAijk81KpP292",
+"19pc1ah8X9Ufxb7_CqghLHDiHEDH6KULj",
+"1WPR65YSIlIgXkXR3KPj2jflxSlFJn1as",
+"1eQ0d6-XHxHEwvsu3YeoK5ltM-NFshKvx",
+"1Lzr4u8WDmuIUS6O1oYhxwhnr41Ah8jL_",
+"1O90ohCYB7-nVtkvsdYlu5q02XSdKslyb",
+"1JerLwddP-G45tzEoUm9XDvR0LFa5bLg3",
+"1a5veWU9Hy-d53ihwcMc8jo6vfs4w3nZn",
+"1UsTmDp9kujdlL-9_uw1HEj6nk6euTErK",
+"1PjekvCS_lea8HgpkxHBQ2hOkdkr8OFkx",
+"1-Iw09VV5xDEjliZhl10FqhVXcN7jREf0",
+"1gcHtYFmCS7YSjon-FeUzunZbzHYpb78G",
+"1p6gZfGgXvGp_JWV6ndA6KpAB5zElAMuu",
+"1LGreYwpH6a4O51wDq3gXtkQs0wM5kOcS",
+"1Sl4sHtEk8sO9I7uqHh4lp7w-fDNsjJbi",
+"1-HLBkbqIH6shcYSH1CDe6ebgXB6YUmhp",
+"1gPU96GVh9vmuk_8rBwbs_CFCS_Wxy_SO",
+"16AQVGX7H1C6wOqFzDENuFSP_fnEkz1LT",
+"1HfR6QOKNrrg5rsW-rC_RXA6d60A5kKaC",
+"1zvxMVgzTZLfa70rXUOXd9BrhwjujrzWm",
+"1LUDCVggv5JB7Fl0dvgd6hetODvoyDVI1",
+"1xxhV8UOT-oZw9297UmjGFKnFXSAE9cYU",
+"1CQ7WFMHJVkbWAWTwTH9ooo6U_sgvrqU9",
+"1d1Sxlbq2XesV5mgpGWPGUhq0Rw4M5EXX",
+"1m1EYUCGnmMY4k5pzjBDXwSlglUphspDZ",
+"1KLgXzA6CzjHxIVsAUzPHEi2XiuFDiqdh",
+"1maAWOqOPbGpDikySXt9WpS_zSSh0zGls"
+];
+
+function log(msg) {
+  document.getElementById("log").textContent += "\n" + msg;
+}
+
+function startMove() {
+  document.getElementById("btn").disabled = true;
+  document.getElementById("log").textContent = "Getting access token from main app...";
+
+  // Get token from localStorage (same origin as main app)
+  var auth = null;
+  try { auth = JSON.parse(localStorage.getItem("sps_google_auth") || "null"); } catch(e) {}
+
+  if (!auth || !auth.refreshToken) {
+    log("No Google auth found. Please reconnect Google Drive in the main app first, then reopen this page.");
+    document.getElementById("btn").disabled = false;
+    return;
+  }
+
+  log("Found auth token. Refreshing...");
+
+  // Refresh token
+  fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/google-oauth", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ refresh_token: auth.refreshToken })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.error) { log("Token refresh failed: " + d.error); return; }
+    log("Token refreshed. Moving " + USED_IDS.length + " files...");
+
+    fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/drive-move", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ accessToken: d.access_token, driveIds: USED_IDS })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      log("Done! Moved: " + result.moved + " of " + USED_IDS.length);
+      if (result.errors && result.errors.length) {
+        log("Errors: " + result.errors.join(", "));
+      } else {
+        log("All photos successfully moved to Used folder in Drive!");
+        log("You can now sync fresh photos in the main app.");
+      }
+    })
+    .catch(function(e) { log("Move failed: " + e.message); });
+  })
+  .catch(function(e) { log("Token refresh failed: " + e.message); });
+}
+</script>
+</body>
+</html>
