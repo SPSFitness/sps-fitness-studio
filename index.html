@@ -1246,6 +1246,17 @@ function cleanPostText(text) {
     if (l.slice(0,4) === "### ") l = l.slice(4);
     else if (l.slice(0,3) === "## ") l = l.slice(3);
     else if (l.slice(0,2) === "# ") l = l.slice(2);
+    // Fix title case — if most words in a line are capitalised, convert to sentence case
+    var words = l.trim().split(" ").filter(function(w) { return w.length > 0; });
+    if (words.length >= 4) {
+      var capCount = words.filter(function(w) {
+        return w.length > 3 && w[0] === w[0].toUpperCase() && w[0] !== w[0].toLowerCase();
+      }).length;
+      if (capCount >= words.length * 0.7) {
+        // Convert to sentence case
+        l = l.charAt(0).toUpperCase() + l.slice(1).toLowerCase().replace(/(^\w|[.!?]\s+\w)/g, function(c) { return c.toUpperCase(); });
+      }
+    }
     return l;
   });
   // Separate body lines from hashtag lines
