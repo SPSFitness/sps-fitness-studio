@@ -1274,9 +1274,18 @@ function cleanPostText(text) {
   if (hashLines.length) {
     body = body + "\n\n" + hashLines.join(" ");
   } else {
-    // No hashtags found — add defaults
     body = body + "\n\n#SPSFitness #HalesowenGym #Halesowen";
   }
+  // Replace invented name patterns — "Name's been" "Name came in" "Name started"
+  // Common AI invented names to catch
+  var fakeNames = ["Chloe","Emma","Sarah","Jackie","Rachel","Lisa","Karen","Dave","Mark","Steve","John","Mike","Paul","Tom","James","Claire","Louise","Helen","Julie","Diane"];
+  fakeNames.forEach(function(name) {
+    // Match "Name's" or "Name came" or "Name walked" etc at start of sentence
+    var pattern = new RegExp("\\b" + name + "(\'s| has| came| walked| started| joined| was| is| did| used| now)", "g");
+    body = body.replace(pattern, function(match, suffix) {
+      return "Someone" + (suffix === "'s" ? " who" : suffix);
+    });
+  });
   return body.trim();
 }
 
