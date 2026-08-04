@@ -1179,7 +1179,14 @@ function showPanel(name) {
   if (name === "members") { /* members panel init */ }
   if (name === "queue") renderQueue();
   if (name === "insights") renderLeadInsights();
-  if (name === "images") { renderImgLibrary(); updateGoogleAuthUI(); }
+  if (name === "images") {
+    renderImgLibrary();
+    updateGoogleAuthUI();
+    if (window._driveTokenExpired) {
+      showStatus("imgStatus", "Google Drive connection expired. Click Connect Google Drive to reconnect and enable automatic photo archiving.", "error");
+      window._driveTokenExpired = false;
+    }
+  }
 }
 
 function selectType(t) {
@@ -1678,8 +1685,8 @@ function syncDrive() {
       var isVideo = file.mimeType && file.mimeType.indexOf("video") !== -1;
       var hostedUrl = isVideo
         ? "https://drive.google.com/uc?export=download&id=" + file.id
-        : "https://lh3.googleusercontent.com/d/" + file.id;
-      var thumbUrl = isVideo ? "" : "https://lh3.googleusercontent.com/d/" + file.id + "=w400";
+        : "https://drive.google.com/uc?export=download&id=" + file.id;
+      var thumbUrl = isVideo ? "" : "https://lh3.googleusercontent.com/d/" + file.id + "=w800";
       imageLibrary.push({id: id, driveId: file.id, dataUrl: thumbUrl, filename: file.name, tags: [], tagString: "analysing...", analyzing: true, hostedUrl: hostedUrl, isVideo: isVideo, gender: "none", bestFor: "any", usedCount: 0});
       renderImgLibrary();
       saveImageLibrary();
@@ -3093,13 +3100,20 @@ function exportCSV() {
   // Move used files to Used subfolder in Drive if connected
   if (usedDriveIds.length && isGoogleConnected()) {
     msg += " Moving to Used folder in Drive...";
-    showStatus("queueStatus", msg, "success");
+    showStatus("queueStatus", msg, "info");
     moveUsedFilesToDrive(usedDriveIds, function(moved, errors) {
       var finalMsg = "Downloaded " + queue.length + " posts. " + removedCount + " photos removed from library.";
-      if (moved > 0) finalMsg += " " + moved + " moved to Used folder in Drive.";
-      if (errors && errors.length) finalMsg += " " + errors.length + " failed to move.";
-      showStatus("queueStatus", finalMsg, "success");
+      if (moved > 0) {
+        finalMsg += " " + moved + " moved to Used folder in Drive.";
+        showStatus("queueStatus", finalMsg, "success");
+      } else {
+        finalMsg += " Drive move failed — Google may need reconnecting. Go to Images tab and click Connect Google Drive.";
+        showStatus("queueStatus", finalMsg, "error");
+      }
     });
+  } else if (usedDriveIds.length && !isGoogleConnected()) {
+    msg += " Google Drive not connected — photos not moved. Connect in Images tab to enable this.";
+    showStatus("queueStatus", msg, "error");
   } else {
     showStatus("queueStatus", msg, "success");
   }
