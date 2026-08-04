@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Seed History</title>
+<style>body{background:#0a0a0a;color:#fff;font-family:Arial,sans-serif;padding:40px;max-width:600px;margin:0 auto;}
+button{background:#1a6fff;color:#fff;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:16px;}
+#log{background:#111;padding:16px;border-radius:8px;margin-top:20px;font-size:13px;line-height:1.8;}</style>
+</head>
+<body>
+<h2>Seed Post History</h2>
+<p>This will load 32 posts from your previous CSVs into the app history so the AI knows what's already been covered.</p>
+<button onclick="seed()">Load History into App</button>
+<div id="log">Ready...</div>
+<script>
+var HISTORY = {"history": [{"type": "motivation", "aud": "women", "angle": "# The Fittest You've Ever Been at 40-Plus Doesn't Look How You Think It Does", "opening": "# The Fittest You've Ever Been", "date": "2026-07-31"}, {"type": "evidence", "aud": "women", "angle": "# Two sessions per week makes a measurable difference to how long you live", "opening": "# Two sessions per week makes", "date": "2026-07-31"}, {"type": "myth", "aud": "women", "angle": "# Most Women Swap Biscuits for Rice Cakes and Cannot Understand Why They Are Starving Again 40 Minutes Later", "opening": "# Most Women Swap Biscuits for", "date": "2026-07-31"}, {"type": "myth", "aud": "women", "angle": "# Most People Think They Need to Feel Pain to Make Progress", "opening": "# Most People Think They Need", "date": "2026-07-31"}, {"type": "myth", "aud": "women", "angle": "Sunday Evening and You Already Feel Different About Monday", "opening": "Sunday Evening and You Already Feel", "date": "2026-08-01"}, {"type": "evidence", "aud": "women", "angle": "Most Men in Their 40s and 50s Have No Idea How Fast Muscle Actually Disappears", "opening": "Most Men in Their 40s and", "date": "2026-08-01"}, {"type": "myth", "aud": "women", "angle": "Finish Dinner by 6:30pm Tonight", "opening": "Finish Dinner by 6:30pm Tonight Not", "date": "2026-08-01"}, {"type": "evidence", "aud": "women", "angle": "You Don't Need to Cut Carbs to Lose Fat", "opening": "You Don't Need to Cut Carbs", "date": "2026-08-01"}, {"type": "myth", "aud": "women", "angle": "You walked into the gym", "opening": "You walked into the gym. You", "date": "2026-08-01"}, {"type": "myth", "aud": "women", "angle": "The 70-Year-Old Version of You", "opening": "The 70-Year-Old Version of You Let", "date": "2026-08-01"}, {"type": "myth", "aud": "women", "angle": "This is what happens when someone stops trying to outrun their diet and actually learns how to train", "opening": "This is what happens when someone", "date": "2026-08-01"}, {"type": "evidence", "aud": "women", "angle": "Most Women Over 40 Are Eating Enough Protein for the Day  But Spreading It So Thin Across Meals That None of It Builds M", "opening": "Most Women Over 40 Are Eating", "date": "2026-08-01"}, {"type": "evidence", "aud": "women", "angle": "What Happens When You Miss Sessions  Do You Lose Everything", "opening": "What Happens When You Miss Sessions", "date": "2026-08-01"}, {"type": "quickwin", "aud": "women", "angle": "Most Men in Their Late 40s Drop Two Belt Notches in Eight Weeks When They Move All Their Beer to Saturday and Sunday", "opening": "Most Men in Their Late 40s", "date": "2026-08-01"}, {"type": "myth", "aud": "women", "angle": "The Weird Way Training Changes How You Think About Food", "opening": "The Weird Way Training Changes How", "date": "2026-08-01"}, {"type": "myth", "aud": "women", "angle": "You Can't See This on a Website", "opening": "You Can't See This on a", "date": "2026-08-01"}, {"type": "evidence", "aud": "women", "angle": "Most People Think You Need Hours in the Gym to See Results", "opening": "Most People Think You Need Hours", "date": "2026-08-01"}, {"type": "evidence", "aud": "women", "angle": "Muscle Mass Is Now Officially One of the Top Five Predictors of How Long You'll Live", "opening": "Muscle Mass Is Now Officially One", "date": "2026-08-01"}, {"type": "myth", "aud": "women", "angle": "We've had so many conversations that start with \"I know I'd feel better if I exercised, but", "opening": "We've had so many conversations that", "date": "2026-08-01"}, {"type": "myth", "aud": "women", "angle": "The Hotel Stairs Test", "opening": "The Hotel Stairs Test You're four", "date": "2026-08-01"}, {"type": "myth", "aud": "women", "angle": "You don't need to know what you're doing before you start", "opening": "You don't need to know what", "date": "2026-08-01"}, {"type": "myth", "aud": "women", "angle": "Put Your Trainers Next to Your Toothbrush Tonight", "opening": "Put Your Trainers Next to Your", "date": "2026-08-01"}, {"type": "evidence", "aud": "women", "angle": "Most Men in Their 50s Think Supplements Accelerate Fat Loss", "opening": "Most Men in Their 50s Think", "date": "2026-08-01"}, {"type": "myth", "aud": "women", "angle": "How Many Times a Week Do I Actually Need to Train to See Results", "opening": "How Many Times a Week Do", "date": "2026-08-01"}, {"type": "behindscenes", "aud": "women", "angle": "You're 47 and It Takes Three Days to Recover From a Workout That Wouldn't Have Touched You at 30", "opening": "You're 47 and It Takes Three", "date": "2026-08-01"}, {"type": "evidence", "aud": "women", "angle": "Your mate sleeps seven hours and wakes up bouncing", "opening": "Your mate sleeps seven hours and", "date": "2026-08-01"}, {"type": "evidence", "aud": "women", "angle": "From 30 to 60, You Lose Somewhere Between a Quarter and Half of Your Muscle", "opening": "From 30 to 60, You Lose", "date": "2026-08-01"}, {"type": "myth", "aud": "women", "angle": "\"Will I be the only one struggling", "opening": "\"Will I be the only one", "date": "2026-08-01"}, {"type": "myth", "aud": "women", "angle": "A Lot of Men Walk Past Our Door Three Times Before They Come In", "opening": "A Lot of Men Walk Past", "date": "2026-08-01"}, {"type": "myth", "aud": "women", "angle": "Six Months From Now You'll Wish You'd Started Today", "opening": "Six Months From Now You'll Wish", "date": "2026-08-01"}, {"type": "evidence", "aud": "men", "angle": "What Happens to Muscle When You Stop Training  And How Fast It Comes Back", "opening": "What Happens to Muscle When You", "date": "2026-08-01"}, {"type": "evidence", "aud": "women", "angle": "Most People Think Expensive Gym Equipment Makes All the Difference", "opening": "Most People Think Expensive Gym Equipment", "date": "2026-08-01"}]};
+
+function seed() {
+  document.getElementById("log").textContent = "Saving " + HISTORY.history.length + " posts to history...";
+  
+  // Save to localStorage first
+  try {
+    localStorage.setItem("sps_post_history", JSON.stringify(HISTORY.history));
+    document.getElementById("log").textContent += "\nSaved to localStorage!";
+  } catch(e) {
+    document.getElementById("log").textContent += "\nLocalStorage failed: " + e.message;
+  }
+
+  // Also save to Netlify Blobs store
+  fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/store?action=saveHistory", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(HISTORY)
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.ok) {
+      document.getElementById("log").textContent += "\nSaved to Netlify Blobs!";
+      document.getElementById("log").textContent += "\n\nDone! The AI now knows about " + HISTORY.history.length + " previous posts.";
+      document.getElementById("log").textContent += "\nYou can close this page and use the main app normally.";
+    } else {
+      document.getElementById("log").textContent += "\nBlobs save failed: " + JSON.stringify(d);
+      document.getElementById("log").textContent += "\nLocalStorage still worked though — history is saved for this device.";
+    }
+  })
+  .catch(function(e) {
+    document.getElementById("log").textContent += "\nBlobs error: " + e.message;
+    document.getElementById("log").textContent += "\nLocalStorage save still worked.";
+  });
+}
+</script>
+</body>
+</html>
