@@ -1354,14 +1354,14 @@ function cleanPostText(text) {
       result.push(l);
     }
   });
-  // Trim body to leave room for hashtags (max 2200 chars total)
+  // Trim to fit Instagram 2200 character limit (body + hashtags)
   var bodyForCount = result.join("\n").trim();
-  var hashSpace = hashLines.length ? hashLines.join(" ").length + 2 : 40;
-  var maxBody = 2200 - hashSpace;
-  if (bodyForCount.length > maxBody) {
-    bodyForCount = bodyForCount.substring(0, maxBody);
+  var hashLen = hashLines.length ? hashLines.join(" ").length + 2 : 50;
+  var maxChars = 2200 - hashLen;
+  if (bodyForCount.length > maxChars) {
+    bodyForCount = bodyForCount.substring(0, maxChars);
     var lastPeriod = Math.max(bodyForCount.lastIndexOf("."), bodyForCount.lastIndexOf("?"), bodyForCount.lastIndexOf("!"));
-    if (lastPeriod > bodyForCount.length * 0.6) bodyForCount = bodyForCount.slice(0, lastPeriod + 1);
+    if (lastPeriod > bodyForCount.length * 0.5) bodyForCount = bodyForCount.slice(0, lastPeriod + 1);
   }
   result = bodyForCount.split("\n");
 
