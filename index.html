@@ -1871,7 +1871,7 @@ function saveImageLibrary() {
     var toSave = imageLibrary.map(function(img) {
       // dataUrl is the thumbnail (lh3) for preview, hostedUrl is download URL for CSV
       var thumbUrl = img.dataUrl && img.dataUrl.indexOf("lh3.googleusercontent") > -1 ? img.dataUrl : (img.driveId ? "https://lh3.googleusercontent.com/d/" + img.driveId + "=w800" : img.dataUrl);
-      return {id: String(img.id), driveId: img.driveId || "", dataUrl: thumbUrl, filename: img.filename, tags: img.tags || [], tagString: img.tagString || "", analyzing: false, hostedUrl: img.hostedUrl, bestFor: img.bestFor || "any", usedCount: img.usedCount || 0, gender: img.gender || "none"};
+      return {id: String(img.id), driveId: img.driveId || "", dataUrl: thumbUrl, filename: img.filename, tags: img.tags || [], tagString: img.tagString || "", analyzing: false, hostedUrl: img.hostedUrl, bestFor: img.bestFor || "any", usedCount: img.usedCount || 0, gender: img.gender || "none", isVideo: img.isVideo || false};
     });
     localStorage.setItem("sps_image_library", JSON.stringify(toSave));
   } catch(e) {}
