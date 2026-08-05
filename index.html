@@ -1401,6 +1401,9 @@ function cleanPostText(text) {
   // Catch comma-separated time lists like "6am, 7am, 9:30am"
   body = body.replace(/\bat\s+\d+[\.:]\d*\s*(am|pm)(\s*,\s*\d+[\.:]\d*\s*(am|pm))+/gi, "throughout the week");
   body = body.replace(/\d+[\.:]\d*\s*(am|pm)(\s*,\s*\d+[\.:]\d*\s*(am|pm))+/gi, "throughout the week");
+  // Strip any remaining specific time references
+  body = body.replace(/\b\d+:\d+\s*(am|pm)\b/gi, "");
+  body = body.replace(/\b\d+(am|pm)\b/gi, "");
   // Catch "Saturday mornings" and "Sunday mornings"
   body = body.replace(/Saturday mornings?/gi, "");
   body = body.replace(/Sunday mornings?/gi, "");
@@ -1422,6 +1425,13 @@ function cleanPostText(text) {
   body = body.replace(/limited spots?/gi, "spaces available");
   body = body.replace(/spots? (are )?(filling|going) fast/gi, "spaces available");
   body = body.replace(/only \d+ spots? left/gi, "spaces available");
+  // Strip health claim words that slip through
+  body = body.replace(/insulin sensitivity/gi, "how your body processes what you eat");
+  body = body.replace(/testosterone/gi, "");
+  body = body.replace(/cortisol/gi, "stress");
+  body = body.replace(/blood sugar/gi, "energy levels");
+  body = body.replace(/cholesterol/gi, "");
+  body = body.replace(/growth hormone/gi, "");
   // Strip wrong locations
   var wrongLocations = ["Stockport","Manchester","Birmingham","Wolverhampton","Dudley","Stourbridge","Walsall","Solihull","Coventry","Leeds","Sheffield","Liverpool","Bristol","London","M60","M6","M5","M42"];
   wrongLocations.forEach(function(loc) {
