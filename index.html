@@ -1257,8 +1257,9 @@ function cleanPostText(text) {
   text = text.split(" - ").join(" ");
   // Fix multiple spaces from dash removal
   text = text.replace(/ {2,}/g, " ");
-  // Inject paragraph breaks after sentences
-  text = text.replace(/([.!?]) ([A-Z])/g, "$1\n\n$2");
+  // Break into sentences with paragraph gaps
+  var sentences = text.match(/[^.!?]+[.!?]+[\s]*/g) || [text];
+  text = sentences.map(function(s){ return s.trim(); }).filter(function(s){ return s.length > 0; }).join("\n\n");
   var lines = text.split("\n");
   // Fix line-starting markdown
   lines = lines.map(function(l) {
@@ -1306,14 +1307,10 @@ function cleanPostText(text) {
       result.push(l);
     }
   });
-  // Trim to 150 words if over limit (preserve hashtags)
+  // Trim to 2200 characters to stay within Instagram limit
   var bodyForCount = result.join("\n").trim();
-  var wordCount = bodyForCount.split(/\s+/).filter(function(w){ return w.length > 0; }).length;
-  if (wordCount > 160) {
-    // Truncate to roughly 150 words
-    var allWords = bodyForCount.split(/\s+/);
-    bodyForCount = allWords.slice(0, 150).join(" ");
-    // End at last full sentence
+  if (bodyForCount.length > 2200) {
+    bodyForCount = bodyForCount.substring(0, 2200);
     var lastPeriod = Math.max(bodyForCount.lastIndexOf("."), bodyForCount.lastIndexOf("?"), bodyForCount.lastIndexOf("!"));
     if (lastPeriod > bodyForCount.length * 0.6) bodyForCount = bodyForCount.slice(0, lastPeriod + 1);
   }
