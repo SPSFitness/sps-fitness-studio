@@ -1534,25 +1534,55 @@ var GDRIVE_KEY = "AIzaSyDZQK_0tzhKKoNMMvjlmMs_LnfBxCM9v1I";
 // ── GOOGLE OAUTH ──────────────────────────────────────────────────────────
 
 function loadGoogleAuth() {
+  var loaded = false;
   try {
     var saved = localStorage.getItem("sps_google_auth");
     if (saved) {
       var auth = JSON.parse(saved);
-      googleRefreshToken = auth.refreshToken || null;
-      googleAccessToken = auth.accessToken || null;
-      googleTokenExpiry = auth.expiry || 0;
+      if (auth.refreshToken) {
+        googleRefreshToken = auth.refreshToken;
+        googleAccessToken = auth.accessToken || null;
+        googleTokenExpiry = auth.expiry || 0;
+        loaded = true;
+      }
     }
   } catch(e) {}
+  // If not in localStorage, try server
+  if (!loaded) {
+    loadGoogleAuthFromServer(function() {
+      updateGoogleAuthUI();
+    });
+  }
 }
 
 function saveGoogleAuth() {
-  try {
-    localStorage.setItem("sps_google_auth", JSON.stringify({
-      refreshToken: googleRefreshToken,
-      accessToken: googleAccessToken,
-      expiry: googleTokenExpiry
-    }));
-  } catch(e) {}
+  var authData = {
+    refreshToken: googleRefreshToken,
+    accessToken: googleAccessToken,
+    expiry: googleTokenExpiry
+  };
+  try { localStorage.setItem("sps_google_auth", JSON.stringify(authData)); } catch(e) {}
+  // Also persist to Netlify Blobs so it survives browser clears
+  fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/store?action=saveAuth", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(authData)
+  }).catch(function() {});
+}
+
+function loadGoogleAuthFromServer(cb) {
+  fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/store?action=getAuth")
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d && d.refreshToken) {
+        googleRefreshToken = d.refreshToken;
+        googleAccessToken = d.accessToken || null;
+        googleTokenExpiry = d.expiry || 0;
+        try { localStorage.setItem("sps_google_auth", JSON.stringify(d)); } catch(e) {}
+      }
+      if (cb) cb();
+    })
+    .catch(function() { if (cb) cb(); });
 }
 
 function isGoogleConnected() {
