@@ -1282,12 +1282,17 @@ function cleanPostText(text) {
       bodyLines.push(l);
     }
   });
-  // Clean up excess blank lines from body
+  // Clean up excess blank lines from body — preserve paragraph breaks
   var result = [];
   var blanks = 0;
   bodyLines.forEach(function(l) {
-    if (l.trim() === "") { blanks++; if (blanks <= 1) result.push(l); }
-    else { blanks = 0; result.push(l); }
+    if (l.trim() === "") {
+      blanks++;
+      if (blanks === 1) result.push(""); // keep ONE blank line between paragraphs
+    } else {
+      blanks = 0;
+      result.push(l);
+    }
   });
   // Trim to 150 words if over limit (preserve hashtags)
   var bodyForCount = result.join("\n").trim();
@@ -1375,9 +1380,14 @@ function renderMatchedImage(postType, forceId) {
   box.id = "matchedImgBox";
   box.className = "matched-img";
   var hostedBadge = img.hostedUrl ? ' <span style="font-size:10px;background:rgba(57,217,138,0.2);color:#39d98a;padding:2px 7px;border-radius:4px;font-weight:700">HOSTED</span>' : '';
+  var previewSrc = img.dataUrl || "";
+  // If it's a Drive URL use imgproxy to avoid CORS
+  if (previewSrc && previewSrc.indexOf("googleusercontent") > -1) {
+    previewSrc = "/.netlify/functions/imgproxy?url=" + encodeURIComponent(previewSrc);
+  }
   var mediaPreview = img.isVideo
     ? '<div style="display:flex;align-items:center;justify-content:center;height:200px;background:var(--surface2);font-size:48px;border-radius:var(--rs) var(--rs) 0 0">&#x1F3A5;</div>'
-    : '<img src="' + img.dataUrl + '" alt="Matched media" crossorigin="anonymous" />';
+    : '<img src="' + previewSrc + '" alt="Matched media" style="width:100%;display:block;border-radius:var(--rs) var(--rs) 0 0" />';
   box.innerHTML = mediaPreview +
     '<div class="matched-img-info">' +
     '<span>' + img.filename + hostedBadge + '</span>' +
