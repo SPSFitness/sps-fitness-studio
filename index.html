@@ -1706,10 +1706,12 @@ function syncDrive() {
     newFiles.forEach(function(file) {
       var id = Date.now() + "_" + Math.floor(Math.random() * 100000);
       var isVideo = file.mimeType && file.mimeType.indexOf("video") !== -1;
-      var hostedUrl = isVideo
-        ? "https://drive.google.com/uc?export=download&id=" + file.id
-        : "https://drive.google.com/uc?export=download&id=" + file.id;
+      var hostedUrl = "https://drive.google.com/uc?export=download&id=" + file.id;
       var thumbUrl = isVideo ? "" : "https://lh3.googleusercontent.com/d/" + file.id + "=w800";
+      // Check if previously exported — skip if so
+      var exportedIds = {};
+      try { exportedIds = JSON.parse(localStorage.getItem("sps_exported_ids") || "{}"); } catch(e) {}
+      if (exportedIds[file.id]) { done++; return; }
       imageLibrary.push({id: id, driveId: file.id, dataUrl: thumbUrl, filename: file.name, tags: [], tagString: "analysing...", analyzing: true, hostedUrl: hostedUrl, isVideo: isVideo, gender: "none", bestFor: "any", usedCount: 0});
       renderImgLibrary();
       saveImageLibrary();
