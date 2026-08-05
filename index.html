@@ -2256,7 +2256,7 @@ function renderQueue() {
     var q = queue[i];
     var due = new Date(q.date+"T"+q.time) <= now;
     var prev = q.text.replace(/\n/g," ").substring(0,100) + (q.text.length > 100 ? "..." : "");
-    html += '<div class="qi"><div class="qicon" style="background:'+(IBGS[q.type]||"rgba(100,100,100,0.15)")+'">'+( ICONS[q.type]||"&#x1F4DD;")+'</div>';
+    html += '<div class="qi" onclick="expandQueueItem(\'' + q.id + '\')" style="cursor:pointer"><div class="qicon" style="background:'+(IBGS[q.type]||"rgba(100,100,100,0.15)")+'">'+( ICONS[q.type]||"&#x1F4DD;")+'</div>';
     html += '<div class="qb"><span class="badge '+(BADGE[q.type]||"bm")+'">'+q.type+'</span>';
     html += ' <span class="badge" style="background:rgba(61,139,255,0.15);color:var(--blue2)">'+(audLabels[q.aud]||q.aud)+'</span>';
     if (due) html += ' <span class="badge" style="background:rgba(255,184,0,0.15);color:#ffb800">Due</span>';
