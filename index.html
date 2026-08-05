@@ -1261,22 +1261,25 @@ function cleanPostText(text) {
   text = text.replace(/\([^)]*\)/g, "");
   // Fix multiple spaces
   text = text.replace(/ {2,}/g, " ").trim();
-  // Break into sentences — only split on sentences with 6+ words to avoid fragments
+  // Group sentences into paragraphs of 2-3 sentences
   var rawSentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-  var grouped = [];
-  var buffer = "";
-  rawSentences.forEach(function(s) {
-    s = s.trim();
-    var words = s.split(/\s+/).length;
-    if (words < 5 && buffer) {
-      buffer = buffer + " " + s;
-    } else {
-      if (buffer) grouped.push(buffer);
-      buffer = s;
+  var paragraphs = [];
+  var i = 0;
+  while (i < rawSentences.length) {
+    var para = rawSentences[i].trim();
+    // Add next sentence to same paragraph if it's short
+    if (i + 1 < rawSentences.length) {
+      var next = rawSentences[i+1].trim();
+      var nextWords = next.split(/\s+/).length;
+      if (nextWords <= 12) {
+        para = para + " " + next;
+        i++;
+      }
     }
-  });
-  if (buffer) grouped.push(buffer);
-  text = grouped.join("\n\n");
+    paragraphs.push(para);
+    i++;
+  }
+  text = paragraphs.join("\n\n");
   var lines = text.split("\n");
   // Fix line-starting markdown
   lines = lines.map(function(l) {
