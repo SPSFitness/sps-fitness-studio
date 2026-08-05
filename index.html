@@ -2134,6 +2134,7 @@ function findBestImage(postType, aud) {
 }
 
 function markImageUsed(id) {
+  _sessionUsedIds.add(String(id)); // hard block for rest of this batch
   for (var i = 0; i < imageLibrary.length; i++) {
     if (String(imageLibrary[i].id) === String(id)) {
       imageLibrary[i].usedCount = (imageLibrary[i].usedCount || 0) + 1;
