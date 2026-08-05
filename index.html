@@ -1359,16 +1359,28 @@ function cleanPostText(text) {
   } else {
     body = body + "\n\n#SPSFitness #HalesowenGym #Halesowen";
   }
-  // Replace invented name patterns — "Name's been" "Name came in" "Name started"
-  // Common AI invented names to catch
-  var fakeNames = ["Chloe","Emma","Sarah","Jackie","Rachel","Lisa","Karen","Dave","Mark","Steve","John","Mike","Paul","Tom","James","Claire","Louise","Helen","Julie","Diane"];
+  // Replace invented name patterns
+  var fakeNames = ["Chloe","Emma","Sarah","Jackie","Rachel","Lisa","Karen","Clare","Dave","Mark","Steve","John","Mike","Paul","Tom","James","Claire","Louise","Helen","Julie","Diane","Becky","Tracey","Sharon","Gary","Kevin","Barry","Pete","Rob","Dan","Chris"];
   fakeNames.forEach(function(name) {
-    // Match "Name's" or "Name came" or "Name walked" etc at start of sentence
-    var pattern = new RegExp("\\b" + name + "(\'s| has| came| walked| started| joined| was| is| did| used| now)", "g");
+    var pattern = new RegExp("\\b" + name + "('s| has| came| walked| started| joined| was| is| did| used| now| told)", "g");
     body = body.replace(pattern, function(match, suffix) {
       return "Someone" + (suffix === "'s" ? " who" : suffix);
     });
   });
+  // Strip invented operational details
+  body = body.replace(/\b(sessions?|classes?)\s+(start|begin|run|at)\s+\d+(\.\d+)?\s*(am|pm)/gi, "sessions run throughout the week");
+  body = body.replace(/\d+\s*(am|pm)\s+and\s+\d+[\.:]\d+\s*(am|pm)/gi, "throughout the week");
+  body = body.replace(/cap\s+every\s+group\s+at\s+\d+/gi, "keep groups small");
+  body = body.replace(/groups?\s+of\s+(just\s+)?\d+/gi, "small groups");
+  body = body.replace(/£\d+(\s*(a|per)\s*(month|week|session))?/gi, "");
+  body = body.replace(/\bDM me\b/gi, "message us");
+  body = body.replace(/\bmessage me\b/gi, "message us");
+  body = body.replace(/what it costs/gi, "how it works");
+  body = body.replace(/\d+\s*spaces?\s*(left|available|remaining)/gi, "spaces available");
+  body = body.replace(/only\s+\d+\s+spots?/gi, "limited spaces");
+  body = body.replace(/\b6\s+so\s+there/gi, "12 so there");
+  // Fix double spaces
+  body = body.replace(/ {2,}/g, " ").trim();
   return body.trim();
 }
 
