@@ -3140,8 +3140,11 @@ function deleteQueueItem(id) {
 }
 
 // Close modal on backdrop click
-document.getElementById("qModal").addEventListener("click", function(e) {
-  if (e.target === this) closeQModal();
+window.addEventListener("DOMContentLoaded", function() {
+  var modal = document.getElementById("qModal");
+  if (modal) modal.addEventListener("click", function(e) {
+    if (e.target === this) closeQModal();
+  });
 });
 
 function exportCSV() {
