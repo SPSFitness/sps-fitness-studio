@@ -8,9 +8,23 @@ exports.handler = async function(event) {
 
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers, body: "" };
 
-  var CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "693809245418-f0c4pv4rov2k2go7tlp3d22q06o6gee1.apps.googleusercontent.com";
-  var CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || Buffer.from("R09DU1BYLVZCUm1LOFAtSWxERHBBNmk3S3cyWHZPamxPNEo=", "base64").toString();
+  var CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+  var CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
   var REDIRECT_URI = "https://merry-flan-9e55eb.netlify.app/oauth-callback";
+
+  // Debug GET request
+  if (event.httpMethod === "GET") {
+    return { statusCode: 200, headers, body: JSON.stringify({
+      hasId: !!CLIENT_ID,
+      hasSecret: !!CLIENT_SECRET,
+      secretLength: CLIENT_SECRET ? CLIENT_SECRET.length : 0,
+      idEnd: CLIENT_ID ? CLIENT_ID.slice(-8) : null
+    })};
+  }
+
+  if (!CLIENT_SECRET) {
+    return { statusCode: 500, headers, body: JSON.stringify({ error: "Missing GOOGLE_CLIENT_SECRET" }) };
+  }
 
   var body;
   try { body = JSON.parse(event.body || "{}"); } catch(e) { body = {}; }
@@ -29,14 +43,8 @@ exports.handler = async function(event) {
         })
       });
       var tokenData = await tokenRes.json();
-      if (tokenData.error) {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: tokenData.error_description || tokenData.error }) };
-      }
-      return { statusCode: 200, headers, body: JSON.stringify({
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token,
-        expires_in: tokenData.expires_in
-      })};
+      if (tokenData.error) return { statusCode: 400, headers, body: JSON.stringify({ error: tokenData.error_description || tokenData.error }) };
+      return { statusCode: 200, headers, body: JSON.stringify({ access_token: tokenData.access_token, refresh_token: tokenData.refresh_token, expires_in: tokenData.expires_in }) };
     } catch(err) {
       return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
     }
@@ -55,13 +63,8 @@ exports.handler = async function(event) {
         })
       });
       var refreshData = await refreshRes.json();
-      if (refreshData.error) {
-        return { statusCode: 400, headers, body: JSON.stringify({ error: refreshData.error }) };
-      }
-      return { statusCode: 200, headers, body: JSON.stringify({
-        access_token: refreshData.access_token,
-        expires_in: refreshData.expires_in
-      })};
+      if (refreshData.error) return { statusCode: 400, headers, body: JSON.stringify({ error: refreshData.error }) };
+      return { statusCode: 200, headers, body: JSON.stringify({ access_token: refreshData.access_token, expires_in: refreshData.expires_in }) };
     } catch(err) {
       return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
     }
