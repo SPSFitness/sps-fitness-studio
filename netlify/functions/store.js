@@ -21,7 +21,8 @@ exports.handler = async function(event) {
   var keyMap = {
     getImages: "images", saveImages: "images",
     getHistory: "history", saveHistory: "history",
-    getQueue: "queue", saveQueue: "queue"
+    getQueue: "queue", saveQueue: "queue",
+    getAuth: "google-auth", saveAuth: "google-auth"
   };
   var key = keyMap[action];
   if (!key) return { statusCode: 400, headers, body: JSON.stringify({ error: "Unknown action: " + action }) };
@@ -43,7 +44,7 @@ exports.handler = async function(event) {
     if (action.startsWith("get")) {
       var res = await fetch(BASE, { headers: authHeaders });
       if (res.status === 404) {
-        var empty = action === "getImages" ? { images: [] } : action === "getHistory" ? { history: [] } : { queue: [] };
+        var empty = action === "getImages" ? { images: [] } : action === "getHistory" ? { history: [] } : action === "getQueue" ? { queue: [] } : {};
         return { statusCode: 200, headers, body: JSON.stringify(empty) };
       }
       var text = await res.text();
