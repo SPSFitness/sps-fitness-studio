@@ -1838,9 +1838,13 @@ function renderImgLibrary() {
   card.style.display = "block";
   count.textContent = imageLibrary.length;
   grid.innerHTML = imageLibrary.map(function(img) {
-    var mediaEl = img.isVideo
+    var displaySrc = img.dataUrl || "";
+      if (displaySrc && !img.isVideo) {
+        displaySrc = "/.netlify/functions/imgproxy?url=" + encodeURIComponent(displaySrc);
+      }
+      var mediaEl = img.isVideo
         ? '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:var(--surface3);font-size:32px">&#x1F3A5;</div>'
-        : '<img src="' + img.dataUrl + '" alt="' + img.filename + '" crossorigin="anonymous" />';
+        : '<img src="' + displaySrc + '" alt="' + img.filename + '" />';
       var videoBadge = img.isVideo ? '<span style="position:absolute;top:4px;left:4px;background:var(--blue);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px">VIDEO</span>' : '';
       var genderColor = img.gender === "women" ? "#f472b6" : img.gender === "men" ? "#60a5fa" : img.gender === "mixed" ? "#34d399" : "rgba(255,255,255,0.3)";
       var genderLabel = img.gender && img.gender !== "none" ? img.gender : "?";
