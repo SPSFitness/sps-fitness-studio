@@ -572,9 +572,9 @@ var PROMPTS = {
     ]
   },
   education: {
-    women: "Write an educational Facebook post for women over 30 about the specific topic provided. This should be genuinely informative — explain what is happening in the body, why it matters at this life stage, and what the practical implication is. Use real mechanisms not vague claims. Reference research findings where relevant but keep it accessible. No selling, no CTA pushing Bodyblast. End with something that makes her feel informed and more confident about her training choices.",
-    men: "Write an educational Facebook post for men in their 40s and 50s about the specific topic provided. This should be genuinely informative — explain the physiology, the research, the practical implications. Use real numbers and mechanisms where relevant. Direct and factual. No selling, no Bodyblast CTA. End with a practical takeaway.",
-    everyone: "Write an educational Facebook post for a mixed adult fitness community about the specific topic provided. Explain the science clearly without being patronising. Use real research findings, mechanisms and numbers where relevant. Keep it accessible but do not dumb it down. No selling. End with a clear practical takeaway they can act on."
+    women: "Write a Facebook post for women over 30 about the specific topic provided. Keep it practical and real — what does this actually mean for how you train and live day to day. No medical mechanisms, no body systems, no citing studies or percentages. Just honest and useful. End with something that makes her feel more confident about her training choices.",
+    men: "Write a Facebook post for men in their 40s and 50s about the specific topic provided. Keep it practical and grounded — what does this mean for how you train and live day to day. No medical mechanisms, no physiology, no citing studies or percentages, no clinical language. Just honest and useful. End with a practical takeaway.",
+    everyone: "Write a Facebook post for a mixed adult fitness community about the specific topic provided. Keep it practical — what does this mean for how you train and how you live. No medical mechanisms, no citing studies or percentages, no clinical language. Honest, useful, grounded. End with a clear practical takeaway."
   },
   bodyblast: {
     women: "Write a Facebook post promoting the SPS Fitness Bodyblast programme to women over 30 who are new to the gym or returning after a break. The Bodyblast programme is evergreen — it runs continuously so there is always a place available. Do NOT use urgency tactics. Draw on these real member truths: many felt too intimidated to try a regular gym, some came back after illness or years away, most did not expect to enjoy it but did, the small group means you are never lost or ignored, every session is different so it never gets boring, results go beyond losing weight — members describe feeling the fittest they have ever been. Make it feel like an honest invitation, not a sales pitch. End with a soft CTA like drop us a message or comment if you want to know more.",
@@ -1241,6 +1241,12 @@ function releaseWakeLock() {
   if (_wakeLock) { _wakeLock.release(); _wakeLock = null; }
 }
 
+function containsHealthClaims(text) {
+  var flags = ["blood pressure","blood sugar","cholesterol","glucose","insulin","cortisol","testosterone","growth hormone","fat burning","metabolically active","metabolic health","cardiovascular system","bloodstream","immune","inflammation","hormone","clinical","diagnos","supplement","deficien","research shows","study shows","journal of","scientifically","proven to","percent of","% of men","% of women","detox","toxin"];
+  var t = text.toLowerCase();
+  return flags.filter(function(f) { return t.indexOf(f) > -1; });
+}
+
 function cleanPostText(text) {
   if (!text) return "";
   // Strip markdown formatting
@@ -1309,6 +1315,8 @@ function cleanPostText(text) {
 
   // Always put hashtags at the end
   var body = result.join("\n").trim();
+  // Ensure paragraph breaks are preserved - double newline between paragraphs
+  body = body.replace(/\n{2,}/g, "\n\n");
   if (hashLines.length) {
     body = body + "\n\n" + hashLines.join(" ");
   } else {
