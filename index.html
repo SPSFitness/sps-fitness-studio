@@ -1398,6 +1398,12 @@ function cleanPostText(text) {
   body = body.replace(/\d+\s*(am|pm)\s+and\s+\d+[\.:]\d+\s*(am|pm)/gi, "throughout the week");
   body = body.replace(/\d+(am|pm)\s+and\s+\d+(am|pm)/gi, "throughout the week");
   body = body.replace(/\b(at\s+)?\d+(\.\d+)?\s*(am|pm)\s+(and|or)\s+\d+(\.\d+)?\s*(am|pm)/gi, "throughout the week");
+  // Catch comma-separated time lists like "6am, 7am, 9:30am"
+  body = body.replace(/\bat\s+\d+[\.:]\d*\s*(am|pm)(\s*,\s*\d+[\.:]\d*\s*(am|pm))+/gi, "throughout the week");
+  body = body.replace(/\d+[\.:]\d*\s*(am|pm)(\s*,\s*\d+[\.:]\d*\s*(am|pm))+/gi, "throughout the week");
+  // Catch "Saturday mornings" and "Sunday mornings"
+  body = body.replace(/Saturday mornings?/gi, "");
+  body = body.replace(/Sunday mornings?/gi, "");
   body = body.replace(/three times a week/gi, "twice a week");
   body = body.replace(/3 times a week/gi, "twice a week");
   body = body.replace(/cap\s+every\s+group\s+at\s+\d+/gi, "keep groups small");
@@ -2466,7 +2472,7 @@ function doWeek() {
       queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
       renderQueue(); updateBadge();
       releaseWakeLock();
-      showStatus("queueStatus", total + " posts ready across 7 days!", "success");
+      showStatus("queueStatus", queue.length + " posts ready across 7 days!", "success");
       return;
     }
     var dayIndex = Math.floor(i / slots.length);
