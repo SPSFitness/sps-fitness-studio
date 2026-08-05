@@ -1708,10 +1708,6 @@ function syncDrive() {
       var isVideo = file.mimeType && file.mimeType.indexOf("video") !== -1;
       var hostedUrl = "https://drive.google.com/uc?export=download&id=" + file.id;
       var thumbUrl = isVideo ? "" : "https://lh3.googleusercontent.com/d/" + file.id + "=w800";
-      // Check if previously exported — skip if so
-      var exportedIds = {};
-      try { exportedIds = JSON.parse(localStorage.getItem("sps_exported_ids") || "{}"); } catch(e) {}
-      if (exportedIds[file.id]) { done++; return; }
       imageLibrary.push({id: id, driveId: file.id, dataUrl: thumbUrl, filename: file.name, tags: [], tagString: "analysing...", analyzing: true, hostedUrl: hostedUrl, isVideo: isVideo, gender: "none", bestFor: "any", usedCount: 0});
       renderImgLibrary();
       saveImageLibrary();
@@ -1809,7 +1805,9 @@ function analyseImageByUrl(id, driveFileId, cb) {
 function saveImageLibrary() {
   try {
     var toSave = imageLibrary.map(function(img) {
-      return {id: String(img.id), dataUrl: img.hostedUrl, filename: img.filename, tags: img.tags || [], tagString: img.tagString || "", analyzing: false, hostedUrl: img.hostedUrl, bestFor: img.bestFor || "any", usedCount: img.usedCount || 0, gender: img.gender || "none"};
+      // dataUrl is the thumbnail (lh3) for preview, hostedUrl is download URL for CSV
+      var thumbUrl = img.dataUrl && img.dataUrl.indexOf("lh3.googleusercontent") > -1 ? img.dataUrl : (img.driveId ? "https://lh3.googleusercontent.com/d/" + img.driveId + "=w800" : img.dataUrl);
+      return {id: String(img.id), driveId: img.driveId || "", dataUrl: thumbUrl, filename: img.filename, tags: img.tags || [], tagString: img.tagString || "", analyzing: false, hostedUrl: img.hostedUrl, bestFor: img.bestFor || "any", usedCount: img.usedCount || 0, gender: img.gender || "none"};
     });
     localStorage.setItem("sps_image_library", JSON.stringify(toSave));
   } catch(e) {}
