@@ -1,5 +1,4 @@
-const { getStore } = require("@netlify/blobs");
-
+// Simple store using fetch to Netlify Blobs REST API
 exports.handler = async function(event) {
   var headers = {
     "Access-Control-Allow-Origin": "*",
@@ -13,45 +12,51 @@ exports.handler = async function(event) {
   var params = event.queryStringParameters || {};
   var action = params.action;
 
+  if (action === "ping") return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
+
+  // Use process.env vars injected by Netlify for Blobs
+  var siteId = process.env.NETLIFY_SITE_ID || process.env.SITE_ID;
+  var token = process.env.NETLIFY_BLOBS_TOKEN || process.env.TOKEN;
+
+  var keyMap = {
+    getImages: "images", saveImages: "images",
+    getHistory: "history", saveHistory: "history",
+    getQueue: "queue", saveQueue: "queue"
+  };
+  var key = keyMap[action];
+  if (!key) return { statusCode: 400, headers, body: JSON.stringify({ error: "Unknown action: " + action }) };
+
+  // Fall back to in-memory if no Blobs credentials
+  if (!siteId || !token) {
+    // Just return empty for reads, ok for writes
+    if (action.startsWith("get")) {
+      var empty = action === "getImages" ? { images: [] } : action === "getHistory" ? { history: [] } : { queue: [] };
+      return { statusCode: 200, headers, body: JSON.stringify(empty) };
+    }
+    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, note: "No Blobs credentials" }) };
+  }
+
+  var BASE = "https://api.netlify.com/api/v1/blobs/" + siteId + "/site/" + key;
+  var authHeaders = { "Authorization": "Bearer " + token };
+
   try {
-    const store = getStore({ name: "sps-fitness", consistency: "strong" });
-
-    if (action === "ping") {
+    if (action.startsWith("get")) {
+      var res = await fetch(BASE, { headers: authHeaders });
+      if (res.status === 404) {
+        var empty = action === "getImages" ? { images: [] } : action === "getHistory" ? { history: [] } : { queue: [] };
+        return { statusCode: 200, headers, body: JSON.stringify(empty) };
+      }
+      var text = await res.text();
+      return { statusCode: 200, headers, body: text };
+    } else {
+      var res = await fetch(BASE, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: event.body
+      });
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
     }
-
-    if (action === "getImages") {
-      const val = await store.get("images");
-      return { statusCode: 200, headers, body: JSON.stringify({ images: val ? JSON.parse(val) : [] }) };
-    }
-    if (action === "getHistory") {
-      const val = await store.get("history");
-      return { statusCode: 200, headers, body: JSON.stringify({ history: val ? JSON.parse(val) : [] }) };
-    }
-    if (action === "getQueue") {
-      const val = await store.get("queue");
-      return { statusCode: 200, headers, body: JSON.stringify({ queue: val ? JSON.parse(val) : [] }) };
-    }
-
-    var body = {};
-    try { body = JSON.parse(event.body || "{}"); } catch(e) {}
-
-    if (action === "saveImages") {
-      await store.set("images", JSON.stringify(body.images || []));
-      return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
-    }
-    if (action === "saveHistory") {
-      await store.set("history", JSON.stringify(body.history || []));
-      return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
-    }
-    if (action === "saveQueue") {
-      await store.set("queue", JSON.stringify(body.queue || []));
-      return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
-    }
-
-    return { statusCode: 400, headers, body: JSON.stringify({ error: "Unknown action: " + action }) };
-
   } catch(err) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: err.message, stack: err.stack }) };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
   }
 };
