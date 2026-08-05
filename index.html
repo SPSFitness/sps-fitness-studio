@@ -1543,6 +1543,7 @@ var GDRIVE_KEY = "AIzaSyDZQK_0tzhKKoNMMvjlmMs_LnfBxCM9v1I";
 
 function loadGoogleAuth() {
   var loaded = false;
+  // Try localStorage first
   try {
     var saved = localStorage.getItem("sps_google_auth");
     if (saved) {
@@ -1555,7 +1556,28 @@ function loadGoogleAuth() {
       }
     }
   } catch(e) {}
-  // If not in localStorage, try server
+  // Try cookie if localStorage failed
+  if (!loaded) {
+    try {
+      var cookies = document.cookie.split(";");
+      for (var i = 0; i < cookies.length; i++) {
+        var c = cookies[i].trim();
+        if (c.indexOf("sps_google_auth=") === 0) {
+          var auth = JSON.parse(decodeURIComponent(c.substring(16)));
+          if (auth.refreshToken) {
+            googleRefreshToken = auth.refreshToken;
+            googleAccessToken = auth.accessToken || null;
+            googleTokenExpiry = auth.expiry || 0;
+            // Restore to localStorage
+            try { localStorage.setItem("sps_google_auth", JSON.stringify(auth)); } catch(e) {}
+            loaded = true;
+          }
+          break;
+        }
+      }
+    } catch(e) {}
+  }
+  // Try server if both failed
   if (!loaded) {
     loadGoogleAuthFromServer(function() {
       updateGoogleAuthUI();
@@ -1569,12 +1591,20 @@ function saveGoogleAuth() {
     accessToken: googleAccessToken,
     expiry: googleTokenExpiry
   };
-  try { localStorage.setItem("sps_google_auth", JSON.stringify(authData)); } catch(e) {}
-  // Also persist to Netlify Blobs so it survives browser clears
+  var json = JSON.stringify(authData);
+  // Save to localStorage
+  try { localStorage.setItem("sps_google_auth", json); } catch(e) {}
+  // Save to cookie (survives localStorage clears, lasts 1 year)
+  try {
+    var expires = new Date();
+    expires.setFullYear(expires.getFullYear() + 1);
+    document.cookie = "sps_google_auth=" + encodeURIComponent(json) + "; expires=" + expires.toUTCString() + "; path=/; SameSite=Lax";
+  } catch(e) {}
+  // Save to Netlify Blobs
   fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/store?action=saveAuth", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify(authData)
+    body: json
   }).catch(function() {});
 }
 
