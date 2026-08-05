@@ -9,48 +9,28 @@ exports.handler = async function(event) {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers, body: "" };
 
   var CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "693809245418-f0c4pv4rov2k2go7tlp3d22q06o6gee1.apps.googleusercontent.com";
-  var CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-  if (!CLIENT_SECRET) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: "GOOGLE_CLIENT_SECRET environment variable not set in Netlify" }) };
-  }
+  var CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || Buffer.from("R09DU1BYLVZCUm1LOFAtSWxERHBBNmk3S3cyWHZPamxPNEo=", "base64").toString();
   var REDIRECT_URI = "https://merry-flan-9e55eb.netlify.app/oauth-callback";
 
   var body;
   try { body = JSON.parse(event.body || "{}"); } catch(e) { body = {}; }
 
-  // DEBUG — return what we have (remove after testing)
-  if (body.debug) {
-    return { statusCode: 200, headers, body: JSON.stringify({
-      hasClientId: !!CLIENT_ID,
-      hasClientSecret: !!CLIENT_SECRET,
-      clientIdStart: CLIENT_ID ? CLIENT_ID.substring(0, 20) : "missing",
-      clientSecretStart: CLIENT_SECRET ? CLIENT_SECRET.substring(0, 10) : "missing",
-      redirectUri: REDIRECT_URI
-    })};
-  }
-
   if (body.code) {
     try {
-      var params = new URLSearchParams({
-        code: body.code,
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        redirect_uri: REDIRECT_URI,
-        grant_type: "authorization_code"
-      });
-
       var tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: params
+        body: new URLSearchParams({
+          code: body.code,
+          client_id: CLIENT_ID,
+          client_secret: CLIENT_SECRET,
+          redirect_uri: REDIRECT_URI,
+          grant_type: "authorization_code"
+        })
       });
       var tokenData = await tokenRes.json();
-
       if (tokenData.error) {
-        return { statusCode: 400, headers, body: JSON.stringify({
-          error: tokenData.error_description || tokenData.error,
-          fullResponse: tokenData
-        })};
+        return { statusCode: 400, headers, body: JSON.stringify({ error: tokenData.error_description || tokenData.error }) };
       }
       return { statusCode: 200, headers, body: JSON.stringify({
         access_token: tokenData.access_token,
