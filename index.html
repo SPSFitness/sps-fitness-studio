@@ -643,6 +643,7 @@ function doGenerateMember() {
   callAPI(MEMBER_SYS, prompt, function(err, text) {
     out.className = "pb";
     if (err) { out.textContent = "Error: " + err; return; }
+    text = cleanPostText(text);
     curMemberPost = text;
     out.textContent = text;
     if (selInfographic === "yes") {
@@ -1411,6 +1412,7 @@ function doGenerate() {
   callAPI(sys, prompt, function(err, text) {
     out.className = "pb";
     if (err) { out.textContent = "Error: " + err; return; }
+    text = cleanPostText(text);
     curPost = text;
     out.textContent = text;
     curMediaId = null;
