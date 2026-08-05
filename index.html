@@ -484,9 +484,9 @@ var PROMPTS = {
     everyone: "Write a myth-busting post for a mixed fitness community. Pick ONE myth from this list — do NOT pick soreness, DOMS or no pain no gain as those have been covered recently: (1) spot reduction works, (2) more exercise is always better, (3) you need to cut carbs to lose fat, (4) stretching before exercise prevents injury, (5) muscle turns to fat if you stop training, (6) women should train differently to men, (7) you need to detox after a bad week of eating, (8) the scales are the best measure of progress. Bust it clearly with evidence. Keep it punchy and satisfying."
   },
   evidence: {
-    women: "Write an evidence-based post for women over 30. Choose ONE fact from this verified list and build the post around it: (1) Resistance training 2-3x per week significantly slows bone density loss in women over 35 — more effective than cardio for long-term bone health. (2) Post-meal walks of 10 minutes reduce blood sugar spikes — particularly valuable as insulin sensitivity naturally decreases after 35. (3) Women over 35 need roughly 1.6-2g of protein per kg of bodyweight to maintain muscle — most eat far less than this. (4) Strength training raises resting metabolic rate for up to 48 hours after a session — cardio does not have this effect. (5) Sleep under 6 hours raises cortisol, which directly increases fat storage around the abdomen. (6) Muscle mass naturally decreases by 3-8% per decade after 30 if not actively maintained through resistance training. (7) High-intensity exercise raises cortisol significantly — for women managing perimenopause symptoms, moderate resistance training is often more effective. (8) Women who strength train have measurably better insulin sensitivity than those who only do cardio. Choose one fact, explain the mechanism simply, say why it matters specifically for a busy woman over 30. Do not exaggerate statistics — say significantly or research suggests rather than specific percentages unless they are in this list.",
-    men: "Write an evidence-based post for men in their 40s and 50s. Choose ONE fact from this verified list and build the post around it: (1) Testosterone naturally declines by about 1% per year after 30 — but resistance training measurably slows this decline and increases testosterone response. (2) Visceral fat (the fat around organs) is directly reduced by resistance training — more effectively than cardio alone. (3) Protein synthesis slows significantly after 40 — men need more protein per meal (at least 40g) to trigger the same muscle-building response as younger men. (4) Men who strength train in their 40s and 50s have significantly lower risk of cardiovascular disease than those who only do cardio. (5) Sleep is when testosterone is produced — men getting under 6 hours have measurably lower testosterone levels than those getting 7-9 hours. (6) Compound movements like squats and deadlifts produce the highest testosterone and growth hormone response of any exercise. (7) High intensity training raises cortisol significantly in men over 40 — moderate resistance training 3x per week produces better body composition results with less recovery cost. (8) Men who maintain muscle mass into their 50s have significantly better metabolic health markers including blood pressure, cholesterol and blood sugar. Choose one fact, explain it plainly, say why it matters for a busy man in his 40s or 50s. Do not exaggerate — use research suggests or studies show rather than inventing specific percentages.",
-    everyone: "Write an evidence-based post for a mixed fitness community of adults over 30. Choose ONE fact from this verified list and build the post around it: (1) People who do resistance training consistently live measurably longer and have better quality of life in later years — muscle mass is one of the strongest predictors of longevity. (2) Walking 7000-8000 steps per day is associated with significantly lower all-cause mortality — you do not need 10000 steps. (3) Chronic stress raises cortisol which directly causes fat storage, muscle breakdown, poor sleep and reduced motivation to exercise — managing stress is not optional for fitness. (4) Dehydration of just 2% body weight measurably reduces both physical and cognitive performance. (5) Post-meal walks of 10 minutes reduce blood sugar spikes more effectively than a single longer walk at another time of day. (6) People who exercise consistently report significantly better sleep quality, mood and energy than those who do not — the mental health benefits are as strong as the physical ones. (7) Consistency beats intensity — 3 moderate sessions per week for a year produces far better results than intense training for a few weeks followed by stopping. (8) Strength training is the single most effective intervention for maintaining metabolic health, bone density and functional mobility as people age. Choose one fact, explain it simply and practically, give one actionable takeaway. Use research shows or studies suggest rather than inventing percentages."
+    women: "Write a motivational Facebook post for women over 30 about why strength training is worth it as you get older. Keep it grounded in everyday life — what being stronger actually feels like: carrying the shopping without struggling, keeping up with the kids or grandkids, having energy left at the end of the day, feeling capable and confident in your own body. No research claims, no statistics, no percentages, no clinical or medical language whatsoever. Just honest, warm and real. Make her feel like showing up week after week is genuinely worth her time.",
+    men: "Write a motivational Facebook post for men in their 40s and 50s about why consistent strength training is worth it as you get older. Keep it grounded — what being stronger and fitter actually means day to day: staying capable and independent, keeping up with family, lifting and carrying without a second thought, feeling like yourself again. No research claims, no statistics, no percentages, no clinical or medical language whatsoever. Direct and honest. Make him feel like starting now, or keeping going, is worth it.",
+    everyone: "Write a motivational Facebook post for adults over 30 about why strength training matters over the long term. Keep it practical and real — what it actually feels like to be stronger and more capable as the years go on: moving well, staying independent, having the energy for the life you want, not being held back by your own body. No research claims, no statistics, no percentages, no clinical or medical language whatsoever. Honest and grounded. Make them feel like showing up is worth it."
   },
   quickwin: {
     women: "Write a quick win post for a woman over 30 who is genuinely time-poor. Give one specific, immediately usable tip she could do today — not just go for a walk but something clever and specific. Habit stacking onto something she already does, a 4-minute movement snack between school run and work, a protein swap that takes zero extra time, a sleep trick that costs nothing. Make it feel genuinely useful, not obvious.",
@@ -1261,24 +1261,38 @@ function cleanPostText(text) {
   text = text.replace(/\([^)]*\)/g, "");
   // Fix multiple spaces
   text = text.replace(/ {2,}/g, " ").trim();
-  // Group sentences into paragraphs of 2-3 sentences
+  // Group sentences into natural paragraphs of 2-3 sentences, with one blank
+  // line between each group. Collapsing whitespace inside each sentence first
+  // removes any stray single newlines the model may have inserted mid-sentence
+  // — those are what otherwise render as "every sentence on its own line" in a
+  // pre-wrap div. Alternating the target between 2 and 3 keeps the rhythm
+  // natural rather than mechanical, and the result uses \n\n between paragraphs
+  // and single spaces within, which renders identically in a pre-wrap div and a
+  // textarea.
   var rawSentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-  var paragraphs = [];
-  var i = 0;
-  while (i < rawSentences.length) {
-    var para = rawSentences[i].trim();
-    // Add next sentence to same paragraph if it's short
-    if (i + 1 < rawSentences.length) {
-      var next = rawSentences[i+1].trim();
-      var nextWords = next.split(/\s+/).length;
-      if (nextWords <= 12) {
-        para = para + " " + next;
-        i++;
-      }
+  var groups = [];
+  var current = [];
+  var target = 2;
+  for (var s = 0; s < rawSentences.length; s++) {
+    var sentence = rawSentences[s].replace(/\s+/g, " ").trim();
+    if (!sentence) continue;
+    current.push(sentence);
+    if (current.length >= target) {
+      groups.push(current);
+      current = [];
+      target = target === 2 ? 3 : 2; // alternate 2 and 3 sentence paragraphs
     }
-    paragraphs.push(para);
-    i++;
   }
+  if (current.length) {
+    // Fold a lone trailing sentence into the previous paragraph when that keeps
+    // it within 3 sentences; otherwise let it stand on its own line.
+    if (current.length === 1 && groups.length && groups[groups.length - 1].length < 3) {
+      groups[groups.length - 1].push(current[0]);
+    } else {
+      groups.push(current);
+    }
+  }
+  var paragraphs = groups.map(function(g) { return g.join(" "); });
   text = paragraphs.join("\n\n");
   var lines = text.split("\n");
   // Fix line-starting markdown
