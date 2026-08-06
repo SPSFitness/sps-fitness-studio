@@ -1406,6 +1406,11 @@ function cleanPostText(text) {
   body = body.replace(/\b\d+(am|pm)\b/gi, "");
   // Catch "Saturday mornings" and "Sunday mornings"
   body = body.replace(/Saturday mornings?/gi, "");
+  body = body.replace(/burpees?/gi, "the exercises");
+  body = body.replace(/maximum (of )?(8|ten|eight|6|5|4|3|2|1)\b/gi, "maximum of 12");
+  body = body.replace(/\bgroups? of (8|ten|eight|6|5|4|3|2|1)\b/gi, "groups of 12");
+  body = body.replace(/\bcapped at (8|ten|eight|6|5|4|3|2|1)\b/gi, "capped at 12");
+  body = body.replace(/\bonly (8|ten|eight|6|5|4|3|2|1) people\b/gi, "only 12 people");
   body = body.replace(/Sunday mornings?/gi, "");
   body = body.replace(/three times a week/gi, "twice a week");
   body = body.replace(/3 times a week/gi, "twice a week");
