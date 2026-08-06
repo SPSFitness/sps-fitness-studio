@@ -1407,6 +1407,12 @@ function cleanPostText(text) {
   // Catch "Saturday mornings" and "Sunday mornings"
   body = body.replace(/Saturday mornings?/gi, "");
   body = body.replace(/burpees?/gi, "the exercises");
+  // Strip invented addresses
+  body = body.replace(/Hasbury Road/gi, "Lyde Green");
+  body = body.replace(/\d+ minutes from Halesowen/gi, "in Halesowen");
+  body = body.replace(/five minutes from/gi, "in");
+  body = body.replace(/ten minutes from/gi, "near");
+  body = body.replace(/just off the/gi, "");
   body = body.replace(/maximum (of )?(8|ten|eight|6|5|4|3|2|1)\b/gi, "maximum of 12");
   body = body.replace(/\bgroups? of (8|ten|eight|6|5|4|3|2|1)\b/gi, "groups of 12");
   body = body.replace(/\bcapped at (8|ten|eight|6|5|4|3|2|1)\b/gi, "capped at 12");
