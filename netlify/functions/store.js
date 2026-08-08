@@ -1,4 +1,5 @@
-// Simple store using fetch to Netlify Blobs REST API
+const { getStore } = require("@netlify/blobs");
+
 exports.handler = async function(event) {
   var headers = {
     "Access-Control-Allow-Origin": "*",
@@ -14,10 +15,6 @@ exports.handler = async function(event) {
 
   if (action === "ping") return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
 
-  // Use process.env vars injected by Netlify for Blobs
-  var siteId = process.env.NETLIFY_SITE_ID || process.env.SITE_ID;
-  var token = process.env.NETLIFY_BLOBS_TOKEN || process.env.TOKEN;
-
   var keyMap = {
     getImages: "images", saveImages: "images",
     getHistory: "history", saveHistory: "history",
@@ -27,34 +24,18 @@ exports.handler = async function(event) {
   var key = keyMap[action];
   if (!key) return { statusCode: 400, headers, body: JSON.stringify({ error: "Unknown action: " + action }) };
 
-  // Fall back to in-memory if no Blobs credentials
-  if (!siteId || !token) {
-    // Just return empty for reads, ok for writes
-    if (action.startsWith("get")) {
-      var empty = action === "getImages" ? { images: [] } : action === "getHistory" ? { history: [] } : { queue: [] };
-      return { statusCode: 200, headers, body: JSON.stringify(empty) };
-    }
-    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, note: "No Blobs credentials" }) };
-  }
-
-  var BASE = "https://api.netlify.com/api/v1/blobs/" + siteId + "/site/" + key;
-  var authHeaders = { "Authorization": "Bearer " + token };
-
   try {
+    const store = getStore("sps-content");
+
     if (action.startsWith("get")) {
-      var res = await fetch(BASE, { headers: authHeaders });
-      if (res.status === 404) {
-        var empty = action === "getImages" ? { images: [] } : action === "getHistory" ? { history: [] } : action === "getQueue" ? { queue: [] } : {};
+      const val = await store.get(key);
+      if (!val) {
+        var empty = key === "images" ? { images: [] } : key === "history" ? { history: [] } : key === "queue" ? { queue: [] } : {};
         return { statusCode: 200, headers, body: JSON.stringify(empty) };
       }
-      var text = await res.text();
-      return { statusCode: 200, headers, body: text };
+      return { statusCode: 200, headers, body: val };
     } else {
-      var res = await fetch(BASE, {
-        method: "PUT",
-        headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: event.body
-      });
+      await store.set(key, event.body || "{}");
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
     }
   } catch(err) {
