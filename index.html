@@ -2300,6 +2300,30 @@ function loadPostHistory() {
   } catch(e) {}
 }
 
+function loadHistoryFromStore() {
+  fetch(SHEETS_URL + "?action=getHistory")
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d && d.history && d.history.length) {
+        // Merge store history with localStorage history
+        var local = [];
+        try { local = JSON.parse(localStorage.getItem("sps_post_history") || "[]"); } catch(e) {}
+        // Combine, deduplicate by angle, keep most recent 60
+        var combined = d.history.concat(local);
+        var seen = {};
+        var merged = combined.filter(function(h) {
+          if (seen[h.angle]) return false;
+          seen[h.angle] = true;
+          return true;
+        }).slice(-60);
+        postHistory = merged;
+        try { localStorage.setItem("sps_post_history", JSON.stringify(merged)); } catch(e) {}
+        console.log("Post history loaded from store:", merged.length, "entries");
+      }
+    })
+    .catch(function() {}); // Silent fail — localStorage still works
+}
+
 function extractAngle(text) {
   // Pull first sentence + key topic words as a fingerprint
   var first = text.split(/[.!?\n]/)[0].trim().substring(0, 120);
@@ -3236,6 +3260,8 @@ function exportCSV() {
   var msg = "Downloaded " + queue.length + " posts in High Level format. Ready to upload!";
   if (removedCount > 0) msg += " " + removedCount + " used photo" + (removedCount !== 1 ? "s" : "") + " removed from library.";
 
+  // Save post history to store after export
+  sheetsPost("saveHistory", { history: postHistory }, function() {});
   // Move used files to Used subfolder in Drive if connected
   if (usedDriveIds.length && isGoogleConnected()) {
     msg += " Moving to Used folder in Drive...";
