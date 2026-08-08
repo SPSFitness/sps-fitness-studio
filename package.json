@@ -1,5 +1,9 @@
 {
+  "name": "sps-fitness-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SPS Fitness content studio — static site plus Netlify functions",
   "dependencies": {
-    "@netlify/blobs": "^8.1.0"
+    "@netlify/blobs": "^10.7.0"
   }
 }
