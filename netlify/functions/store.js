@@ -1,4 +1,5 @@
-// Netlify Blobs store using built-in context (no SDK needed)
+const { getStore } = require("@netlify/blobs");
+
 exports.handler = async function(event) {
   var headers = {
     "Access-Control-Allow-Origin": "*",
@@ -24,20 +25,17 @@ exports.handler = async function(event) {
   if (!key) return { statusCode: 400, headers, body: JSON.stringify({ error: "Unknown action: " + action }) };
 
   try {
-    // Use @netlify/blobs via dynamic require (available in Netlify runtime)
-    var blobs;
-    try {
-      blobs = require("@netlify/blobs");
-    } catch(e) {
-      // Fallback if not available
-      return { statusCode: 200, headers, body: JSON.stringify(
-        action.startsWith("get") 
-          ? (key === "history" ? { history: [] } : key === "images" ? { images: [] } : { queue: [] })
-          : { ok: true, note: "blobs unavailable" }
-      )};
-    }
+    const store = getStore({
+      name: "sps-content",
+      siteID: process.env.NETLIFY_SITE_ID || "merry-flan-9e55eb",
+      token: process.env.NETLIFY_TOKEN
+    });
 
-    const store = blobs.getStore("sps-content");
+    if (!process.env.NETLIFY_TOKEN) {
+      // No token — return empty for reads, ok for writes (silent fail)
+      var empty = key === "history" ? { history: [] } : key === "images" ? { images: [] } : key === "queue" ? { queue: [] } : {};
+      return { statusCode: 200, headers, body: JSON.stringify(action.startsWith("get") ? empty : { ok: true }) };
+    }
 
     if (action.startsWith("get")) {
       const val = await store.get(key);
