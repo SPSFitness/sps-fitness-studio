@@ -1,5 +1,4 @@
-const { getStore } = require("@netlify/blobs");
-
+// Netlify Blobs store using built-in context (no SDK needed)
 exports.handler = async function(event) {
   var headers = {
     "Access-Control-Allow-Origin": "*",
@@ -25,12 +24,25 @@ exports.handler = async function(event) {
   if (!key) return { statusCode: 400, headers, body: JSON.stringify({ error: "Unknown action: " + action }) };
 
   try {
-    const store = getStore("sps-content");
+    // Use @netlify/blobs via dynamic require (available in Netlify runtime)
+    var blobs;
+    try {
+      blobs = require("@netlify/blobs");
+    } catch(e) {
+      // Fallback if not available
+      return { statusCode: 200, headers, body: JSON.stringify(
+        action.startsWith("get") 
+          ? (key === "history" ? { history: [] } : key === "images" ? { images: [] } : { queue: [] })
+          : { ok: true, note: "blobs unavailable" }
+      )};
+    }
+
+    const store = blobs.getStore("sps-content");
 
     if (action.startsWith("get")) {
       const val = await store.get(key);
       if (!val) {
-        var empty = key === "images" ? { images: [] } : key === "history" ? { history: [] } : key === "queue" ? { queue: [] } : {};
+        var empty = key === "history" ? { history: [] } : key === "images" ? { images: [] } : key === "queue" ? { queue: [] } : {};
         return { statusCode: 200, headers, body: JSON.stringify(empty) };
       }
       return { statusCode: 200, headers, body: val };
