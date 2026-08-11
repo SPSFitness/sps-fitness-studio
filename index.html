@@ -1362,10 +1362,12 @@ function stripBannedTerms(t) {
   t = t.replace(/\bstairs (?:don't|do not|aren't|are not)[^.?!]*/gi, "everyday things feel easier");
   t = t.replace(/\bstairs\b/gi, "everyday tasks");
   t = t.replace(/\bgrand(?:kids?|child(?:ren)?|dad|ma)\b/gi, "family");
-  // Burpees are banned. This rule existed in the original post-processing and was
-  // lost in the rewrite. Absorb any preceding article so "the burpees" does not
-  // become "the the exercises" and "a burpee" does not become "a exercise".
-  t = t.replace(/\b(?:the\s+)?burpees\b/gi, "the exercises");
+  // Burpees are banned. Absorb the preceding determiner so the grammar survives:
+  // "the burpees" must not become "the the exercises", "a burpee" must not become
+  // "a exercise", and "20 burpees" must not become "20 the exercises".
+  t = t.replace(/\b(\d+|a few|a couple of|some|several|loads of|plenty of|lots of)\s+burpees\b/gi, "$1 exercises");
+  t = t.replace(/\bthe\s+burpees\b/gi, "the exercises");
+  t = t.replace(/\bburpees\b/gi, "exercises");
   t = t.replace(/\b(?:a|an)\s+burpee\b/gi, "an exercise");
   t = t.replace(/\bburpee\b/gi, "exercise");
   // Phone numbers never belong in the post body — the CTA is "message us". Take
@@ -1407,8 +1409,11 @@ function cleanPostText(text) {
   // 1b. Item 1: strip markdown heading markers ("# ", "## " ...) at the start of
   //     any line. A real "#hashtag" (no space after #) is left untouched.
   text = text.split("\n").map(function(l) { return l.replace(/^\s*#{1,6}\s+/, ""); }).join("\n");
-  // 2. dashes
+  // 2. dashes. Line-start bullet markers are protected first so the " - " rule
+  //    does not eat them; they are restored as bullets after the strip.
+  text = text.split("\n").map(function(l) { return l.replace(/^(\s*)-\s+/, "$1\u0001 "); }).join("\n");
   text = text.split("—").join(" ").split("–").join(" ").split("---").join(" ").split(" - ").join(" ");
+  text = text.split("\u0001 ").join("- ");
   // 3. Item 3: ellipsis. When it sits mid-sentence (the word before it cannot end
   //    a sentence) replace with a comma and keep the next word lowercase; otherwise
   //    it becomes a full stop.
@@ -1454,6 +1459,18 @@ function cleanPostText(text) {
   var blocks = text.split(/\n{2,}/);
   var paragraphs = [];
   blocks.forEach(function(block) {
+    // A bulleted block keeps one bullet per line. Collapsing it through the
+    // sentence grouper produced a run-on ("...especially past 40 You can
+    // actually sustain it Each session gets...") because bullet lines carry no
+    // terminal punctuation, and it also broke idempotence on a second pass.
+    var lines = block.split(/\n/).map(function(l) { return l.trim(); }).filter(Boolean);
+    var bullets = lines.filter(function(l) { return /^[-•*\u2022]\s+/.test(l); });
+    if (bullets.length >= 2 && bullets.length >= lines.length - 1) {
+      paragraphs.push(lines.map(function(l) {
+        return l.replace(/^[-•*\u2022]\s+/, "\u2022 ");
+      }).join("\n"));
+      return;
+    }
     var sentences = splitSentences(block).map(function(x) { return x.replace(/\s+/g, " ").trim(); }).filter(Boolean);
     var groups = [], current = [], target = 2;
     for (var s = 0; s < sentences.length; s++) {
@@ -1520,9 +1537,18 @@ var CORRECTION_CUE = /\b(not|no|wrong|nope|actually|opposite|truth|reality|inste
 
 function mythLacksCorrection(text) {
   if (!text) return false;
-  var sentences = splitSentences(String(text))
-    .map(function(s) { return s.replace(/\s+/g, " ").trim(); })
-    .filter(Boolean);
+  // Split by line FIRST. A myth headline often has no terminal punctuation
+  // ("Myth: You can target fat loss from specific areas"), so a plain sentence
+  // split would glue it to the correcting sentence that follows and then skip
+  // that correction as part of the myth itself.
+  var sentences = [];
+  String(text).split(/\n+/).forEach(function(line) {
+    if (!line.trim()) return;
+    splitSentences(line).forEach(function(s) {
+      s = s.replace(/\s+/g, " ").trim();
+      if (s) sentences.push(s);
+    });
+  });
   var idx = -1;
   for (var i = 0; i < sentences.length; i++) {
     if (MYTH_OPENER.test(sentences[i])) { idx = i; break; }
