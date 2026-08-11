@@ -1828,7 +1828,9 @@ function doAddQueue() {
     var assignedMedia = findBestImage(selType, selAud);
     if (assignedMedia) { markImageUsed(assignedMedia.id); mediaIdToUse = assignedMedia.id; }
   }
-  queue.push({id: Date.now(), type: selType, aud: selAud, text: curPost, date: date, time: time, mediaId: mediaIdToUse, short: false});
+  var _sMedia = null;
+  for (var _si = 0; _si < imageLibrary.length; _si++) { if (String(imageLibrary[_si].id) === String(mediaIdToUse)) { _sMedia = imageLibrary[_si]; break; } }
+  queue.push(Object.assign({id: Date.now(), type: selType, aud: selAud, text: curPost, date: date, time: time, short: false}, mediaFieldsFor(_sMedia)));
   queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
   doSchedClose();
   updateBadge();
@@ -2320,7 +2322,8 @@ function removeImg(id) {
 
 function findBestImage(postType, aud) {
   if (!imageLibrary.length) return null;
-  var ready = imageLibrary.filter(function(img) { return !img.analyzing; });
+  var ready = imageLibrary.filter(function(img) { return !img.analyzing && !img.exported; });
+  if (!ready.length) ready = imageLibrary.filter(function(img) { return !img.analyzing; });
   if (!ready.length) return null;
 
   // HARD STOP — exclude any image used in this batch session
@@ -2368,6 +2371,28 @@ function findBestImage(postType, aud) {
   var finalPool = exact.length ? exact : (nonVideo.length ? nonVideo : genderPool);
   return finalPool[Math.floor(Math.random() * finalPool.length)];
   // NOTE: does NOT mark as used — call markImageUsed() separately when actually assigning
+}
+
+// The queue must carry the resolved media URL, not just a library id. The export
+// used to delete used photos from the library, so a second export of the same
+// queue found nothing and silently wrote empty imageUrls cells.
+function mediaFieldsFor(img) {
+  if (!img) return { mediaId: null, mediaUrl: "", mediaDriveId: "", mediaIsVideo: false };
+  return {
+    mediaId: img.id,
+    mediaUrl: img.hostedUrl || "",
+    mediaDriveId: img.driveId || "",
+    mediaIsVideo: !!img.isVideo
+  };
+}
+
+// Google no longer serves image bytes reliably from the uc?export=download
+// endpoint; it returns an HTML interstitial that High Level cannot render. The
+// lh3 path is the one the app already uses for its own thumbnails.
+function publicMediaUrl(url, isVideo) {
+  if (!url || isVideo) return url || "";
+  var m = /[?&]id=([\w-]+)/.exec(url);
+  return m ? "https://lh3.googleusercontent.com/d/" + m[1] + "=w1600" : url;
 }
 
 function markImageUsed(id) {
@@ -2567,7 +2592,7 @@ function assignQueueMedia(qid) {
   for (var i = 0; i < queue.length; i++) { if (queue[i].id === qid) { item = queue[i]; break; } }
   if (!item) return;
   var media = findBestImage(item.type, item.aud);
-  if (media) { item.mediaId = media.id; renderQueue(); }
+  if (media) { Object.assign(item, mediaFieldsFor(media)); renderQueue(); }
 }
 
 function renderQueue() {
@@ -2652,7 +2677,7 @@ function doDay() {
         text = cleanPostText(text);
         var wMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (wMedia) markImageUsed(wMedia.id);
-        queue.push({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, mediaId: wMedia ? wMedia.id : null, short: p.short});
+        queue.push(Object.assign({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short}, mediaFieldsFor(wMedia)));
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         addToPostHistory(p.type, p.aud, text);
         renderQueue(); updateBadge();
@@ -2700,7 +2725,7 @@ function doWeek() {
         text = cleanPostText(text);
         var wMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (wMedia) markImageUsed(wMedia.id);
-        queue.push({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, mediaId: wMedia ? wMedia.id : null, short: p.short});
+        queue.push(Object.assign({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short}, mediaFieldsFor(wMedia)));
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         addToPostHistory(p.type, p.aud, text);
         renderQueue(); updateBadge();
@@ -3208,7 +3233,7 @@ function do10Days() {
         text = cleanPostText(text);
         var pMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (pMedia) markImageUsed(pMedia.id);
-        queue.push({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, mediaId: pMedia ? pMedia.id : null, short: p.short});
+        queue.push(Object.assign({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short}, mediaFieldsFor(pMedia)));
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         addToPostHistory(p.type, p.aud, text);
         renderQueue(); updateBadge();
@@ -3259,7 +3284,7 @@ function do30Days() {
       if (!err && text) {
         var pMedia = imageLibrary.length ? findBestImage(plan.type, plan.aud) : null;
         if (pMedia) markImageUsed(pMedia.id);
-        queue.push({id: Date.now()+idx, type: plan.type, aud: plan.aud, text: text, date: ds, time: slotTime, mediaId: pMedia ? pMedia.id : null, short: plan.short});
+        queue.push(Object.assign({id: Date.now()+idx, type: plan.type, aud: plan.aud, text: text, date: ds, time: slotTime, short: plan.short}, mediaFieldsFor(pMedia)));
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         // Add to history so next post avoids this angle
         addToPostHistory(plan.type, plan.aud, text);
@@ -3372,7 +3397,7 @@ function swapQueueMedia(id) {
   if (!others.length) others = ready;
   var picked = others[Math.floor(Math.random() * others.length)];
   markImageUsed(picked.id);
-  q.mediaId = picked.id;
+  Object.assign(q, mediaFieldsFor(picked));
   saveQueueToSheets();
   expandQueueItem(id); // refresh modal
 }
@@ -3380,7 +3405,7 @@ function swapQueueMedia(id) {
 function removeQueueMedia(id) {
   if (!id) return;
   for (var i = 0; i < queue.length; i++) {
-    if (String(queue[i].id) === String(id)) { queue[i].mediaId = null; break; }
+    if (String(queue[i].id) === String(id)) { Object.assign(queue[i], mediaFieldsFor(null)); break; }
   }
   saveQueueToSheets();
   expandQueueItem(id);
@@ -3412,6 +3437,7 @@ function exportCSV() {
   // High Level Basic Format: postAtSpecificTime (YYYY-MM-DD HH:mm:ss),content,link,imageUrls,gifUrl,videoUrls,thumbnailUrl
   var headers = ["postAtSpecificTime (YYYY-MM-DD HH:mm:ss)", "content", "link (OGmetaUrl)", "imageUrls", "gifUrl", "videoUrls", "thumbnailUrl"];
   var rows = [headers];
+  var missingMedia = [];
 
   for (var i = 0; i < queue.length; i++) {
     var q = queue[i];
@@ -3422,17 +3448,27 @@ function exportCSV() {
     // Combine post text and hashtags into one content field
     var fullText = q.text.replace(/"/g, '""');
 
-    // Use pre-assigned media from queue item
+    // Use the URL stored on the queue item. Falling back to a library lookup is
+    // only for queue items created before this field existed — the library may
+    // no longer contain the photo, which is exactly how media went missing.
     var imageUrl = "";
     var videoUrl = "";
-    if (q.mediaId) {
+    var rawUrl = q.mediaUrl || "";
+    var isVid = !!q.mediaIsVideo;
+    if (!rawUrl && q.mediaId) {
       for (var mi = 0; mi < imageLibrary.length; mi++) {
         if (String(imageLibrary[mi].id) === String(q.mediaId)) {
-          if (imageLibrary[mi].isVideo) { videoUrl = imageLibrary[mi].hostedUrl; }
-          else { imageUrl = imageLibrary[mi].hostedUrl; }
+          rawUrl = imageLibrary[mi].hostedUrl || "";
+          isVid = !!imageLibrary[mi].isVideo;
           break;
         }
       }
+    }
+    if (rawUrl) {
+      if (isVid) { videoUrl = rawUrl; }
+      else { imageUrl = publicMediaUrl(rawUrl, false); }
+    } else if (q.mediaId) {
+      missingMedia.push(q.date + " " + q.time);
     }
     rows.push([
       datetime,
@@ -3470,18 +3506,19 @@ function exportCSV() {
 
   var removedCount = 0;
   if (Object.keys(usedMediaIds).length) {
-    var before = imageLibrary.length;
-    imageLibrary = imageLibrary.filter(function(img) {
+    // Mark as exported rather than deleting. Deleting meant a second export of
+    // the same queue produced a CSV with every media cell empty, because the
+    // queue could no longer resolve its own photos.
+    imageLibrary.forEach(function(img) {
       if (usedMediaIds[String(img.id)]) {
+        if (!img.exported) removedCount++;
+        img.exported = true;
         if (img.driveId) {
           usedDriveIds.push(img.driveId);
           exportedIds[img.driveId] = new Date().toISOString(); // permanent record
         }
-        return false;
       }
-      return true;
     });
-    removedCount = before - imageLibrary.length;
     // Save permanent record of exported Drive IDs
     try { localStorage.setItem("sps_exported_ids", JSON.stringify(exportedIds)); } catch(e) {}
     if (removedCount > 0) {
@@ -3491,7 +3528,8 @@ function exportCSV() {
   }
 
   var msg = "Downloaded " + queue.length + " posts in High Level format. Ready to upload!";
-  if (removedCount > 0) msg += " " + removedCount + " used photo" + (removedCount !== 1 ? "s" : "") + " removed from library.";
+  if (removedCount > 0) msg += " " + removedCount + " photo" + (removedCount !== 1 ? "s" : "") + " marked as used.";
+  if (missingMedia.length) { alert("Warning: " + missingMedia.length + " post" + (missingMedia.length !== 1 ? "s" : "") + " exported with no image because the photo could not be found:\n\n" + missingMedia.slice(0,10).join("\n") + (missingMedia.length > 10 ? "\n..." : "")); }
 
   // Save post history to store after export
   sheetsPost("saveHistory", { history: postHistory }, function() {});
@@ -3500,7 +3538,7 @@ function exportCSV() {
     msg += " Moving to Used folder in Drive...";
     showStatus("queueStatus", msg, "info");
     moveUsedFilesToDrive(usedDriveIds, function(moved, errors) {
-      var finalMsg = "Downloaded " + queue.length + " posts. " + removedCount + " photos removed from library.";
+      var finalMsg = "Downloaded " + queue.length + " posts. " + removedCount + " photos marked as used.";
       if (moved > 0) {
         finalMsg += " " + moved + " moved to Used folder in Drive.";
         showStatus("queueStatus", finalMsg, "success");
