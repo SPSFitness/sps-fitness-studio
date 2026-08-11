@@ -2053,10 +2053,6 @@ function usedPhotoSummary() {
 // photos get moved back and forth. The exported CSVs are the real record, so
 // used-ness is imported from them and stored permanently in localStorage.
 
-// Ids recovered from the CSVs seen so far. A starting point, not the whole truth
-// — import your own CSVs to catch anything missing.
-var KNOWN_USED_DRIVE_IDS = ["1-sGH6Oni8zNVUzvEk59uFsrwuGel00Cf","111NFciBTfo073VHG4eYcGntk2v_ozRsD","18GaMqbg06emYV78zmxD46P2cccAAbn4h","19UJDIpHqRPLvLJ8PCg8ViHG9broo1mIq","1AlhxtIGCx-cx0r0wlBukF3","1FeELoGKifoomnZbgUFUfuUpC_rnuQUF2","1G_hjE7LkpHRDlzgUM4x7-hsO6L94SXWJ","1GI4m1rW4agDqlTSQtnJ9-eKgwPioaM65","1I-XYOV04jyGwTcLs2zXlYjygxh_dcgFX","1I3Wgn2rCg3Yxqx0G0GN0xG5_JAVuOvGf","1Jn6JiOh82BDi9-BcVkIMznhoPUfRhh03","1N7u60Gv2-l0stYqo0ciTOrmYxQ2e-d5Y","1NmFKbw4m4Ko1hGGmf6wGSsBEhrdG4J5X","1OqKnLCby-7hdAnA2jKt_fqANU7YqqsGv","1PeqBPKVjvq9Y6FO_iXdzJg57lqihfejP","1XWjir0gs5K4-hpQjBo3YoUgFqqm8S_2u","1_mA-bBAWi0vQF8EWlSv34lwcaseOS0qU","1ac1Z5osgWwqq2kwu-9kLuhO6g98-akCl","1avcx4XT_rrPswNqVdLnUZ_UX0wy5nEfN","1d8wIusMdgEyOZiIjibhRm6wdoRLYAvx4","1dKQ6xvhEW1LBzlVYgBaMptc2gcojcaRb","1dc6v6GH--ruOQbAwnov75cJqpgyktcil","1dlTPgiPDIzPAvvpaCeT1OaK8KmQyQJwG","1gqk25HxT9hSB0-SsrAzITzJfmr3mVyQC","1jh1YQz5lu9UW5omZZROpIFS0FCQ7RIhs","1jzXw6sEhUuYNFSC-RAVP6nf_OZTPfbfi","1mW-EVT_O6GvhU0Kh2k3a-bjoWSwKKsn2","1obMxUBVOGa4E_l9_Vu6PiwBz-8Q528O6","1p1Rq4KVFuZh9hHTOCIjLAK","1p1Rq4KVFuZh9hHTOCIjLAKcj6M93QSg-","1pCCBkm88TCXQnhe83k-OSXjZITQB9nTs","1qKMz28_8x4-JygFbYFNdGWmiBZRi2X7V","1qozerctd6GNZM-v5zwJ1yqzfMWc39gpE","1sUNDkqBEP2geymztSmH076hMYH52gopY","1tbSiKCckveenPXNtF6-ThwrzBlc8P9nq","1vlMXZ1CT8yRWxF6QxUAlZ78aV3ToaRwm","1xJbqgDjqf-RCIHg1RLw-4anZbPuYE69V","1zBVN-PE3XsiS_JLq3yM0Mkwk3kWgoWX-"];
-
 // Pull Drive file ids out of anything: raw ids, Drive links, lh3 links, or the
 // full text of an exported CSV.
 function extractDriveIds(text) {
@@ -2087,10 +2083,12 @@ function applyUsedIds(ids, sourceLabel) {
     reportUsed("No Drive file ids found in " + sourceLabel + ". Check it is an exported CSV, or paste the image URLs.", "error");
     return 0;
   }
+  var before = Object.keys(getExportedIds()).length;
   var res = seedExportedIds(ids);
   var sum = usedPhotoSummary();
-  reportUsed(ids.length + " ids read from " + sourceLabel + ". " + res.added + " newly marked, " + res.total + " used in total. " +
-             sum.available + " photo" + (sum.available !== 1 ? "s" : "") + " still available.", "success");
+  var note = before > 0 ? " (" + before + " were already marked before this import — use Release all first if you want only this CSV.)" : "";
+  reportUsed(ids.length + " ids read from " + sourceLabel + ". " + res.added + " newly marked. " + res.total + " used in total, " +
+             sum.available + " still available." + note, "success");
   return res.added;
 }
 
@@ -2122,8 +2120,9 @@ function importUsedFromPaste() {
   var box = document.getElementById("usedIdPaste");
   var txt = box ? box.value : "";
   if (!txt.trim()) {
-    // Nothing pasted — fall back to the ids recovered from the CSVs seen so far.
-    applyUsedIds(KNOWN_USED_DRIVE_IDS.slice(), "the previously recovered list");
+    // Never fall back to a baked-in list. Silently marking ids the user did not
+    // supply is exactly how the count ends up wrong.
+    reportUsed("Nothing to read. Choose a CSV file above, or paste ids or image URLs into the box first.", "error");
     return;
   }
   var added = applyUsedIds(extractDriveIds(txt), "the pasted text");
