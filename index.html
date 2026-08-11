@@ -1219,9 +1219,10 @@ function getSys() {
   return SYS_ALL;
 }
 
-function getPrompt(type, aud, ctx) {
+function getPrompt(type, aud, ctx, short) {
   var p = PROMPTS[type] && PROMPTS[type][aud] ? PROMPTS[type][aud] : PROMPTS[type] ? PROMPTS[type]["everyone"] : "";
   if (ctx) p = p + " Specific focus for this post: " + ctx + ".";
+  if (short) p = " IMPORTANT: This must be a SHORT post — maximum 60 words for the body, not including hashtags. One clear thought. Stop when the point is made. No padding, no elaboration." + p;
   var histCtx = getHistoryContext(type, aud);
   if (histCtx) p = p + histCtx;
   var insightsCtx = getLeadInsightsContext();
@@ -1374,18 +1375,20 @@ function cleanPostText(text) {
   } else {
     body = body + "\n\n#SPSFitness #HalesowenGym #Halesowen";
   }
-  // Strip "This is [Name]." and "Meet [Name]." patterns first
-  body = body.replace(/\bThis is ([A-Z][a-z]{1,8})\./g, "This is a real example.");
-  body = body.replace(/\bMeet ([A-Z][a-z]{1,8})\./g, "Here is someone who trained with us.");
-  body = body.replace(/\b([A-Z][a-z]{1,8}) came in /g, "Someone came in ");
-  body = body.replace(/\b([A-Z][a-z]{1,8}) walked in /g, "Someone walked in ");
-  body = body.replace(/\b([A-Z][a-z]{1,8}) told me /g, "Someone told me ");
-  body = body.replace(/\b([A-Z][a-z]{1,8}) said she /g, "Someone said she ");
-  body = body.replace(/\b([A-Z][a-z]{1,8}) said he /g, "Someone said he ");
-  body = body.replace(/\b([A-Z][a-z]{1,8}) started /g, "Someone started ");
-  body = body.replace(/\b([A-Z][a-z]{1,8}) joined /g, "Someone joined ");
+  // Strip "This is [Name]." and "Meet [Name]." patterns
+  body = body.replace(/\bThis is ([A-Z][a-z]{1,10})[\.'s]/g, "This is a member");
+  body = body.replace(/\bMeet ([A-Z][a-z]{1,10})[\.'s]/g, "Here is someone who trained with us");
+  body = body.replace(/\b([A-Z][a-z]{1,10})'s been with us/g, "Someone's been with us");
+  body = body.replace(/\b([A-Z][a-z]{1,10}) came in /g, "Someone came in ");
+  body = body.replace(/\b([A-Z][a-z]{1,10}) walked in /g, "Someone walked in ");
+  body = body.replace(/\b([A-Z][a-z]{1,10}) told me /g, "Someone told me ");
+  body = body.replace(/\b([A-Z][a-z]{1,10}) said she /g, "Someone said she ");
+  body = body.replace(/\b([A-Z][a-z]{1,10}) said he /g, "Someone said he ");
+  body = body.replace(/\b([A-Z][a-z]{1,10}) started /g, "Someone started ");
+  body = body.replace(/\b([A-Z][a-z]{1,10}) joined /g, "Someone joined ");
+  body = body.replace(/\b([A-Z][a-z]{1,10}) has been /g, "Someone has been ");
   // Replace invented names
-  var fakeNames = ["Chloe","Emma","Sarah","Jackie","Rachel","Lisa","Karen","Clare","Bev","Beverly","Dave","Mark","Steve","John","Mike","Paul","Tom","James","Claire","Louise","Helen","Julie","Diane","Becky","Tracey","Sharon","Gary","Kevin","Barry","Pete","Rob","Dan","Chris","Kev","Jen","Sue","Pat","Liz","Jan","Pam","Ray","Stu","Ste","Andy","Phil","Nick","Matt","Ben","Sam","Jo","Kate","Fran","Gill","Gail"];
+  var fakeNames = ["Chloe","Emma","Sarah","Jackie","Rachel","Lisa","Karen","Clare","Bev","Beverly","Kat","Katie","Kate","Dave","Mark","Steve","John","Mike","Paul","Tom","James","Claire","Louise","Helen","Julie","Diane","Becky","Tracey","Sharon","Gary","Kevin","Barry","Pete","Rob","Dan","Chris","Kev","Jen","Sue","Pat","Liz","Jan","Pam","Ray","Stu","Ste","Andy","Phil","Nick","Matt","Ben","Sam","Jo","Fran","Gill","Gail","Steph","Debbie","Amanda","Mel","Mandy","Donna","Nicki","Tina","Carol","Sandra","Vicky","Lisa","Carla","Gemma","Hayley","Nicola","Leanne","Charlotte"];
   fakeNames.forEach(function(name) {
     var pattern = new RegExp("\\b" + name + "\\b", "g");
     body = body.replace(pattern, "someone");
@@ -2528,7 +2531,7 @@ function doWeek() {
     var p = plan[i];
     var sys = p.aud === "women" ? SYS_WOMEN : (p.aud === "men" ? SYS_MEN : SYS_ALL);
     var idx = i;
-    callAPI(sys, p.type === "fromleads" ? (getLeadInsightsPrompt(p.type, p.aud) || getPrompt(p.type, p.aud, p.angle || "")) : getPrompt(p.type, p.aud, p.angle || ""), function(err, text) {
+    callAPI(sys, p.type === "fromleads" ? (getLeadInsightsPrompt(p.type, p.aud) || getPrompt(p.type, p.aud, p.angle || "", p.short)) : getPrompt(p.type, p.aud, p.angle || "", p.short), function(err, text) {
       done++;
       var prog = document.getElementById("prog7");
       if (prog) prog.textContent = done;
@@ -2948,9 +2951,11 @@ function buildBatchPlan(days) {
     {type:"evidence",     aud:"men"}
   ];
   // Assign specific angles to each post before generating
-  return fullPlan.slice(0, days).map(function(item) {
+  return fullPlan.slice(0, days).map(function(item, idx) {
     var angle = getUnusedAngle(item.type, item.aud);
-    return {type: item.type, aud: item.aud, angle: angle || ""};
+    // Every 4th post should be short form (under 80 words)
+    var short = (idx % 4 === 3);
+    return {type: item.type, aud: item.aud, angle: angle || "", short: short};
   });
 }
 
