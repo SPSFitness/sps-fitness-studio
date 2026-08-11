@@ -1300,6 +1300,15 @@ function stripSessionTimes(text) {
 // BUG2: replace invented names BEFORE any case conversion, case-insensitively.
 function stripInventedNames(text) {
   var whitelist = ["a","the","what","how","why","your","our","it","not","something","someone","where","when","who","everyone","anyone","one","us","me","you","here","there","this","that","today","now","some","most","many"];
+  // Item 4: an opening "This is X" / "Meet X" / "Say hello to X" sentence is
+  // deleted entirely — swapping the name for "someone" just reads as nonsense.
+  var namedIntro = /^\s*["'”’]?\s*(?:this is|meet|say hello to)\s+([A-Za-z][a-z]{1,15})\b/i;
+  var kept = splitSentences(text).filter(function(s) {
+    var m = namedIntro.exec(s);
+    return !(m && whitelist.indexOf(m[1].toLowerCase()) === -1);
+  });
+  if (kept.length) text = kept.join("");
+  // Any remaining mid-post occurrence still gets the name swapped for "someone".
   text = text.replace(/\b(this is|meet|say hello to)\s+([A-Za-z][a-z]{1,11})\b/gi, function(m, intro, name) {
     if (whitelist.indexOf(name.toLowerCase()) > -1) return m;
     var low = intro.toLowerCase();
@@ -1323,9 +1332,14 @@ function dropResearchSentences(text) {
   var researchRe = /\b(research|studies|study shows|studies show|science says|evidence shows|scientists?|clinically|scientifically|proven|decades of research)\b/i;
   var mechanismRe = /\b(hormon\w*|cortisol|insulin|testosterone|growth hormone|blood sugar|blood pressure|cholesterol|metabolis\w*|inflammat\w*|oestrogen|visceral fat|immune system)\b/i;
   var pctRe = /\b\d{1,3}\s?(?:%|percent)\b/i;
+  // Sub-item C: a month name in operational/temporal context (in/from/by/starting
+  // January, mid-January, etc.). Requires a temporal cue so the verb "may" is safe.
+  var MONTHS = "January|February|March|April|May|June|July|August|September|October|November|December";
+  var monthRe = new RegExp("\\b(?:in|this|next|last|from|by|until|since|during|starting|before|after|through)\\s+(?:mid[- ]?|early[- ]?|late[- ]?)?(?:" + MONTHS + ")\\b|\\b(?:mid|early|late)[- ](?:" + MONTHS + ")\\b", "i");
   var kept = splitSentences(text).filter(function(s) {
     if (researchRe.test(s)) return false;
     if (mechanismRe.test(s)) return false;
+    if (monthRe.test(s)) return false;
     if (pctRe.test(s) && !/\b(member|members|over 50|half)\b/i.test(s)) return false;
     return true;
   });
@@ -1335,6 +1349,9 @@ function dropResearchSentences(text) {
 // BUG7: neutralise banned family/stairs cliches. These have clean grammatical
 // swaps; mechanism terms are handled by dropping the sentence (above) instead.
 function stripBannedTerms(t) {
+  // Item 1: keep the verb, swap only the object so grammar survives
+  // ("carry the shopping" -> "carry everyday things").
+  t = t.replace(/\b(carry|carrying|lift|lifting|bring|bringing|haul|hauling)\s+(?:the\s+|all\s+the\s+)?(?:shopping|groceries)\b/gi, "$1 everyday things");
   t = t.replace(/\b(?:a |the )?flight of stairs\b/gi, "everyday effort");
   t = t.replace(/\b(?:getting |walking |climbing |going )?up ?(?:the )?stairs\b/gi, "through the day");
   t = t.replace(/\bwalk(?:ing)? upstairs\b/gi, "moving around");
@@ -1373,16 +1390,32 @@ function cleanPostText(text) {
   if (!text) return "";
   // 1. markdown
   text = text.split("**").join("").split("*").join("");
+  // 1b. Item 1: strip markdown heading markers ("# ", "## " ...) at the start of
+  //     any line. A real "#hashtag" (no space after #) is left untouched.
+  text = text.split("\n").map(function(l) { return l.replace(/^\s*#{1,6}\s+/, ""); }).join("\n");
   // 2. dashes
   text = text.split("—").join(" ").split("–").join(" ").split("---").join(" ").split(" - ").join(" ");
-  // 3. BUG5: ellipsis — both the single glyph and two-or-more dots become one stop
+  // 3. Item 3: ellipsis. When it sits mid-sentence (the word before it cannot end
+  //    a sentence) replace with a comma and keep the next word lowercase; otherwise
+  //    it becomes a full stop.
+  var NONTERM = "feel|just|and|but|is|was|were|are|like|still|almost|so|to|of|for|with|the|a|an|really|very|not|only|even|that|when|because|your|our|my|its|had|has|have|about|than|then|as";
+  var ADJGER = /^(?:[a-z]+ing|[a-z]+(?:ible|able|ive|ful|less|ous|est|ent|ant)|better|worse|best|worst|different|fine|okay|present|alive|aware|unsure|stuck|lost|done|enough|invisible|strong|stronger|fit|fitter|weak|weaker|tired|fresh|ready|worth|old|young|slow|fast|proud|calm|clear)$/i;
+  text = text.replace(new RegExp("\\b(" + NONTERM + ")\\b[ \\t]*(?:…|\\.{2,})[ \\t]*([A-Za-z]+)", "gi"), function(m, w, nxt) {
+    // Before an adjective or gerund, drop the ellipsis entirely ("feel invisible");
+    // otherwise join the clause with a comma and keep the next word lowercase.
+    if (ADJGER.test(nxt)) return w + " " + nxt.toLowerCase();
+    return w + ", " + nxt.charAt(0).toLowerCase() + nxt.slice(1);
+  });
   text = text.replace(/…/g, ".").replace(/\.{2,}/g, ".");
-  // 4. BUG6: strip bracketed placeholders like [insert gym name] or {name}
+  // 4. BUG6: strip bracketed placeholders like [insert gym name] or {name}.
+  //    Item 3: also drop a preposition immediately before the placeholder when
+  //    what follows would leave two prepositions or a preposition + article.
+  text = text.replace(/\b(?:at|in|from|by|to|with|for|near|around)\s+[\[{][^\]}]*[\]}]\s*(?=(?:at|in|from|by|to|with|for|near|around|the|a|an)\b)/gi, "");
   text = text.replace(/\[[^\]]*\]/g, "").replace(/\{[^}]*\}/g, "");
+  text = tidyScars(text);
   // 5. parentheses
   text = text.replace(/\([^)]*\)/g, "");
-  // Pull hashtags out up front so nothing downstream splits or mangles them
-  var foundHashes = text.match(/#[A-Za-z0-9_]+/g) || [];
+  // Strip inline hashtags from the body; the standard set is forced at the end.
   text = text.replace(/#[A-Za-z0-9_]+/g, " ").replace(/ {2,}/g, " ").trim();
   // 6. BUG1: session times
   text = stripSessionTimes(text);
@@ -1438,14 +1471,16 @@ function cleanPostText(text) {
     return l;
   });
   var body = paragraphs.join("\n\n");
-  // Build hashtag line (max 3 unique, else brand default)
-  var hashStr = "";
-  if (foundHashes.length) {
-    var seen = {}, uniq = [];
-    foundHashes.forEach(function(h) { var k = h.toLowerCase(); if (!seen[k]) { seen[k] = 1; uniq.push(h); } });
-    hashStr = uniq.slice(0, 3).join(" ");
-  }
-  if (!hashStr) hashStr = "#SPSFitness #HalesowenGym #Halesowen";
+  // Item 1 final guard: strip any markdown heading marker left at a line start.
+  body = body.split("\n").map(function(l) { return l.replace(/^\s*#{1,6}\s+/, ""); }).join("\n");
+  // Sub-item A: convert ALL-CAPS words of 3+ letters to sentence case ("MYTH" ->
+  // "Myth"), keeping the SPS brand word.
+  body = body.replace(/\b([A-Z]{3,})\b/g, function(w) {
+    return (w === "SPS" || w === "NHS") ? w : w.charAt(0) + w.slice(1).toLowerCase();
+  });
+  // Sub-item B: force the standard hashtag set on every post. Any others were
+  // already stripped from the body above.
+  var hashStr = "#SPSFitness #HalesowenGym #Halesowen";
   // Instagram 2200-char cap (body + hashtags)
   var maxChars = 2200 - (hashStr.length + 2);
   if (body.length > maxChars) {
@@ -1460,41 +1495,114 @@ function cleanPostText(text) {
   return body + "\n\n" + hashStr;
 }
 
+// A "Myth: X" opener is only safe if the sentences AFTER it actually correct the
+// myth. Counting sentences across the whole post is not enough: dropResearchSentences
+// can delete the correction and leave unrelated sentences behind, which passes a
+// naive count while publishing the myth as fact. So: find the myth sentence, count
+// only what follows it, and require at least one following sentence to carry a
+// negation or correction cue.
+var MYTH_OPENER = /^\s*["'“”‘’]?\s*myth\s*[:\-]/i;
+var CORRECTION_CUE = /\b(not|no|wrong|nope|actually|opposite|truth|reality|instead|in fact|does ?n[o']t|is ?n[o']t|are ?n[o']t|was ?n[o']t|were ?n[o']t|ca ?n[o']t|wo ?n[o']t|never|myth|false|untrue|rubbish|nonsense)\b/i;
+
+function mythLacksCorrection(text) {
+  if (!text) return false;
+  var sentences = splitSentences(String(text))
+    .map(function(s) { return s.replace(/\s+/g, " ").trim(); })
+    .filter(Boolean);
+  var idx = -1;
+  for (var i = 0; i < sentences.length; i++) {
+    if (MYTH_OPENER.test(sentences[i])) { idx = i; break; }
+  }
+  if (idx === -1) return false;                 // no myth stated, nothing to check
+  var after = sentences.slice(idx + 1);
+  if (after.length < 2) return true;            // myth with no room to correct it
+  for (var j = 0; j < after.length; j++) {
+    if (CORRECTION_CUE.test(after[j])) return false;
+  }
+  return true;                                  // sentences follow, but none correct it
+}
+
 // Validation pass — flags problems for review instead of silently mangling.
-function validatePost(text) {
+// Pass the short flag so it knows a short-form post is meant to be brief.
+function validatePost(text, short) {
   var warnings = [];
   if (!text) return warnings;
   var body = text.replace(/#[A-Za-z0-9_]+/g, "").trim();
-  if (/\b(at|from|by|around|until|before|after|between|to|with|for)\s*[,.](\s|$)/i.test(body) ||
-      /\b(at|from|by|around|until|before|after|between|to|with|for)\s*$/i.test(body))
+  // A real stripping scar always leaves whitespace between the preposition and
+  // the punctuation ("train , you need"). A sentence that simply ends in a
+  // preposition ("who this works for.") is normal English and must not warn,
+  // so \s+ is required here rather than \s*.
+  if (/\b(at|from|by|around|until|before|after|between|to|with|for)\s+[,.](\s|$)/i.test(body) ||
+      /\b(at|from|by|around|until|before|after|between|to|with|for)\s+$/i.test(body) ||
+      /\b(at|from|by|with)\s+(at|from|by|to|with|for|in)\b/i.test(body))
     warnings.push("Dangling preposition");
   if (/\s[,.;:!?]/.test(body)) warnings.push("Space before punctuation");
   if (/\[[^\]]*\]|\{[^}]*\}/.test(body)) warnings.push("Bracketed placeholder");
   if (/(^|\n)\s*["'”’]\s*(\n|$)/.test(body)) warnings.push("Orphaned quote mark");
+  if (/(^|\n)\s*#{1,6}\s+\S/.test(body)) warnings.push("Markdown heading");
+  if (/\b[A-Z]{3,}\b/.test(body.replace(/\bSPS\b|\bNHS\b/g, ""))) warnings.push("Block capitals");
+  if (/\b(?:carry|carrying|lift|lifting|bring|bringing|haul|hauling)\s+(?:the\s+|all\s+the\s+)?(?:shopping|groceries)\b/i.test(body)) warnings.push("Shopping cliche");
+  if (/\b(?:in|from|by|until|since|during|starting|before|after|through)\s+(?:mid[- ]?|early[- ]?|late[- ]?)?(?:January|February|March|April|May|June|July|August|September|October|November|December)\b|\b(?:mid|early|late)[- ](?:January|February|March|April|May|June|July|August|September|October|November|December)\b/i.test(body)) warnings.push("Month name");
   var banned = body.match(/\b(grandkids?|grandchild(?:ren)?|grandad|grandma|hormon\w*|cortisol|insulin|testosterone|metabolis\w*|inflammat\w*|blood sugar|research|studies|study shows|clinically|scientifically|proven|flight of stairs|up the stairs|upstairs)\b/i);
   if (banned) warnings.push("Banned term: " + banned[0]);
   if (/\b\d{1,3}\s?(?:%|percent)\b/i.test(body) && !/\b(member|members|over 50|half)\b/i.test(body)) warnings.push("Statistic / percentage");
   if (/\b\d{1,2}[:.]\d{2}\b|\b\d{1,2}\s?(?:am|pm)\b/i.test(body)) warnings.push("Specific time");
+  // A myth stated with fewer than two correcting sentences after it (item 2).
+  if (mythLacksCorrection(body)) warnings.push("Myth stated without correction");
   var wc = (body.match(/\S+/g) || []).length;
-  if (wc > 250) warnings.push("Too long (" + wc + " words)");
+  if (wc > 220) warnings.push("Too long (" + wc + " words)");
   else if (wc < 10) warnings.push("Very short (" + wc + " words) — may be over-trimmed");
+  else if (wc < 60 && !short) warnings.push("Possibly over-trimmed (" + wc + " words)");
   return warnings;
 }
 
-// BUG8: generate a post, and if it overruns the length ceiling send it back for
-// one shortening pass before it is used. Post generation only — other callAPI
-// paths (image tagging, infographics, video) are untouched.
+function wordCountOf(t) {
+  return (String(t || "").replace(/#[A-Za-z0-9_]+/g, "").match(/\S+/g) || []).length;
+}
+
+// Item 2: decide whether cleaning gutted a post. Cleaning happens in the caller,
+// so we run it here on the raw text purely to measure the damage.
+function postFailedCleaning(rawText) {
+  var before = wordCountOf(rawText);
+  var cleaned = cleanPostText(rawText);
+  var after = wordCountOf(cleaned);
+  var removed = before > 0 ? (before - after) / before : 0;
+  if (removed > 0.4) return true;                       // more than 40% removed
+  if (before > 100 && after < 40) return true;          // long input gutted to a stub
+  // A surviving "Myth:" opener needs at least two sentences after it, one of
+  // which actually corrects the myth. Same rule the queue badge uses.
+  if (mythLacksCorrection(cleaned)) return true;
+  return false;
+}
+
+// BUG8: generate a post; if cleaning would gut it (item 2) regenerate once with
+// an anti-research instruction; then if it still overruns the hard 220-word
+// ceiling send it back for one shortening pass. Post generation only — other
+// callAPI paths (image tagging, infographics, video) are untouched.
 function generatePost(sys, prompt, short, cb) {
   callAPI(sys, prompt, function(err, text) {
     if (err || !text) { cb(err, text); return; }
-    var wc = (text.replace(/#[A-Za-z0-9_]+/g, "").match(/\S+/g) || []).length;
-    var limit = short ? 60 : 250;
-    if (wc <= limit) { cb(null, text); return; }
-    var target = short ? "under 55 words" : "under 200 words";
-    var shortenPrompt = "The following Facebook post is too long at " + wc + " words. Rewrite it to be " + target + " while keeping the same voice, message, paragraph breaks and hashtags. Cut, do not add. Return only the rewritten post.\n\n" + text;
-    callAPI(sys, shortenPrompt, function(err2, text2) {
-      cb(null, (err2 || !text2) ? text : text2);
-    });
+    if (postFailedCleaning(text)) {
+      var retryPrompt = prompt + " Do not cite research, studies, percentages or physiological mechanisms. Make the same point from coaching experience instead. Every claim must be something a coach would say from years on the gym floor, not a fact to be looked up.";
+      callAPI(sys, retryPrompt, function(err2, text2) {
+        // One retry only. If it also fails, return the better attempt anyway —
+        // validatePost surfaces a hard warning in the queue so it is not silent.
+        generatePostLengthPass(sys, (err2 || !text2) ? text : text2, short, cb);
+      });
+      return;
+    }
+    generatePostLengthPass(sys, text, short, cb);
+  });
+}
+
+function generatePostLengthPass(sys, text, short, cb) {
+  var wc = wordCountOf(text);
+  var limit = short ? 60 : 220;
+  if (wc <= limit) { cb(null, text); return; }
+  var target = short ? "under 55 words" : "under 200 words";
+  var shortenPrompt = "The following Facebook post is too long at " + wc + " words. Rewrite it to be " + target + " while keeping the same voice, message, paragraph breaks and hashtags. Cut, do not add. Return only the rewritten post.\n\n" + text;
+  callAPI(sys, shortenPrompt, function(err2, text2) {
+    cb(null, (err2 || !text2) ? text : text2);
   });
 }
 
@@ -1677,7 +1785,7 @@ function doAddQueue() {
     var assignedMedia = findBestImage(selType, selAud);
     if (assignedMedia) { markImageUsed(assignedMedia.id); mediaIdToUse = assignedMedia.id; }
   }
-  queue.push({id: Date.now(), type: selType, aud: selAud, text: curPost, date: date, time: time, mediaId: mediaIdToUse});
+  queue.push({id: Date.now(), type: selType, aud: selAud, text: curPost, date: date, time: time, mediaId: mediaIdToUse, short: false});
   queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
   doSchedClose();
   updateBadge();
@@ -2408,27 +2516,8 @@ function getHistoryContext(type, aud) {
   return " HARD EXCLUSIONS — these exact angles and topics have already been posted recently and MUST NOT be repeated or even approached from a different angle: [" + exclusions.join(" | ") + "]. Topic words to completely avoid: [" + topicWords.join(", ") + "]. You must choose a genuinely different topic, scenario and opening. Do not write about anything on this list. If you cannot find a fresh angle within the post type, pick the least recently used topic from the available options.";
 }
 
-function swapQueueMedia(qid) {
-  // Find next unused image for this queue item
-  var item = null;
-  for (var i = 0; i < queue.length; i++) { if (queue[i].id === qid) { item = queue[i]; break; } }
-  if (!item) return;
-  var ready = imageLibrary.filter(function(img) { return !img.analyzing && img.id !== item.mediaId; });
-  if (!ready.length) { alert("No other photos available. Add more photos in the Images tab."); return; }
-  // Pick next one by type match or random
-  var exact = ready.filter(function(img) { return img.bestFor === item.type; });
-  var pool = exact.length ? exact : ready;
-  var picked = pool[Math.floor(Math.random() * pool.length)];
-  item.mediaId = picked.id;
-  renderQueue();
-}
-
-function removeQueueMedia(qid) {
-  for (var i = 0; i < queue.length; i++) {
-    if (queue[i].id === qid) { queue[i].mediaId = null; break; }
-  }
-  renderQueue();
-}
+// swapQueueMedia and removeQueueMedia are defined later (the queue-modal
+// versions) — those override these, so the earlier duplicates were removed.
 
 function assignQueueMedia(qid) {
   var item = null;
@@ -2459,7 +2548,7 @@ function renderQueue() {
     html += '<div class="qb"><span class="badge '+(BADGE[q.type]||"bm")+'">'+q.type+'</span>';
     html += ' <span class="badge" style="background:rgba(61,139,255,0.15);color:var(--blue2)">'+(audLabels[q.aud]||q.aud)+'</span>';
     if (due) html += ' <span class="badge" style="background:rgba(255,184,0,0.15);color:#ffb800">Due</span>';
-    var qWarn = validatePost(q.text);
+    var qWarn = validatePost(q.text, q.short);
     if (qWarn.length) html += ' <span class="qwarn-badge" title="' + qWarn.join(", ") + '">&#x26A0; ' + qWarn.length + '</span>';
     html += '<div class="qp">'+prev+'</div><div class="qt">'+fmtDate(q.date)+' at '+q.time+'</div>';
     // Find assigned media
@@ -2520,7 +2609,7 @@ function doDay() {
         text = cleanPostText(text);
         var wMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (wMedia) markImageUsed(wMedia.id);
-        queue.push({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, mediaId: wMedia ? wMedia.id : null});
+        queue.push({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, mediaId: wMedia ? wMedia.id : null, short: p.short});
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         addToPostHistory(p.type, p.aud, text);
         renderQueue(); updateBadge();
@@ -2568,7 +2657,7 @@ function doWeek() {
         text = cleanPostText(text);
         var wMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (wMedia) markImageUsed(wMedia.id);
-        queue.push({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, mediaId: wMedia ? wMedia.id : null});
+        queue.push({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, mediaId: wMedia ? wMedia.id : null, short: p.short});
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         addToPostHistory(p.type, p.aud, text);
         renderQueue(); updateBadge();
@@ -2988,6 +3077,7 @@ function buildBatchPlan(days) {
 // topic cannot dominate a batch even when it appears under different post types.
 function getThemeKey(type, angle) {
   var a = (angle || "").toLowerCase();
+  if (/shopping|groceries/.test(a)) return "shopping";
   if (/unfit|struggl|only one|everyone (?:else )?(?:is )?ahead|further ahead|\bbehind\b|too late|out of place|keep up|look stupid|embarrass|left it too late|too far gone|invisible|feel like a number/.test(a)) return "objection";
   if (/returning|coming back|come back|after (?:illness|injury|years|a gap|a long gap|a break)|restart|not (?:been|trained)|lost all|start again|years away/.test(a)) return "comeback";
   if (/cost|£|expensive|value|less than|waiting list|available now|no waiting|pay for|never use|\bprice\b|takeaway/.test(a)) return "value";
@@ -3075,7 +3165,7 @@ function do10Days() {
         text = cleanPostText(text);
         var pMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (pMedia) markImageUsed(pMedia.id);
-        queue.push({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, mediaId: pMedia ? pMedia.id : null});
+        queue.push({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, mediaId: pMedia ? pMedia.id : null, short: p.short});
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         addToPostHistory(p.type, p.aud, text);
         renderQueue(); updateBadge();
@@ -3126,7 +3216,7 @@ function do30Days() {
       if (!err && text) {
         var pMedia = imageLibrary.length ? findBestImage(plan.type, plan.aud) : null;
         if (pMedia) markImageUsed(pMedia.id);
-        queue.push({id: Date.now()+idx, type: plan.type, aud: plan.aud, text: text, date: ds, time: slotTime, mediaId: pMedia ? pMedia.id : null});
+        queue.push({id: Date.now()+idx, type: plan.type, aud: plan.aud, text: text, date: ds, time: slotTime, mediaId: pMedia ? pMedia.id : null, short: plan.short});
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         // Add to history so next post avoids this angle
         addToPostHistory(plan.type, plan.aud, text);
@@ -3165,7 +3255,7 @@ function expandQueueItem(id) {
   }
 
   // Validation pass — surface broken-post warnings before export (ADDED)
-  var vWarnings = validatePost(q.text);
+  var vWarnings = validatePost(q.text, q.short);
   var vEl = document.getElementById("qModalValidation");
   if (vEl) {
     if (vWarnings.length) {
