@@ -313,6 +313,10 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
           <div style="font-size:13px;color:var(--muted)" id="googleAuthStatus">Connect to automatically move used photos after export.</div>
           <button class="btn bc" id="googleAuthBtn" onclick="connectGoogle()">Connect Google Drive</button>
         </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border)">
+          <div style="font-size:13px;color:var(--muted)" id="usedPhotoStatus">Used photos are tracked separately from Drive folders.</div>
+          <button class="btn bc" style="width:auto;font-size:12px;padding:8px 14px" onclick="tidyUsedPhotos()">Tidy used photos</button>
+        </div>
         <div class="sb" id="imgStatus"></div>
       </div>
       <div class="card" id="imgLibraryCard" style="display:none">
@@ -1258,6 +1262,23 @@ var TIME_SRC = "(?:\\d{1,2}[:.]\\d{2}(?:\\s?[ap]m)?|\\d{1,2}\\s?[ap]m)";
 // Split into sentences, keeping terminal punctuation AND any following closing
 // quote attached to the sentence (BUG3), plus a trailing run with no terminal
 // punctuation (a headline).
+// Shared proper-noun list. Sentence-casing a shouty line used to flatten these,
+// producing "Sps fitness, halesowen small groups" and lowercase weekday names.
+var PROPER_NOUNS = ["Halesowen","SPS","Bodyblast","West","Midlands","Google","Facebook","Instagram","Meta","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday","January","February","March","April","May","June","July","August","September","October","November","December","Christmas","GP","UK","NHS","British","England"];
+
+function restoreProperNouns(line) {
+  PROPER_NOUNS.forEach(function(w) {
+    line = line.replace(new RegExp("\\b" + w + "\\b", "gi"), w);
+  });
+  return line;
+}
+
+function toSentenceCase(line) {
+  var low = String(line).trim().toLowerCase();
+  low = low.charAt(0).toUpperCase() + low.slice(1);
+  return restoreProperNouns(low);
+}
+
 function splitSentences(t) {
   return t.match(/\s*[^.!?]*[.!?]+["'”’]?|\s*[^.!?]+$/g) || [t];
 }
@@ -1299,7 +1320,8 @@ function stripSessionTimes(text) {
 
 // BUG2: replace invented names BEFORE any case conversion, case-insensitively.
 function stripInventedNames(text) {
-  var whitelist = ["a","the","what","how","why","your","our","it","not","something","someone","where","when","who","everyone","anyone","one","us","me","you","here","there","this","that","today","now","some","most","many"];
+  var whitelist = ["a","the","what","how","why","your","our","it","not","something","someone","where","when","who","everyone","anyone","one","us","me","you","here","there","this","that","today","now","some","most","many",
+    "exactly","precisely","probably","possibly","definitely","absolutely","really","honestly","genuinely","simply","just","still","actually","obviously","clearly","certainly","basically","literally","normally","usually","often","always","never","everything","anything","nothing","everybody","somebody","nobody","more","less","about","enough","worth","also","only","even","already","almost","nearly","truly","fully","totally","completely","entirely","exactly"];
   // Item 4: an opening "This is X" / "Meet X" / "Say hello to X" sentence is
   // deleted entirely — swapping the name for "someone" just reads as nonsense.
   var namedIntro = /^\s*["'”’]?\s*(?:this is|meet|say hello to)\s+([A-Za-z][a-z]{1,15})\b/i;
@@ -1330,7 +1352,10 @@ function stripInventedNames(text) {
 // sentence keeps the grammar intact rather than mangling a word mid-clause.
 function dropResearchSentences(text) {
   var researchRe = /\b(research|studies|study shows|studies show|science says|evidence shows|scientists?|clinically|scientifically|proven|decades of research)\b/i;
-  var mechanismRe = /\b(hormon\w*|cortisol|insulin|testosterone|growth hormone|blood sugar|blood pressure|cholesterol|metabolis\w*|inflammat\w*|oestrogen|visceral fat|immune system)\b/i;
+  var mechanismRe = /\b(hormon\w*|cortisol|insulin|testosterone|growth hormone|blood sugar|blood pressure|cholesterol|metabolis\w*|inflammat\w*|oestrogen|visceral fat|immune system|burns? calories|burning calories|calorie deficit|afterburn|epoc|immune)\b/i;
+  // A free-session or free-trial promise is an operational claim the post is not
+  // allowed to invent. Drop the whole sentence.
+  var freeRe = /\b(?:first|1st|taster|trial|intro|introductory)\s+(?:session|class|week|month)\s+(?:is\s+)?free\b|\bfree\s+(?:first\s+)?(?:session|class|trial|taster|week|month)\b|\bno\s+(?:cost|charge)\s+to\s+(?:try|start)\b/i;
   var pctRe = /\b\d{1,3}\s?(?:%|percent)\b/i;
   // Sub-item C: a month name in operational/temporal context (in/from/by/starting
   // January, mid-January, etc.). Requires a temporal cue so the verb "may" is safe.
@@ -1339,6 +1364,7 @@ function dropResearchSentences(text) {
   var kept = splitSentences(text).filter(function(s) {
     if (researchRe.test(s)) return false;
     if (mechanismRe.test(s)) return false;
+    if (freeRe.test(s)) return false;
     if (monthRe.test(s)) return false;
     if (pctRe.test(s) && !/\b(member|members|over 50|half)\b/i.test(s)) return false;
     return true;
@@ -1351,7 +1377,9 @@ function dropResearchSentences(text) {
 function stripBannedTerms(t) {
   // Item 1: keep the verb, swap only the object so grammar survives
   // ("carry the shopping" -> "carry everyday things").
-  t = t.replace(/\b(carry|carrying|lift|lifting|bring|bringing|haul|hauling)\s+(?:the\s+|all\s+the\s+)?(?:shopping|groceries)\b/gi, "$1 everyday things");
+  // Past tenses were missing ("carried shopping" slipped through) and a trailing
+  // "bags" was left stranded ("carrying shopping bags" -> "everyday things bags").
+  t = t.replace(/\b(carry|carries|carried|carrying|lift|lifts|lifted|lifting|bring|brings|brought|bringing|haul|hauls|hauled|hauling|cart|carts|carted|carting)\s+(?:the\s+|all\s+the\s+|your\s+|my\s+|his\s+|her\s+)?(?:shopping|grocery|groceries)(?:\s+bags?)?\b/gi, "$1 everyday things");
   t = t.replace(/\b(?:a |the )?flight of stairs\b/gi, "everyday effort");
   // Replace only the object, never the verb. Swallowing "walking up the stairs"
   // whole produced "It is through the day without getting out of breath".
@@ -1394,8 +1422,7 @@ function fixFirstLine(text) {
   if (hw.length >= 4) {
     var caps = hw.filter(function(w) { return w[0] >= "A" && w[0] <= "Z"; }).length;
     if (caps >= Math.ceil(hw.length * 0.6)) {
-      var low = head.toLowerCase();
-      fparts[0] = low.charAt(0).toUpperCase() + low.slice(1);
+      fparts[0] = toSentenceCase(head);
     }
   }
   text = fparts.join("\n") + rest;
@@ -1495,8 +1522,7 @@ function cleanPostText(text) {
     if (words.length >= 4) {
       var capCount = words.filter(function(w) { return w[0] >= "A" && w[0] <= "Z"; }).length;
       if (capCount >= Math.ceil(words.length * 0.6)) {
-        var low = l.trim().toLowerCase();
-        l = low.charAt(0).toUpperCase() + low.slice(1);
+        l = toSentenceCase(l);
       }
     }
     return l;
@@ -1523,6 +1549,7 @@ function cleanPostText(text) {
   // Recapitalise sentence starts and the opening character (BUG2/BUG4)
   body = body.replace(/([.!?]["'”’]?\s+|\n+)([a-z])/g, function(m, pre, c) { return pre + c.toUpperCase(); });
   body = body.replace(/^(\s*)([a-z])/, function(m0, sp, c) { return sp + c.toUpperCase(); });
+  body = restoreProperNouns(body);
   return body + "\n\n" + hashStr;
 }
 
@@ -1590,6 +1617,9 @@ function validatePost(text, short) {
   if (/\b0\d{3,4}\s?\d{3}\s?\d{3,4}\b|\b\d{5}\s?\d{6}\b/.test(body)) warnings.push("Phone number in body");
   if (/\b(?:three|four|five|six|3|4|5|6)\s+(?:days?|times?|sessions?)\s+a\s+week\b/i.test(body)) warnings.push("Session frequency claim");
   if (/\bburpees?\b/i.test(body)) warnings.push("Banned term: burpees");
+  if (/\b(?:first|taster|trial|intro)\s+(?:session|class|week)\s+(?:is\s+)?free\b|\bfree\s+(?:first\s+)?(?:session|class|trial|taster)\b/i.test(body)) warnings.push("Free session claim");
+  if (/\b(?:before the kettle|while the kettle|kettle boils|at the kitchen|kitchen counter|against the counter|while the coffee|while you wait for|do \d+ (?:squats|press-?ups|lunges)|\d+ bodyweight squats|plank while)\b/i.test(body)) warnings.push("At-home workout instruction");
+  if (/\b(?:burns?|burning) calories\b|\bcalorie deficit\b|\bafterburn\b/i.test(body)) warnings.push("Calorie mechanism claim");
   // A myth stated with fewer than two correcting sentences after it (item 2).
   if (mythLacksCorrection(body)) warnings.push("Myth stated without correction");
   var wc = (body.match(/\S+/g) || []).length;
@@ -1940,6 +1970,95 @@ function getValidAccessToken(cb) {
   .catch(function(e) { cb(e.message); });
 }
 
+// ── EXPORTED-PHOTO RECORD ────────────────────────────────────────────────
+// The permanent list of Drive file ids that have already gone out in a CSV.
+// This is the source of truth for "used", independent of which Drive folder a
+// file currently sits in — moving a photo back out of Used does not make it new.
+function getExportedIds() {
+  try { return JSON.parse(localStorage.getItem("sps_exported_ids") || "{}"); } catch(e) { return {}; }
+}
+
+function setExportedIds(rec) {
+  try { localStorage.setItem("sps_exported_ids", JSON.stringify(rec)); } catch(e) {}
+}
+
+// Seed the record from a list of Drive file ids (recovery, or a second device).
+// Call from the console: seedExportedIds(["1abc...","1def..."])
+function seedExportedIds(ids, stamp) {
+  var rec = getExportedIds(), added = 0;
+  (ids || []).forEach(function(fid) {
+    fid = String(fid).trim();
+    if (!fid) return;
+    if (!rec[fid]) { rec[fid] = stamp || new Date().toISOString(); added++; }
+  });
+  setExportedIds(rec);
+  // Re-flag anything already sitting in the library.
+  var flagged = 0;
+  imageLibrary.forEach(function(img) {
+    if (img.driveId && rec[img.driveId] && !img.exported) {
+      img.exported = true;
+      img.usedCount = img.usedCount || 1;
+      img.tagString = img.tagString === "analysing..." ? "already used" : img.tagString;
+      flagged++;
+    }
+  });
+  saveImageLibrary(); renderImgLibrary();
+  console.log("Exported record: " + added + " ids added, " + Object.keys(rec).length + " total. " + flagged + " library photos flagged as used.");
+  return { added: added, total: Object.keys(rec).length, flagged: flagged };
+}
+
+// Undo — puts photos back into rotation.
+function clearExportedIds(ids) {
+  var rec = getExportedIds();
+  if (ids && ids.length) { ids.forEach(function(f) { delete rec[String(f).trim()]; }); }
+  else { rec = {}; }
+  setExportedIds(rec);
+  imageLibrary.forEach(function(img) {
+    if (img.driveId && !rec[img.driveId]) { img.exported = false; img.usedCount = 0; }
+  });
+  saveImageLibrary(); renderImgLibrary();
+  console.log("Exported record now holds " + Object.keys(rec).length + " ids.");
+  return Object.keys(rec).length;
+}
+
+function usedPhotoSummary() {
+  var rec = getExportedIds();
+  var inLib = imageLibrary.filter(function(i) { return i.exported; }).length;
+  var avail = imageLibrary.filter(function(i) { return !i.exported && !i.analyzing; }).length;
+  console.log("Library: " + imageLibrary.length + " photos | " + avail + " available | " + inLib + " already used");
+  console.log("Permanent exported record: " + Object.keys(rec).length + " file ids");
+  return { total: imageLibrary.length, available: avail, used: inLib, recorded: Object.keys(rec).length };
+}
+
+// The 45 Drive file ids recovered from every CSV exported so far. Used to repair
+// the record after the Used folder was emptied back into the main folder.
+var KNOWN_USED_DRIVE_IDS = ["1-sGH6Oni8zNVUzvEk59uFsrwuGel00Cf", "111NFciBTfo073VHG4eYcGntk2v_ozRsD", "18GaMqbg06emYV78zmxD46P2cccAAbn4h", "19CKr1Ryjp6VGWDvDfnDBbTJNbwX4OCOS", "19UJDIpHqRPLvLJ8PCg8ViHG9broo1mIq", "1AOtRUEGHR9L4S9ogivsInFtuqhlgmVTQ", "1AlhxtIGCx-cx0r0wlBukF3lQ12MwShJF", "1DVGDOn0bXSmDu8NYUHkbiEpwF-t6MD2m", "1FeELoGKifoomnZbgUFUfuUpC_rnuQUF2", "1GI4m1rW4agDqlTSQtnJ9-eKgwPioaM65", "1G_hjE7LkpHRDlzgUM4x7-hsO6L94SXWJ", "1I-XYOV04jyGwTcLs2zXlYjygxh_dcgFX", "1I3Wgn2rCg3Yxqx0G0GN0xG5_JAVuOvGf", "1Jn6JiOh82BDi9-BcVkIMznhoPUfRhh03", "1N7u60Gv2-l0stYqo0ciTOrmYxQ2e-d5Y", "1NmFKbw4m4Ko1hGGmf6wGSsBEhrdG4J5X", "1OqKnLCby-7hdAnA2jKt_fqANU7YqqsGv", "1PeqBPKVjvq9Y6FO_iXdzJg57lqihfejP", "1XWjir0gs5K4-hpQjBo3YoUgFqqm8S_2u", "1_mA-bBAWi0vQF8EWlSv34lwcaseOS0qU", "1ac1Z5osgWwqq2kwu-9kLuhO6g98-akCl", "1avcx4XT_rrPswNqVdLnUZ_UX0wy5nEfN", "1bayr2mWGcVib5FMx9yvcRdj_qs6t6y2c", "1d8wIusMdgEyOZiIjibhRm6wdoRLYAvx4", "1dKQ6xvhEW1LBzlVYgBaMptc2gcojcaRb", "1dc6v6GH--ruOQbAwnov75cJqpgyktcil", "1dlTPgiPDIzPAvvpaCeT1OaK8KmQyQJwG", "1gdKcOTOiqMyetnoJyXUbXeZu-tymFal4", "1gqk25HxT9hSB0-SsrAzITzJfmr3mVyQC", "1hLgZ_9jttzc5OQxlGcrve7vVOSv5taXB", "1jh1YQz5lu9UW5omZZROpIFS0FCQ7RIhs", "1jzXw6sEhUuYNFSC-RAVP6nf_OZTPfbfi", "1mW-EVT_O6GvhU0Kh2k3a-bjoWSwKKsn2", "1oMv3K6yqYouDaGC8XXwpFAzwD0yTRuq8", "1obMxUBVOGa4E_l9_Vu6PiwBz-8Q528O6", "1p1Rq4KVFuZh9hHTOCIjLAKcj6M93QSg-", "1pCCBkm88TCXQnhe83k-OSXjZITQB9nTs", "1qKMz28_8x4-JygFbYFNdGWmiBZRi2X7V", "1qozerctd6GNZM-v5zwJ1yqzfMWc39gpE", "1sUNDkqBEP2geymztSmH076hMYH52gopY", "1tbSiKCckveenPXNtF6-ThwrzBlc8P9nq", "1vlMXZ1CT8yRWxF6QxUAlZ78aV3ToaRwm", "1wf2v9LjmA4FqiATz3vl7rQkYGGvJhfys", "1xJbqgDjqf-RCIHg1RLw-4anZbPuYE69V", "1zBVN-PE3XsiS_JLq3yM0Mkwk3kWgoWX-"];
+
+// One-click repair: mark every known-used photo as used, then move them back
+// into the Used subfolder in Drive. Safe to run more than once.
+function tidyUsedPhotos() {
+  var res = seedExportedIds(KNOWN_USED_DRIVE_IDS);
+  var el = document.getElementById("usedPhotoStatus");
+  var summary = usedPhotoSummary();
+  function say(t) { if (el) el.textContent = t; }
+  say(summary.available + " photos available, " + summary.used + " already used.");
+
+  if (!isGoogleConnected()) {
+    showStatus("imgStatus", "Marked " + res.total + " photos as used. Connect Google Drive to also move them into the Used folder.", "info");
+    renderImgLibrary();
+    return;
+  }
+  showStatus("imgStatus", "Marked " + res.total + " photos as used. Moving them to the Used folder in Drive...", "info");
+  moveUsedFilesToDrive(KNOWN_USED_DRIVE_IDS.slice(), function(moved, errors) {
+    if (moved > 0) {
+      showStatus("imgStatus", moved + " photo" + (moved !== 1 ? "s" : "") + " moved back to the Used folder. " + summary.available + " still available to use.", "success");
+    } else {
+      showStatus("imgStatus", "Photos marked as used, but the Drive move failed. Reconnect Google Drive and try again. They will still be skipped when picking photos.", "error");
+    }
+    renderImgLibrary();
+  });
+}
+
 function moveUsedFilesToDrive(driveIds, cb) {
   if (!driveIds.length) { if(cb) cb(0); return; }
   getValidAccessToken(function(err, token) {
@@ -2017,20 +2136,47 @@ function syncDrive() {
       setTimeout(function() { hideStatus("imgStatus"); }, 3000);
       return;
     }
-    showStatus("imgStatus", "Found " + newFiles.length + " new photo" + (newFiles.length !== 1 ? "s" : "") + " — tagging...", "info");
+    // Sync used to ignore the permanent exported record, so a photo moved back
+    // out of the Used folder in Drive reappeared as brand new. Anything already
+    // exported comes back flagged as used and is not re-tagged.
+    var exportedRec = getExportedIds();
+    var freshFiles = newFiles.filter(function(f) { return !exportedRec[f.id]; });
+    var seenFiles = newFiles.filter(function(f) { return !!exportedRec[f.id]; });
+
+    seenFiles.forEach(function(file) {
+      var sid = Date.now() + "_" + Math.floor(Math.random() * 100000);
+      var sIsVideo = file.mimeType && file.mimeType.indexOf("video") !== -1;
+      imageLibrary.push({
+        id: sid, driveId: file.id,
+        dataUrl: sIsVideo ? "" : "https://lh3.googleusercontent.com/d/" + file.id + "=w800",
+        filename: file.name, tags: [], tagString: "already used",
+        analyzing: false,
+        hostedUrl: "https://lh3.googleusercontent.com/d/" + file.id + "=w1600",
+        isVideo: sIsVideo, gender: "none", bestFor: "any",
+        usedCount: 1, exported: true, exportedAt: exportedRec[file.id]
+      });
+    });
+    if (seenFiles.length) { renderImgLibrary(); saveImageLibrary(); }
+
+    if (!freshFiles.length) {
+      showStatus("imgStatus", seenFiles.length + " photo" + (seenFiles.length !== 1 ? "s" : "") + " re-added and marked as already used. No genuinely new photos found.", "success");
+      setTimeout(function() { hideStatus("imgStatus"); }, 5000);
+      return;
+    }
+    showStatus("imgStatus", "Found " + freshFiles.length + " new photo" + (freshFiles.length !== 1 ? "s" : "") + " — tagging..." + (seenFiles.length ? " (" + seenFiles.length + " already used, skipped)" : ""), "info");
     var done = 0;
-    newFiles.forEach(function(file) {
+    freshFiles.forEach(function(file) {
       var id = Date.now() + "_" + Math.floor(Math.random() * 100000);
       var isVideo = file.mimeType && file.mimeType.indexOf("video") !== -1;
-      var hostedUrl = "https://drive.google.com/uc?export=download&id=" + file.id;
+      var hostedUrl = isVideo ? ("https://drive.google.com/uc?export=download&id=" + file.id) : ("https://lh3.googleusercontent.com/d/" + file.id + "=w1600");
       var thumbUrl = isVideo ? "" : "https://lh3.googleusercontent.com/d/" + file.id + "=w800";
       imageLibrary.push({id: id, driveId: file.id, dataUrl: thumbUrl, filename: file.name, tags: [], tagString: "analysing...", analyzing: true, hostedUrl: hostedUrl, isVideo: isVideo, gender: "none", bestFor: "any", usedCount: 0});
       renderImgLibrary();
       saveImageLibrary();
       analyseImageByUrl(id, file.id, function() {
         done++;
-        if (done === newFiles.length) {
-          showStatus("imgStatus", newFiles.length + " photo" + (newFiles.length !== 1 ? "s" : "") + " added and tagged! Total: " + imageLibrary.length, "success");
+        if (done === freshFiles.length) {
+          showStatus("imgStatus", freshFiles.length + " photo" + (freshFiles.length !== 1 ? "s" : "") + " added and tagged! Total: " + imageLibrary.length, "success");
           setTimeout(function() { hideStatus("imgStatus"); }, 4000);
         }
         renderImgLibrary();
@@ -3501,8 +3647,7 @@ function exportCSV() {
     if (queue[qi].mediaId) usedMediaIds[String(queue[qi].mediaId)] = true;
   }
   // Load existing exported IDs from localStorage
-  var exportedIds = {};
-  try { exportedIds = JSON.parse(localStorage.getItem("sps_exported_ids") || "{}"); } catch(e) {}
+  var exportedIds = getExportedIds();
 
   var removedCount = 0;
   if (Object.keys(usedMediaIds).length) {
@@ -3520,7 +3665,7 @@ function exportCSV() {
       }
     });
     // Save permanent record of exported Drive IDs
-    try { localStorage.setItem("sps_exported_ids", JSON.stringify(exportedIds)); } catch(e) {}
+    setExportedIds(exportedIds);
     if (removedCount > 0) {
       saveImageLibrary();
       renderImgLibrary();
