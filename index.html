@@ -4288,16 +4288,85 @@ function saveQModalEdit() {
   }
 }
 
+// Choose a photo by hand. Random swapping is fine for a quick change but there
+// was no way to say "use that one", which is what you need when the automatic
+// choice is wrong.
+function openPhotoPicker(id) {
+  var q = null;
+  for (var i = 0; i < queue.length; i++) { if (String(queue[i].id) === String(id)) { q = queue[i]; break; } }
+  if (!q) return;
+
+  var eligible = imageLibrary.filter(function(img) { return !img.analyzing; });
+  var g = function(img) { return img.gender || "none"; };
+  var matching = eligible.filter(function(img) {
+    if (q.aud === "women") return g(img) !== "men";
+    if (q.aud === "men") return g(img) !== "women";
+    return true;
+  });
+  var rest = eligible.filter(function(img) { return matching.indexOf(img) === -1; });
+
+  var host = document.getElementById("photoPickerGrid");
+  if (!host) return;
+  function tile(img, warn) {
+    var src = img.dataUrl || "";
+    if (src.indexOf("googleusercontent") > -1) src = "/.netlify/functions/imgproxy?url=" + encodeURIComponent(src);
+    var used = img.exported || (img.usedCount > 0);
+    return '<div onclick="pickPhotoForPost(\'' + id + '\',\'' + img.id + '\')" style="cursor:pointer;position:relative;border:2px solid ' +
+      (warn ? "rgba(239,68,68,0.6)" : "var(--border)") + ';border-radius:8px;overflow:hidden;background:var(--surface2)">' +
+      (img.isVideo
+        ? '<div style="height:90px;display:flex;align-items:center;justify-content:center;font-size:28px">&#x1F3A5;</div>'
+        : '<img src="' + src + '" style="width:100%;height:90px;object-fit:cover;display:block">') +
+      '<div style="font-size:10px;padding:3px 5px;color:var(--muted)">' + g(img) + (used ? " &middot; used" : "") + (warn ? " &middot; wrong gender" : "") + '</div></div>';
+  }
+
+  var html = "";
+  if (matching.length) html += '<div style="grid-column:1/-1;font-size:12px;color:var(--muted);margin-bottom:2px">Suitable for this post</div>' + matching.map(function(im) { return tile(im, false); }).join("");
+  if (rest.length) html += '<div style="grid-column:1/-1;font-size:12px;color:#ef4444;margin:8px 0 2px">Wrong gender for this post, use only if you are sure</div>' + rest.map(function(im) { return tile(im, true); }).join("");
+  if (!html) html = '<div style="grid-column:1/-1;color:var(--muted);font-size:13px">No photos in the library. Sync Google Drive in the Images tab.</div>';
+  host.innerHTML = html;
+  document.getElementById("photoPickerModal").style.display = "flex";
+}
+
+function pickPhotoForPost(qid, imgId) {
+  var q = null, img = null;
+  for (var i = 0; i < queue.length; i++) { if (String(queue[i].id) === String(qid)) { q = queue[i]; break; } }
+  for (var j = 0; j < imageLibrary.length; j++) { if (String(imageLibrary[j].id) === String(imgId)) { img = imageLibrary[j]; break; } }
+  if (!q || !img) return;
+  markImageUsed(img.id);
+  Object.assign(q, mediaFieldsFor(img));
+  saveQueueLocal();
+  saveQueueToSheets();
+  renderQueue();
+  closePhotoPicker();
+  expandQueueItem(qid);
+}
+
+function closePhotoPicker() {
+  var m = document.getElementById("photoPickerModal");
+  if (m) m.style.display = "none";
+}
+
 function swapQueueMedia(id) {
   if (!id) return;
   var q = null;
   for (var i = 0; i < queue.length; i++) { if (String(queue[i].id) === String(id)) { q = queue[i]; break; } }
   if (!q) return;
-  var ready = imageLibrary.filter(function(img) { return !img.analyzing && !_sessionUsedIds.has(String(img.id)); });
-  if (!ready.length) { alert("No other photos available."); return; }
+  // Swap used to pick at random from the whole library, wrong gender included,
+  // so swapping a men's photo off a women's post often produced another one.
+  var ready = imageLibrary.filter(function(img) {
+    if (img.analyzing) return false;
+    var g = img.gender || "none";
+    if (q.aud === "women" && g === "men") return false;
+    if (q.aud === "men" && g === "women") return false;
+    return true;
+  });
+  if (!ready.length) { alert("No photos of the right kind are available for this post. Add more in the Images tab."); return; }
   var current = q.mediaId;
   var others = ready.filter(function(img) { return String(img.id) !== String(current); });
   if (!others.length) others = ready;
+  // Prefer one not already used in this batch, but never at the cost of gender.
+  var fresh = others.filter(function(img) { return !_sessionUsedIds.has(String(img.id)); });
+  if (fresh.length) others = fresh;
   var picked = others[Math.floor(Math.random() * others.length)];
   markImageUsed(picked.id);
   Object.assign(q, mediaFieldsFor(picked));
@@ -4621,11 +4690,21 @@ renderImgLibrary();
       <button class="btn bp" onclick="saveQModalEdit()">&#x2713; Save changes</button>
       <button class="btn bc" id="qModalRegenBtn" onclick="regenerateQueuePost(currentQModalId)">&#x21BB; Regenerate post</button>
       <button class="btn bg" id="qModalApproveBtn" onclick="approveQueuePost(currentQModalId)">&#x2713; Approve anyway</button>
+      <button class="btn bg" onclick="openPhotoPicker(currentQModalId)">&#x1F5BC; Choose photo</button>
       <button class="btn bg" onclick="swapQueueMedia(currentQModalId)">&#x21C4; Swap photo</button>
       <button class="btn bg" onclick="removeQueueMedia(currentQModalId)">&#x2715; Remove photo</button>
       <button class="btn bg" style="margin-left:auto;background:rgba(239,68,68,0.15);color:#ef4444;border-color:rgba(239,68,68,0.3)" onclick="deleteQueueItem(currentQModalId)">&#x1F5D1; Delete post</button>
       <button class="btn bg" onclick="closeQModal()">Close</button>
     </div>
+  </div>
+</div>
+<div id="photoPickerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);max-width:760px;width:100%;max-height:85vh;overflow:auto;padding:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:600">Choose a photo</div>
+      <button class="btn bg" style="width:auto;padding:6px 12px;font-size:13px" onclick="closePhotoPicker()">Close</button>
+    </div>
+    <div id="photoPickerGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px"></div>
   </div>
 </div>
 </body>
