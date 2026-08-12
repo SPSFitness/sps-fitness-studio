@@ -2906,15 +2906,36 @@ function findBestImage(postType, aud) {
   if (!ready.length) ready = imageLibrary.filter(function(img) { return !img.analyzing; });
   if (!ready.length) return null;
 
-  // HARD STOP — exclude any image used in this batch session
-  var notUsedThisSession = ready.filter(function(img) { return !_sessionUsedIds.has(String(img.id)); });
-  // If all used this session, fall back to full pool (edge case with few images)
-  var pool = notUsedThisSession.length ? notUsedThisSession : ready;
+  // Gender is a HARD constraint and must be applied FIRST. It used to run last,
+  // after the pool had been narrowed to unused photos, and fell back to the full
+  // pool when nothing survived — which is how men's photos reached women's posts.
+  // Reusing a correct-gender photo is always better than using a wrong one.
+  function genderOk(img) {
+    var g = img.gender || "none";
+    if (aud === "women") return g !== "men";
+    if (aud === "men") return g !== "women";
+    return true;                       // mixed audience takes anything
+  }
+  var eligible = ready.filter(genderOk);
+  if (!eligible.length) {
+    // Nothing of the right gender exists at all. Prefer a neutral photo over a
+    // wrong-gender one; only as a last resort return nothing.
+    eligible = ready.filter(function(img) { var g = img.gender || "none"; return g === "none" || g === "mixed"; });
+    if (!eligible.length) return null;  // no photo beats the wrong photo
+  }
 
-  // Within that pool prefer historically unused
+  // For a mixed-audience post, prefer mixed or people-free shots within eligible.
+  if (aud !== "women" && aud !== "men") {
+    var neutral = eligible.filter(function(img) { var g = img.gender || "none"; return g === "mixed" || g === "none"; });
+    if (neutral.length) eligible = neutral;
+  }
+
+  // Now apply the reuse preferences WITHIN the gender-correct set.
+  var notUsedThisSession = eligible.filter(function(img) { return !_sessionUsedIds.has(String(img.id)); });
+  var pool = notUsedThisSession.length ? notUsedThisSession : eligible;
+
   var allUsed = pool.every(function(img) { return img.usedCount && img.usedCount > 0; });
   if (allUsed && notUsedThisSession.length > 0) {
-    // Reset counts only for non-session-used images
     for (var i = 0; i < imageLibrary.length; i++) {
       if (!_sessionUsedIds.has(String(imageLibrary[i].id))) imageLibrary[i].usedCount = 0;
     }
@@ -2923,21 +2944,7 @@ function findBestImage(postType, aud) {
   var unused = pool.filter(function(img) { return !img.usedCount || img.usedCount === 0; });
   pool = unused.length ? unused : pool;
 
-  // Gender matching: women posts get women/mixed photos, men posts get men/mixed photos
   var genderPool = pool;
-  if (aud === "women") {
-    // Strictly exclude male-only photos
-    var gp = pool.filter(function(img) { return img.gender !== "men"; });
-    if (gp.length) genderPool = gp;
-  } else if (aud === "men") {
-    // Strictly exclude female-only photos
-    var gp = pool.filter(function(img) { return img.gender !== "women"; });
-    if (gp.length) genderPool = gp;
-  } else {
-    // Everyone — prefer mixed or no-people photos, avoid single-gender
-    var gp = pool.filter(function(img) { return img.gender === "mixed" || img.gender === "none" || !img.gender; });
-    if (gp.length) genderPool = gp;
-  }
 
   // For reels posts prefer videos
   if (postType === "reels") {
