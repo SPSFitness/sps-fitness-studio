@@ -343,6 +343,7 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
 
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
           <button class="btn bp" style="width:auto;font-size:13px;padding:9px 16px" onclick="importUsedFromPaste()">Mark as used</button>
+          <button class="btn bg" style="width:auto;font-size:13px;padding:9px 16px" onclick="photoCoverage()">Photo coverage</button>
           <button class="btn bc" style="width:auto;font-size:13px;padding:9px 16px" onclick="moveUsedToDriveFolder()">Move used into Used folder</button>
           <button class="btn bg" style="width:auto;font-size:13px;padding:9px 16px" onclick="showUsedSummary()">What have I got left?</button>
           <button class="btn bg" style="width:auto;font-size:13px;padding:9px 16px;margin-left:auto" onclick="releaseAllUsed()">Release all</button>
@@ -2586,14 +2587,27 @@ function syncDrive() {
       imageLibrary.push({
         id: sid, driveId: file.id,
         dataUrl: sIsVideo ? "" : "https://lh3.googleusercontent.com/d/" + file.id + "=w800",
-        filename: file.name, tags: [], tagString: "already used",
-        analyzing: false,
+        filename: file.name, tags: [], tagString: sIsVideo ? "already used" : "analysing...",
+        analyzing: !sIsVideo,
         hostedUrl: "https://lh3.googleusercontent.com/d/" + file.id + "=w1600",
-        isVideo: sIsVideo, gender: "none", bestFor: "any",
+        isVideo: sIsVideo, gender: "unknown", bestFor: "any",
         usedCount: 1, exported: true, exportedAt: exportedRec[file.id]
       });
     });
-    if (seenFiles.length) { renderImgLibrary(); saveImageLibrary(); }
+    if (seenFiles.length) {
+      renderImgLibrary(); saveImageLibrary();
+      // These were previously stored as gender "none", which means "no people in
+      // the photo" and therefore matches every post. That is how men's photos
+      // reached women's posts. Tag them properly even though they are used.
+      seenFiles.forEach(function(file) {
+        if (file.mimeType && file.mimeType.indexOf("video") !== -1) return;
+        var entry = null;
+        for (var z = 0; z < imageLibrary.length; z++) {
+          if (String(imageLibrary[z].driveId) === String(file.id)) { entry = imageLibrary[z]; break; }
+        }
+        if (entry) analyseImageByUrl(entry.id, file.id, function() { renderImgLibrary(); saveImageLibrary(); });
+      });
+    }
 
     if (!freshFiles.length) {
       showStatus("imgStatus", seenFiles.length + " photo" + (seenFiles.length !== 1 ? "s" : "") + " re-added and marked as already used. No genuinely new photos found.", "success");
@@ -2631,6 +2645,10 @@ function addImageUrls() {
 }
 
 function analyseImageByUrl(id, driveFileId, cb) {
+  // Never overwrite a tag someone has set by hand.
+  for (var _g = 0; _g < imageLibrary.length; _g++) {
+    if (String(imageLibrary[_g].id) === String(id) && imageLibrary[_g].genderLocked) { if (cb) cb(); return; }
+  }
   // Fetch image as base64 via imgproxy then send to Claude for analysis
   var proxyUrl = "https://merry-flan-9e55eb.netlify.app/.netlify/functions/imgproxy?url=" + encodeURIComponent("https://lh3.googleusercontent.com/d/" + driveFileId + "=w800");
   fetch(proxyUrl)
@@ -2728,6 +2746,49 @@ function clearAllImages() {
 }
 
 
+
+// Correct a photo's gender tag by hand. The AI tagger is right most of the time
+// but not always, and one mislabelled photo keeps landing on the wrong posts
+// until someone can say otherwise.
+function setImageGender(id, gender) {
+  for (var i = 0; i < imageLibrary.length; i++) {
+    if (String(imageLibrary[i].id) === String(id)) {
+      imageLibrary[i].gender = gender;
+      imageLibrary[i].genderLocked = true;   // do not let re-tagging overwrite it
+      imageLibrary[i].analyzing = false;
+      if (imageLibrary[i].tagString === "analysing..." || imageLibrary[i].tagString === "already used") imageLibrary[i].tagString = gender;
+      saveImageLibrary();
+      renderImgLibrary();
+      return;
+    }
+  }
+}
+
+function cycleImageGender(id) {
+  var order = ["women", "men", "mixed", "none"];
+  for (var i = 0; i < imageLibrary.length; i++) {
+    if (String(imageLibrary[i].id) === String(id)) {
+      var cur = imageLibrary[i].gender || "unknown";
+      var idx = order.indexOf(cur);
+      setImageGender(id, order[(idx + 1) % order.length]);
+      return;
+    }
+  }
+}
+
+// How many photos are usable for each audience. Worth knowing before wondering
+// why the same picture keeps coming up.
+function photoCoverage() {
+  var c = { women: 0, men: 0, mixed: 0, none: 0, unknown: 0 };
+  imageLibrary.forEach(function(i) { var g = i.gender || "unknown"; if (c[g] === undefined) c[g] = 0; c[g]++; });
+  var msg = "Photo library: " + imageLibrary.length + " total\n\n" +
+    "Women only: " + c.women + "\nMen only: " + c.men + "\nMixed: " + c.mixed + "\nNo people: " + c.none + "\nNot tagged: " + c.unknown +
+    "\n\nUsable on a women's post: " + (c.women + c.mixed + c.none) +
+    "\nUsable on a men's post: " + (c.men + c.mixed + c.none) +
+    "\nUsable on an everyone post: " + (c.mixed + c.none);
+  if (c.unknown) msg += "\n\n" + c.unknown + " photos are not tagged and will not be used on any post until they are. Click a photo's tag to set it.";
+  alert(msg);
+}
 
 function renderImgLibrary() {
   var card = document.getElementById("imgLibraryCard");
@@ -2915,9 +2976,10 @@ function findBestImage(postType, aud) {
   // Reusing a correct-gender photo is always better than using a wrong one.
   function genderOk(img) {
     var g = img.gender || "none";
-    if (aud === "women") return g !== "men";
-    if (aud === "men") return g !== "women";
-    return true;                       // mixed audience takes anything
+    // "unknown" means not yet tagged, so it is not safe for a gendered post.
+    if (aud === "women") return g !== "men" && g !== "unknown";
+    if (aud === "men") return g !== "women" && g !== "unknown";
+    return g !== "unknown";
   }
   var eligible = ready.filter(genderOk);
   if (!eligible.length) {
@@ -4394,8 +4456,8 @@ function autoAssignPhotos(force) {
   function eligibleFor(q) {
     return ready.filter(function(img) {
       var g = img.gender || "none";
-      if (q.aud === "women" && g === "men") return false;
-      if (q.aud === "men" && g === "women") return false;
+      if (q.aud === "women" && (g === "men" || g === "unknown")) return false;
+      if (q.aud === "men" && (g === "women" || g === "unknown")) return false;
       if (taken[String(img.driveId)]) return false;
       return true;
     });
@@ -4408,8 +4470,8 @@ function autoAssignPhotos(force) {
       // Allow reuse rather than leave the post bare, but never break gender.
       options = ready.filter(function(img) {
         var g = img.gender || "none";
-        if (q.aud === "women" && g === "men") return false;
-        if (q.aud === "men" && g === "women") return false;
+        if (q.aud === "women" && (g === "men" || g === "unknown")) return false;
+        if (q.aud === "men" && (g === "women" || g === "unknown")) return false;
         return true;
       });
     }
@@ -4438,9 +4500,9 @@ function openPhotoPicker(id) {
   var eligible = imageLibrary.filter(function(img) { return !img.analyzing; });
   var g = function(img) { return img.gender || "none"; };
   var matching = eligible.filter(function(img) {
-    if (q.aud === "women") return g(img) !== "men";
-    if (q.aud === "men") return g(img) !== "women";
-    return true;
+    if (q.aud === "women") return g(img) !== "men" && g(img) !== "unknown";
+    if (q.aud === "men") return g(img) !== "women" && g(img) !== "unknown";
+    return g(img) !== "unknown";
   });
   var rest = eligible.filter(function(img) { return matching.indexOf(img) === -1; });
 
@@ -4495,8 +4557,8 @@ function swapQueueMedia(id) {
   var ready = imageLibrary.filter(function(img) {
     if (img.analyzing) return false;
     var g = img.gender || "none";
-    if (q.aud === "women" && g === "men") return false;
-    if (q.aud === "men" && g === "women") return false;
+    if (q.aud === "women" && (g === "men" || g === "unknown")) return false;
+    if (q.aud === "men" && (g === "women" || g === "unknown")) return false;
     return true;
   });
   if (!ready.length) { alert("No photos of the right kind are available for this post. Add more in the Images tab."); return; }
