@@ -3250,6 +3250,10 @@ function assignQueueMedia(qid) {
 }
 
 function renderQueue() {
+  // Guarantee unique ids on every render. Repairing only on load missed queues
+  // that arrived by any other route, and duplicate ids make every lookup return
+  // the first match, so several posts all opened the same one.
+  dedupeQueueIds(queue);
   var list = document.getElementById("queueList");
   var now = new Date();
   var we = new Date(now); we.setDate(now.getDate() + 7);
@@ -3266,7 +3270,7 @@ function renderQueue() {
     var q = queue[i];
     var due = new Date(q.date+"T"+q.time) <= now;
     var prev = q.text.replace(/\n/g," ").substring(0,100) + (q.text.length > 100 ? "..." : "");
-    html += '<div class="qi" onclick="expandQueueItem(\'' + q.id + '\')" style="cursor:pointer"><div class="qicon" style="background:'+(IBGS[q.type]||"rgba(100,100,100,0.15)")+'">'+( ICONS[q.type]||"&#x1F4DD;")+'</div>';
+    html += '<div class="qi" onclick="expandQueueItemAt(' + i + ')" style="cursor:pointer"><div class="qicon" style="background:'+(IBGS[q.type]||"rgba(100,100,100,0.15)")+'">'+( ICONS[q.type]||"&#x1F4DD;")+'</div>';
     html += '<div class="qb"><span class="badge '+(BADGE[q.type]||"bm")+'">'+q.type+'</span>';
     html += ' <span class="badge" style="background:rgba(61,139,255,0.15);color:var(--blue2)">'+(audLabels[q.aud]||q.aud)+'</span>';
     if (due) html += ' <span class="badge" style="background:rgba(255,184,0,0.15);color:#ffb800">Due</span>';
@@ -4051,6 +4055,15 @@ function updateQModalWarnings(text, short, approved) {
 }
 
 
+
+// Open by position in the rendered list. The list is drawn straight from the
+// queue array, so the index always points at the post that was clicked, even if
+// an id is somehow duplicated.
+function expandQueueItemAt(index) {
+  var q = queue[index];
+  if (!q) return;
+  expandQueueItem(q.id);
+}
 
 function expandQueueItem(id) {
   var q = null;
