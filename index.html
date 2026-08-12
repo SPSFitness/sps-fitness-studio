@@ -1455,6 +1455,7 @@ function dropResearchSentences(text) {
   var mechanismRe = /\b(hormon\w*|cortisol|insulin|testosterone|growth hormone|blood sugar|blood pressure|cholesterol|metabolis\w*|inflammat\w*|oestrogen|visceral fat|immune system|burns? calories|burning calories|burns? more energy|energy at rest|calorie deficit|calorie surplus|afterburn|epoc|immune|nervous system|cardiovascular system)\b/i;
   // A free-session or free-trial promise is an operational claim the post is not
   // allowed to invent. Drop the whole sentence.
+  var scarcityRe = /\b(?:full|fully booked|booked up|no spaces|waiting list|priority list|wait list)\b[^.!?]*|\b(?:spaces?|places?)\s+(?:are\s+)?(?:limited|running out|going fast)\b[^.!?]*|\buntil\s+(?:mid\s+)?next year\b[^.!?]*/i;
   var freeRe = /\b(?:first|1st|taster|trial|intro|introductory)\s+(?:session|class|week|month)\s+(?:is\s+)?free\b|\bfree\s+(?:first\s+)?(?:session|class|trial|taster|week|month)\b|\bno\s+(?:cost|charge)\s+to\s+(?:try|start)\b/i;
   var pctRe = /\b\d{1,3}\s?(?:%|percent)\b/i;
   // Sub-item C: a month name in operational/temporal context (in/from/by/starting
@@ -1465,6 +1466,7 @@ function dropResearchSentences(text) {
     if (researchRe.test(s)) return false;
     if (mechanismRe.test(s)) return false;
     if (freeRe.test(s)) return false;
+    if (scarcityRe.test(s)) return false;
     if (monthRe.test(s)) return false;
     if (pctRe.test(s) && !/\b(member|members|over 50|half)\b/i.test(s)) return false;
     return true;
@@ -1488,6 +1490,11 @@ function stripBannedTerms(t) {
   t = t.replace(/\b(walk|walks|walked|walking|get|gets|got|getting|go|goes|went|going)\s+upstairs\b/gi, "$1 around");
   t = t.replace(/\bupstairs\b/gi, "around the house");
   t = t.replace(/\bstairs (?:don't|do not|aren't|are not)[^.?!]*/gi, "everyday things feel easier");
+  // Only replace "stairs" where the result still reads. "the top of the stairs"
+  // became "the top of the everyday tasks", so those phrasings are rewritten whole.
+  t = t.replace(/\b(?:the\s+)?top of the stairs\b/gi, "a flight of steps");
+  t = t.replace(/\b(?:the\s+)?bottom of the stairs\b/gi, "a flight of steps");
+  t = t.replace(/\btake the stairs\b/gi, "keep moving");
   t = t.replace(/\bstairs\b/gi, "everyday tasks");
   t = t.replace(/\bgrand(?:kids?|child(?:ren)?|dad|ma)\b/gi, "family");
   // Burpees are banned. Absorb the preceding determiner so the grammar survives:
@@ -1777,7 +1784,28 @@ function validatePost(text, short) {
   if (/\bburpees?\b/i.test(body)) warnings.push("Banned term: burpees");
   if (/\b\d{1,3}\s?-?\s?\d{0,3}\s?g\s+of\s+protein\b|\b\d{1,3}g\s+protein\b|\bmeal prep\b|\bcalorie (?:surplus|deficit)\b|\bcook your protein\b/i.test(body)) warnings.push("Nutrition prescription");
   if (/\b(?:first|taster|trial|intro)\s+(?:session|class|week)\s+(?:is\s+)?free\b|\bfree\s+(?:first\s+)?(?:session|class|trial|taster)\b/i.test(body)) warnings.push("Free session claim");
-  if (/\b(?:before the kettle|while the kettle|kettle boils|at the kitchen|kitchen counter|against the counter|while the coffee|while you wait for|do \d+ (?:squats|press-?ups|lunges)|\d+ bodyweight squats|plank while)\b/i.test(body)) warnings.push("At-home workout instruction");
+  // Any prescriptive routine the reader is meant to perform alone. The kettle
+  // wording was only ever one example; hold times and rep counts are the tell.
+  if (/\b(?:before the kettle|while the kettle|kettle boils|kitchen counter|against the counter|while the coffee|while you wait for)\b/i.test(body) ||
+      /\bhold (?:it |for |this )?(?:for )?\d+ seconds?\b/i.test(body) ||
+      /\b\d+ seconds? (?:each side|each leg|per side|hold)\b/i.test(body) ||
+      /\bdo \d+ (?:squats|press-?ups|push-?ups|lunges|reps|rounds)\b/i.test(body) ||
+      /\b(?:still in bed|before your feet|before you get out of bed|lying on your back|knees to chest|roll onto your)\b/i.test(body) ||
+      /\b(?:four seconds in|box breathing|breathe in for \d)\b/i.test(body))
+    warnings.push("At-home workout instruction");
+  if (/\b(?:physio bills|doctor said|blood test|cholesterol dropped|off his medication|off her medication|came off my)\b/i.test(body)) warnings.push("Health outcome claim");
+  if (/\b(?:waiting list|priority list|wait list|fully booked|booked up|full until|no spaces left)\b/i.test(body)) warnings.push("Invented scarcity");
+  if (/\bsomeone\b/i.test(body) && /\b(?:tired someone|this is someone|someone still deserves|a someone|the someone)\b/i.test(body)) warnings.push("Name filter residue");
+  if (/\b\d{1,2}[- ]minute session\b|\bsessions? (?:are|last|run for) \d{1,2}\b/i.test(body)) warnings.push("Session length stated");
+  // A first line that is one short word ending in a full stop is a split scar
+  // ("Twelve." / "The." / "Will I Be."), never a real headline.
+  var fLine = (body.split(/\n/)[0] || "").trim();
+  if (/^["'“”]?[A-Z][A-Za-z' ]{0,14}\.$/.test(fLine) && fLine.replace(/[^A-Za-z ]/g, "").trim().split(/\s+/).length <= 3 && !/\?$/.test(fLine)) warnings.push("Broken headline fragment");
+  // A capital mid-sentence, or a comma before a contraction, is leftover damage
+  // from an earlier pass ("you Want to get back", "home workouts just, don't").
+  // Scan every line, not just the first: the scar can appear anywhere.
+  if (/(?:^|[a-z,])\s+[A-Z][a-z]{2,}\s+(?:to|the|a|that|it|you|your|back|for)\b/m.test(body.replace(/(?:^|[.!?"'\u201c\u201d]\s*)[A-Z]/gm, "x"))) warnings.push("Stray mid-sentence capital");
+  if (/,\s*(?:don't|doesn't|didn't|won't|can't|isn't|aren't)\b/i.test(body)) warnings.push("Comma splice before contraction");
   if (/\b(?:burns?|burning) calories\b|\bcalorie deficit\b|\bafterburn\b/i.test(body)) warnings.push("Calorie mechanism claim");
   // A myth stated with fewer than two correcting sentences after it (item 2).
   if (mythLacksCorrection(body)) warnings.push("Myth stated without correction");
@@ -1820,6 +1848,63 @@ function postFailedCleaning(rawText) {
 // an anti-research instruction; then if it still overruns the hard 220-word
 // ceiling send it back for one shortening pass. Post generation only — other
 // callAPI paths (image tagging, infographics, video) are untouched.
+// ── SEVERITY AND THE EXPORT GATE ─────────────────────────────────────────
+// Patching cleanPostText one failure at a time will never converge: the model
+// keeps finding new routes through. The gate is the structural answer. Warnings
+// are graded, anything BLOCKING cannot reach a CSV, and the batch generator
+// regenerates a blocked post instead of queueing it.
+
+var BLOCKING_WARNINGS = [
+  "Wrong location corrected",     // invented town — worst possible error
+  "Invented scarcity",            // waiting lists and full-until claims
+  "Free session claim",           // a promise you would have to honour
+  "Pricing mentioned",
+  "Session schedule mentioned",
+  "Session length stated",
+  "At-home workout instruction",  // undermines the coaching proposition
+  "Health outcome claim",
+  "Nutrition prescription",
+  "Physiological mechanism claim",
+  "Calorie mechanism claim",
+  "Doubled name placeholder",
+  "Name filter residue",
+  "Myth stated without correction",
+  "Banned term: burpees",
+  "Specific time",
+  "Dangling preposition",
+  "Space before punctuation",
+  "Bracketed placeholder",
+  "Session frequency too high",
+  "Broken headline fragment",
+  "Stray mid-sentence capital",
+  "Comma splice before contraction"
+];
+
+function warningSeverity(w) {
+  for (var i = 0; i < BLOCKING_WARNINGS.length; i++) {
+    if (w.indexOf(BLOCKING_WARNINGS[i]) === 0) return "blocking";
+  }
+  return "review";
+}
+
+function blockingWarnings(text, short) {
+  return validatePost(text, short).filter(function(w) { return warningSeverity(w) === "blocking"; });
+}
+
+// Regenerate a post until it passes, then hand back whatever came out. The
+// retry prompt names the specific failures so the model is not guessing.
+function generateCleanPost(sys, prompt, short, cb, attempt) {
+  attempt = attempt || 1;
+  generatePost(sys, prompt, short, function(err, text) {
+    if (err) { cb(err, null, []); return; }
+    var blocked = blockingWarnings(text, short);
+    if (!blocked.length || attempt >= 3) { cb(null, text, blocked); return; }
+    var fixNote = "\n\nThe previous attempt was rejected for: " + blocked.join("; ") +
+      ". Write it again avoiding those completely. Do not mention session times, schedules, session length, prices, free sessions, waiting lists, spaces being full, any location other than Halesowen, any physiological mechanism, any nutrition target, or any routine the reader performs at home. Do not name anyone.";
+    generateCleanPost(sys, prompt + fixNote, short, cb, attempt + 1);
+  });
+}
+
 function generatePost(sys, prompt, short, cb) {
   callAPI(sys, prompt, function(err, text) {
     if (err || !text) { cb(err, text); return; }
@@ -3010,7 +3095,12 @@ function renderQueue() {
     html += ' <span class="badge" style="background:rgba(61,139,255,0.15);color:var(--blue2)">'+(audLabels[q.aud]||q.aud)+'</span>';
     if (due) html += ' <span class="badge" style="background:rgba(255,184,0,0.15);color:#ffb800">Due</span>';
     var qWarn = validatePost(q.text, q.short);
-    if (qWarn.length) html += ' <span class="qwarn-badge" title="' + qWarn.join(", ") + '">&#x26A0; ' + qWarn.length + '</span>';
+    var qBlock = qWarn.filter(function(w) { return warningSeverity(w) === "blocking"; });
+    if (qBlock.length) {
+      html += ' <span class="qwarn-badge" style="background:rgba(239,68,68,0.2);color:#ef4444;border-color:rgba(239,68,68,0.4)" title="BLOCKED — will not export: ' + qBlock.join(", ") + '">&#x26D4; ' + qBlock.length + '</span>';
+    } else if (qWarn.length) {
+      html += ' <span class="qwarn-badge" title="' + qWarn.join(", ") + '">&#x26A0; ' + qWarn.length + '</span>';
+    }
     html += '<div class="qp">'+prev+'</div><div class="qt">'+fmtDate(q.date)+' at '+q.time+'</div>';
     // Find assigned media
     var qMedia = null;
@@ -3062,7 +3152,7 @@ function doDay() {
     var sys = p.aud === "women" ? SYS_WOMEN : (p.aud === "men" ? SYS_MEN : SYS_ALL);
     var idx = i;
     requestWakeLock();
-    generatePost(sys, p.type === "fromleads" ? (getLeadInsightsPrompt(p.type, p.aud) || getPrompt(p.type, p.aud, p.angle || "", p.short)) : getPrompt(p.type, p.aud, p.angle || "", p.short), p.short, function(err, text) {
+    generateCleanPost(sys, p.type === "fromleads" ? (getLeadInsightsPrompt(p.type, p.aud) || getPrompt(p.type, p.aud, p.angle || "", p.short)) : getPrompt(p.type, p.aud, p.angle || "", p.short), p.short, function(err, text, blocked) {
       done++;
       var prog = document.getElementById("prog1");
       if (prog) prog.textContent = done;
@@ -3110,7 +3200,7 @@ function doWeek() {
     var p = plan[i];
     var sys = p.aud === "women" ? SYS_WOMEN : (p.aud === "men" ? SYS_MEN : SYS_ALL);
     var idx = i;
-    generatePost(sys, p.type === "fromleads" ? (getLeadInsightsPrompt(p.type, p.aud) || getPrompt(p.type, p.aud, p.angle || "", p.short)) : getPrompt(p.type, p.aud, p.angle || "", p.short), p.short, function(err, text) {
+    generateCleanPost(sys, p.type === "fromleads" ? (getLeadInsightsPrompt(p.type, p.aud) || getPrompt(p.type, p.aud, p.angle || "", p.short)) : getPrompt(p.type, p.aud, p.angle || "", p.short), p.short, function(err, text, blocked) {
       done++;
       var prog = document.getElementById("prog7");
       if (prog) prog.textContent = done;
@@ -3618,7 +3708,7 @@ function do10Days() {
     var p = plan[i];
     var sys = p.aud === "women" ? SYS_WOMEN : (p.aud === "men" ? SYS_MEN : SYS_ALL);
     var idx = i;
-    generatePost(sys, p.type === "fromleads" ? (getLeadInsightsPrompt(p.type, p.aud) || getPrompt(p.type, p.aud, p.angle, p.short)) : getPrompt(p.type, p.aud, p.angle, p.short), p.short, function(err, text) {
+    generateCleanPost(sys, p.type === "fromleads" ? (getLeadInsightsPrompt(p.type, p.aud) || getPrompt(p.type, p.aud, p.angle, p.short)) : getPrompt(p.type, p.aud, p.angle, p.short), p.short, function(err, text, blocked) {
       done++;
       var prog = document.getElementById("prog10");
       if (prog) prog.textContent = done;
@@ -3670,7 +3760,7 @@ function do30Days() {
     var plan = PLAN[i];
     var sys = plan.aud === "women" ? SYS_WOMEN : (plan.aud === "men" ? SYS_MEN : SYS_ALL);
     var idx = i;
-    generatePost(sys, plan.type === "fromleads" ? (getLeadInsightsPrompt(plan.type, plan.aud) || getPrompt(plan.type, plan.aud, plan.angle || "", plan.short)) : getPrompt(plan.type, plan.aud, plan.angle || "", plan.short), plan.short, function(err, text) {
+    generateCleanPost(sys, plan.type === "fromleads" ? (getLeadInsightsPrompt(plan.type, plan.aud) || getPrompt(plan.type, plan.aud, plan.angle || "", plan.short)) : getPrompt(plan.type, plan.aud, plan.angle || "", plan.short), plan.short, function(err, text, blocked) {
       done++;
       var prog = document.getElementById("prog30");
       if (prog) prog.textContent = done;
@@ -3829,6 +3919,22 @@ function exportCSV() {
 
   // High Level Basic Format: postAtSpecificTime (YYYY-MM-DD HH:mm:ss),content,link,imageUrls,gifUrl,videoUrls,thumbnailUrl
   var headers = ["postAtSpecificTime (YYYY-MM-DD HH:mm:ss)", "content", "link (OGmetaUrl)", "imageUrls", "gifUrl", "videoUrls", "thumbnailUrl"];
+  // Export gate. Nothing with a blocking warning reaches a CSV, so a bad post
+  // cannot be published by accident. This is the guarantee: if it exports, it
+  // passed every check.
+  var gateFails = [];
+  queue.forEach(function(q) {
+    var bad = blockingWarnings(q.text, q.short);
+    if (bad.length) gateFails.push({ date: q.date, time: q.time, why: bad });
+  });
+  if (gateFails.length) {
+    var lines = gateFails.slice(0, 12).map(function(f) { return "  " + f.date + " " + f.time + " — " + f.why.join(", "); });
+    alert(gateFails.length + " post" + (gateFails.length !== 1 ? "s" : "") + " cannot be exported:\n\n" + lines.join("\n") +
+      (gateFails.length > 12 ? "\n  ..." : "") +
+      "\n\nOpen each one in the queue and press Regenerate, or delete it. Nothing exports until these are clear.");
+    return;
+  }
+
   var rows = [headers];
   var missingMedia = [];
 
