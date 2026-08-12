@@ -1293,7 +1293,9 @@ function restoreProperNouns(line) {
 
 function toSentenceCase(line) {
   var low = String(line).trim().toLowerCase();
-  low = low.charAt(0).toUpperCase() + low.slice(1);
+  // Capitalise the first actual letter, skipping any opening quote or bracket.
+  low = low.replace(/^(["'“”‘’(\[]?\s*)([a-z])/, function(m, pre, c) { return pre + c.toUpperCase(); });
+  low = low.replace(/\bi\b/g, "I").replace(/\bi'(m|ve|ll|d)\b/g, "I'$1");
   return restoreProperNouns(low);
 }
 
@@ -1662,7 +1664,10 @@ function cleanPostText(text) {
   body = tidyScars(body).replace(/\n{2,}/g, "\n\n").trim();
   // Recapitalise sentence starts and the opening character (BUG2/BUG4)
   body = body.replace(/([.!?]["'”’]?\s+|\n+)([a-z])/g, function(m, pre, c) { return pre + c.toUpperCase(); });
-  body = body.replace(/^(\s*)([a-z])/, function(m0, sp, c) { return sp + c.toUpperCase(); });
+  // Allow a leading quote or bracket: a post opening on a quoted question was
+  // being left entirely lowercase because the first character was not a letter.
+  body = body.replace(/^(\s*["'“”‘’(\[]?\s*)([a-z])/, function(m0, pre, c) { return pre + c.toUpperCase(); });
+  body = body.replace(/(^|[^A-Za-z'])i([^A-Za-z']|$)/g, "$1I$2").replace(/(^|[^A-Za-z'])i'(m|ve|ll|d)\b/g, "$1I'$2");
   body = restoreProperNouns(body);
   return body + "\n\n" + hashStr;
 }
@@ -1770,6 +1775,7 @@ function validatePost(text, short) {
   // Two or three sessions a week is the offer. Four or more is not.
   if (/\b(?:four|five|six|seven|4|5|6|7)\s+(?:days?|times?|sessions?)\s+a\s+week\b/i.test(body) && !/\b(?:not|isn't|is not|don't|do not|instead of|rather than|myth|wrong|rubbish|six days a week sounds)\b/i.test(body)) warnings.push("Session frequency too high");
   if (/\bburpees?\b/i.test(body)) warnings.push("Banned term: burpees");
+  if (/\b\d{1,3}\s?-?\s?\d{0,3}\s?g\s+of\s+protein\b|\b\d{1,3}g\s+protein\b|\bmeal prep\b|\bcalorie (?:surplus|deficit)\b|\bcook your protein\b/i.test(body)) warnings.push("Nutrition prescription");
   if (/\b(?:first|taster|trial|intro)\s+(?:session|class|week)\s+(?:is\s+)?free\b|\bfree\s+(?:first\s+)?(?:session|class|trial|taster)\b/i.test(body)) warnings.push("Free session claim");
   if (/\b(?:before the kettle|while the kettle|kettle boils|at the kitchen|kitchen counter|against the counter|while the coffee|while you wait for|do \d+ (?:squats|press-?ups|lunges)|\d+ bodyweight squats|plank while)\b/i.test(body)) warnings.push("At-home workout instruction");
   if (/\b(?:burns?|burning) calories\b|\bcalorie deficit\b|\bafterburn\b/i.test(body)) warnings.push("Calorie mechanism claim");
@@ -1782,7 +1788,7 @@ function validatePost(text, short) {
   var oddNouns = unexpectedProperNouns(body);
   if (oddNouns.length) warnings.push("Check proper noun: " + oddNouns.join(", "));
   if (/\b(?:current\s+)?(?:morning|evening|lunchtime|afternoon)\s+(?:slots?|sessions?|times?)\b|\bslots?:\s*[A-Z]/i.test(body)) warnings.push("Session schedule mentioned");
-  if (/\b(?:what it costs|the cost|cost,|pricing|price|how much)\b/i.test(body)) warnings.push("Pricing mentioned");
+  if (/\b(?:what it costs|how much it costs|the cost|cost,|costs,|pricing|prices|how much is it)\b/i.test(body) && !/\bpay(?:ing)? the price\b/i.test(body)) warnings.push("Pricing mentioned");
   if (/\b(?:nervous system|cardiovascular system|burns? more energy|energy at rest|calorie surplus|body composition)\b/i.test(body)) warnings.push("Physiological mechanism claim");
   var wc = (body.match(/\S+/g) || []).length;
   if (wc > 220) warnings.push("Too long (" + wc + " words)");
