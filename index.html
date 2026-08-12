@@ -344,6 +344,7 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
           <button class="btn bp" style="width:auto;font-size:13px;padding:9px 16px" onclick="importUsedFromPaste()">Mark as used</button>
           <button class="btn bg" style="width:auto;font-size:13px;padding:9px 16px" onclick="photoCoverage()">Photo coverage</button>
+          <button class="btn bg" style="width:auto;font-size:13px;padding:9px 16px" onclick="checkStore()">Check cloud sync</button>
           <button class="btn bc" style="width:auto;font-size:13px;padding:9px 16px" onclick="moveUsedToDriveFolder()">Move used into Used folder</button>
           <button class="btn bg" style="width:auto;font-size:13px;padding:9px 16px" onclick="showUsedSummary()">What have I got left?</button>
           <button class="btn bg" style="width:auto;font-size:13px;padding:9px 16px;margin-left:auto" onclick="releaseAllUsed()">Release all</button>
@@ -3059,6 +3060,11 @@ function markImageUsed(id) {
 
 // ── GOOGLE SHEETS BACKEND ─────────────────────────────────────────────────
 
+// The store failures were invisible: a non-JSON response returned a bare string
+// and nothing ever reported it, so the queue and history silently stopped
+// persisting for weeks. Errors now carry the status and a snippet of the body.
+var _storeLastError = "";
+
 function sheetsGet(action, cb) {
   fetch(SHEETS_URL + "?action=" + action, {
     method: "GET",
@@ -3066,11 +3072,36 @@ function sheetsGet(action, cb) {
   })
   .then(function(r) {
     var ct = r.headers.get("content-type") || "";
-    if (!ct.includes("application/json")) return cb("Sheets returned non-JSON");
-    return r.json();
+    if (!ct.includes("application/json")) {
+      return r.text().then(function(body) {
+        _storeLastError = "GET " + action + " -> HTTP " + r.status + " (" + (ct || "no content-type") + "): " + String(body).slice(0, 200);
+        console.warn("Store error:", _storeLastError);
+        cb(_storeLastError);
+      });
+    }
+    return r.json().then(function(d) { _storeLastError = ""; if (d) cb(null, d); });
   })
-  .then(function(d) { if(d) cb(null, d); })
-  .catch(function(e) { cb(e.message); });
+  .catch(function(e) {
+    _storeLastError = "GET " + action + " -> " + e.message;
+    console.warn("Store error:", _storeLastError);
+    cb(e.message);
+  });
+}
+
+// Diagnose the cloud store from the app rather than the console.
+function checkStore() {
+  var out = [];
+  sheetsGet("getQueue", function(err, d) {
+    out.push(err ? "getQueue FAILED: " + err : "getQueue OK: " + ((d.queue || []).length) + " posts");
+    sheetsGet("getHistory", function(err2, d2) {
+      out.push(err2 ? "getHistory FAILED: " + err2 : "getHistory OK: " + ((d2.history || []).length) + " entries");
+      var local = 0;
+      try { local = (JSON.parse(localStorage.getItem("sps_post_history") || "[]")).length; } catch (e) {}
+      out.push("Local history on this device: " + local + " entries");
+      out.push("Local queue backup: " + ((loadQueueLocal() || { queue: [] }).queue.length) + " posts");
+      alert(out.join("\n\n") + "\n\nIf the cloud calls fail, everything still works on this device. It only means history and queue will not follow you to another device.");
+    });
+  });
 }
 
 function sheetsPost(action, data, cb) {
@@ -3351,7 +3382,7 @@ function restoreQueue() {
 
 function savePostHistory() {
   try {
-    localStorage.setItem("sps_post_history", JSON.stringify(postHistory.slice(-60)));
+    localStorage.setItem("sps_post_history", JSON.stringify(postHistory.slice(-250)));
   } catch(e) {}
   saveHistoryToSheets();
 }
@@ -3379,7 +3410,7 @@ function loadHistoryFromStore() {
           if (seen[h.angle]) return false;
           seen[h.angle] = true;
           return true;
-        }).slice(-60);
+        }).slice(-250);
         postHistory = merged;
         try { localStorage.setItem("sps_post_history", JSON.stringify(merged)); } catch(e) {}
         console.log("Post history loaded from store:", merged.length, "entries");
@@ -3404,17 +3435,18 @@ function addToPostHistory(type, aud, text) {
     opening: opening,
     date: new Date().toISOString().split("T")[0]
   });
-  if (postHistory.length > 60) postHistory = postHistory.slice(-60);
+  if (postHistory.length > 250) postHistory = postHistory.slice(-250);   // ~9 batches, was 60 (~2)
   // Always save to localStorage immediately — don't wait for Sheets
   try { localStorage.setItem("sps_post_history", JSON.stringify(postHistory)); } catch(e) {}
   savePostHistory(); // Also try Sheets in background
 }
 
 function getHistoryContext(type, aud) {
-  // Get ALL recent posts of this type regardless of audience — last 15
-  var byType = postHistory.filter(function(p) { return p.type === type; }).slice(-15);
-  // Also get recent posts for this audience — last 10
-  var byAud = postHistory.filter(function(p) { return p.aud === aud && p.type !== type; }).slice(-10);
+  // Look back over 60 posts of this type rather than 15. The repeats that get
+  // noticed are questions like "is it too late to start" coming back a month
+  // later, which a 15-post window cannot see.
+  var byType = postHistory.filter(function(p) { return p.type === type; }).slice(-60);
+  var byAud = postHistory.filter(function(p) { return p.aud === aud && p.type !== type; }).slice(-40);
 
   var exclusions = [];
   byType.forEach(function(p) {
@@ -3424,7 +3456,18 @@ function getHistoryContext(type, aud) {
     if (p.opening) exclusions.push(p.opening);
   });
 
-  if (!exclusions.length) return "";
+  // Openings are what a reader actually recognises, so ban the recent ones
+  // outright regardless of post type or audience.
+  var recentOpenings = postHistory.slice(-120)
+    .map(function(p) { return (p.opening || "").trim(); })
+    .filter(function(o) { return o.length > 12; });
+  var seenOpen = {}, openList = [];
+  for (var oi = recentOpenings.length - 1; oi >= 0 && openList.length < 40; oi--) {
+    var key = recentOpenings[oi].toLowerCase().replace(/[^a-z ]/g, "").split(/\s+/).slice(0, 5).join(" ");
+    if (key && !seenOpen[key]) { seenOpen[key] = true; openList.push(recentOpenings[oi]); }
+  }
+
+  if (!exclusions.length && !openList.length) return "";
 
   // Also extract key topic words to avoid
   var topicWords = [];
@@ -3439,7 +3482,11 @@ function getHistoryContext(type, aud) {
   // Deduplicate
   topicWords = topicWords.filter(function(w, i) { return topicWords.indexOf(w) === i; }).slice(0, 20);
 
-  return " HARD EXCLUSIONS — these exact angles and topics have already been posted recently and MUST NOT be repeated or even approached from a different angle: [" + exclusions.join(" | ") + "]. Topic words to completely avoid: [" + topicWords.join(", ") + "]. You must choose a genuinely different topic, scenario and opening. Do not write about anything on this list. If you cannot find a fresh angle within the post type, pick the least recently used topic from the available options.";
+  var out = " HARD EXCLUSIONS — these exact angles and topics have already been posted recently and MUST NOT be repeated or even approached from a different angle: [" + exclusions.join(" | ") + "]. Topic words to completely avoid: [" + topicWords.join(", ") + "]. You must choose a genuinely different topic, scenario and opening. Do not write about anything on this list. If you cannot find a fresh angle within the post type, pick the least recently used topic from the available options.";
+  if (openList.length) {
+    out += " These opening lines have already been used. Do not reuse any of them, and do not write an opening that asks the same question in different words: [" + openList.join(" | ") + "].";
+  }
+  return out;
 }
 
 // swapQueueMedia and removeQueueMedia are defined later (the queue-modal
@@ -3772,19 +3819,34 @@ var TOPIC_ANGLES = {
       "the wins women notice first that have nothing to do with the scales",
       "what it looks like to be the fittest you have ever been at 45 or 55",
       "why women who train at SPS say they wish they had started sooner",
-      "what changes when a woman stops training to shrink and starts training to get strong"
+      "what changes when a woman stops training to shrink and starts training to get strong",
+      "the week she realised she was not counting down the minutes anymore",
+      "noticing the change in a photo before noticing it in the mirror",
+      "when the warm up stopped being the hardest part of the session",
+      "the first time she added weight without being asked to",
+      "coming back after a fortnight away and finding it had not gone",
     ],
     men: [
       "what men notice after 3 months of consistent training at SPS",
       "the difference between how men feel at the start versus six months in",
       "what it looks like to be physically capable at 55 and 60",
-      "why men who train at SPS say it is nothing like they expected"
+      "why men who train at SPS say it is nothing like they expected",
+      "the day the back pain stopped being the first thought of the morning",
+      "realising he had stopped bracing before lifting anything awkward",
+      "when his sleep changed before his shape did",
+      "getting through a long day without the afternoon dip",
+      "the quiet satisfaction of a session that used to finish him off"
     ],
     everyone: [
       "what members commonly say after six months that they never expected to say",
       "the wins people notice first that are not about how they look",
       "why people who have tried and failed at fitness before do well at SPS",
-      "what changes when training becomes something you protect rather than something you fit in"
+      "what changes when training becomes something you protect rather than something you fit in",
+      "progress you notice in your energy long before the mirror",
+      "the moment the session stops feeling like an ordeal",
+      "when other people notice before you do",
+      "what six months of turning up looks like from the inside",
+      "the change that shows up in how you carry yourself"
     ]
   },
   behindscenes: {
@@ -3792,19 +3854,34 @@ var TOPIC_ANGLES = {
       "what a typical SPS session looks like for a woman from walking in to walking out",
       "what the first session is like for someone who has never trained in a gym before",
       "why every session is different and what that does for keeping it interesting",
-      "what the coach is actually watching and adjusting during a session"
+      "what the coach is actually watching and adjusting during a session",
+      "how a coach decides to change the weight mid session",
+      "what the coaches talk about after a session finishes",
+      "why the same session looks different for every person in the room",
+      "what happens in the first five minutes before anyone lifts anything",
+      "how a session gets written the night before",
     ],
     men: [
       "what a typical SPS session looks like for a man in his 40s or 50s",
       "how sessions are programmed to get results without the injury risk of high intensity",
       "the difference between training at SPS and figuring it out yourself at a commercial gym",
-      "what coached small group training actually means in practice"
+      "what coached small group training actually means in practice",
+      "how the programme gets adjusted when someone turns up injured",
+      "why the coach watches the third set more closely than the first",
+      "what gets changed when half the group is knackered",
+      "how a session is built so nobody is standing around",
+      "the reason the equipment is laid out the way it is"
     ],
     everyone: [
       "what actually happens inside an SPS Fitness session from warmup to finish",
       "how the programming changes every session and why",
       "what makes small group coached training different from a solo gym session",
-      "what new members say surprised them most in the first four weeks"
+      "what new members say surprised them most in the first four weeks",
+      "what the coaches notice that nobody mentions out loud",
+      "how the sessions are planned so they never repeat",
+      "why the room is set up differently every week",
+      "what goes into deciding who works next to who",
+      "the small adjustments that happen without anyone noticing"
     ]
   },
   faq: {
@@ -3814,21 +3891,33 @@ var TOPIC_ANGLES = {
       "I have not exercised properly in years, is it too late",
       "what if I have a bad back or old injury",
       "how quickly will I actually see results, the realistic timeline",
-      "I tried the gym before and hated it, what makes this different"
+      "I tried the gym before and hated it, what makes this different",
+      "what actually happens in your first session",
+      "whether you need to book every session in advance",
+      "what to do if you have an injury or something playing up",
+      "how the coach knows what weight to give you",
     ],
     men: [
       "I am in my 50s and have not trained properly in a decade, is it too late",
       "will I look out of place next to people who are clearly fitter than me",
       "my knees and back are not what they were, can I still train effectively",
       "how many sessions per week do I actually need to see results",
-      "what is the difference between SPS and just going to a commercial gym"
+      "what is the difference between SPS and just going to a commercial gym",
+      "what happens if you cannot make your usual session",
+      "whether the sessions are the same every week",
+      "how the coaching works when everyone is at a different level",
+      "what to bring and what not to bother with"
     ],
     everyone: [
       "what makes SPS Fitness different from every other gym in Halesowen",
       "how does the small group format work, what does a session of 12 feel like",
       "what happens if I have to miss sessions, does progress get lost",
       "how does the coaching work, is it personal training or more like a class",
-      "what does the first month typically look like for a new member"
+      "what does the first month typically look like for a new member",
+      "how a small group session actually runs from start to finish",
+      "what happens if you have never used the equipment before",
+      "whether you can train around an old injury",
+      "how long before you feel a difference"
     ]
   },
   seasonal: {
@@ -3837,18 +3926,30 @@ var TOPIC_ANGLES = {
       "why sustainable habits beat crash approaches every time",
       "why any week is a good week to restart, not just the new year",
       "why the quiet, darker times of year are when consistency matters most",
-      "how to keep momentum without needing everything to be perfect"
+      "how to keep momentum without needing everything to be perfect",
+      "why the calendar matters less than the diary",
+      "keeping a routine through a disrupted few weeks",
+      "the difference between a break and a stop",
+      "starting in the middle of things rather than at the start"
     ],
     women: [
       "cutting through the noise of diet culture and quick fix marketing",
       "the pressure on how women look and the alternative framing",
       "returning to routine after a busy stretch",
-      "the urge to hibernate and why this is when the habit solidifies or disappears"
+      "the urge to hibernate and why this is when the habit solidifies or disappears",
+      "the stretch of the year when routines quietly slip",
+      "training through a period when everything else is busy",
+      "why the fresh start feeling is worth less than a booked session",
+      "keeping going when the evenings work against you",
     ],
     men: [
       "what actually works versus what the fitness industry sells",
       "getting back to structure and why it is easier than starting cold",
-      "what maintaining momentum through a busy period actually looks like"
+      "what maintaining momentum through a busy period actually looks like",
+      "getting through a busy stretch without stopping altogether",
+      "why waiting for a quieter month never works",
+      "training when work is at its worst",
+      "the weeks where turning up twice is a win"
     ]
   },
   local: {
@@ -3856,17 +3957,29 @@ var TOPIC_ANGLES = {
       "what it means to be an independent gym in Halesowen not a franchise or chain",
       "the difference between training with your community versus a gym full of strangers",
       "why people drive past three commercial gyms to come to SPS",
-      "what local independent coaching offers that a national chain cannot"
+      "what local independent coaching offers that a national chain cannot",
+      "a gym that is part of the town rather than parked in it",
+      "why local means accountable in a way a chain never is",
+      "what changes when the person coaching you owns the place",
+      "the case for training five minutes from your front door"
     ],
     women: [
       "a local Halesowen gym where the coach knows your name and your history",
       "why women in Halesowen choose SPS over the bigger options nearby",
-      "training close to home, why convenience is one of the most underrated factors in consistency"
+      "training close to home, why convenience is one of the most underrated factors in consistency",
+      "what having a gym you can walk to actually changes",
+      "training somewhere the coach knows your name and your week",
+      "why a local place beats a chain for people with full lives",
+      "the difference between a gym in your town and a gym on your commute",
     ],
     men: [
       "a Halesowen gym that programmes specifically for men over 40",
       "why men in their 40s and 50s across the West Midlands choose small group over commercial",
-      "local, independent, accountable, what that means in practice"
+      "local, independent, accountable, what that means in practice",
+      "training with blokes who live on the same streets as you",
+      "why a small local gym can do things a chain cannot",
+      "the value of a place where somebody notices you are missing",
+      "what independent actually means when you are the one paying"
     ]
   },
   fromleads: {
@@ -3942,10 +4055,10 @@ function getUnusedAngle(type, aud) {
   var angles = audAngles.length ? audAngles : everyoneAngles;
   if (!angles.length) return null;
 
-  // Look back further — last 40 posts of this type across all audiences
+  // Look back over the whole retained history for this type, not just 40 posts.
   var recentAngles = postHistory
     .filter(function(p) { return p.type === type; })
-    .slice(-40)
+    .slice(-120)
     .map(function(p) { return (p.angle || "").toLowerCase(); });
 
   // Score each angle by how recently it was used
@@ -4047,7 +4160,7 @@ function pickAngleForBatch(type, aud, themeCounts, usedAngles) {
   if (!Array.isArray(everyoneAngles)) everyoneAngles = [];
   var angles = audAngles.length ? audAngles : everyoneAngles;
   if (!angles.length) return "";
-  var recent = postHistory.filter(function(p) { return p.type === type; }).slice(-40).map(function(p) { return (p.angle || "").toLowerCase(); });
+  var recent = postHistory.filter(function(p) { return p.type === type; }).slice(-120).map(function(p) { return (p.angle || "").toLowerCase(); });
   function score(list) {
     return list.map(function(a) {
       var aWords = a.toLowerCase().split(/\s+/).filter(function(w) { return w.length > 4; });
