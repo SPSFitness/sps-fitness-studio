@@ -3781,6 +3781,79 @@ function do30Days() {
 
 var currentQModalId = null;
 
+// Regenerate a single queued post in place. The gate can block a post but there
+// was no way to fix one without deleting it and rebuilding the whole batch.
+function regenerateQueuePost(id) {
+  var q = null;
+  for (var i = 0; i < queue.length; i++) { if (String(queue[i].id) === String(id)) { q = queue[i]; break; } }
+  if (!q) return;
+
+  var btn = document.getElementById("qModalRegenBtn");
+  var blocked = blockingWarnings(q.text, q.short);
+  if (btn) { btn.disabled = true; btn.textContent = "Regenerating..."; }
+
+  var sys = q.aud === "women" ? SYS_WOMEN : (q.aud === "men" ? SYS_MEN : SYS_ALL);
+  var basePrompt = (q.type === "fromleads")
+    ? (getLeadInsightsPrompt(q.type, q.aud) || getPrompt(q.type, q.aud, q.angle || "", q.short))
+    : getPrompt(q.type, q.aud, q.angle || "", q.short);
+
+  // Tell the model exactly what was wrong, and not to repeat the old opening.
+  var note = "";
+  if (blocked.length) {
+    note += "\n\nThe previous version was rejected for: " + blocked.join("; ") +
+      ". Avoid those completely this time.";
+  }
+  var oldOpening = String(q.text || "").split(/\n/)[0];
+  if (oldOpening) note += "\n\nDo not reuse this opening line: " + oldOpening.slice(0, 120);
+
+  generateCleanPost(sys, basePrompt + note, q.short, function(err, text, stillBlocked) {
+    if (btn) { btn.disabled = false; btn.innerHTML = "&#x21BB; Regenerate post"; }
+    if (err) { alert("Could not regenerate: " + err); return; }
+
+    for (var j = 0; j < queue.length; j++) {
+      if (String(queue[j].id) === String(id)) { queue[j].text = text; break; }
+    }
+    q.text = text;
+    saveQueueToSheets();
+    renderQueue();
+    var box = document.getElementById("qModalText");
+    if (box) box.value = text;
+    updateQModalWarnings(text, q.short);
+
+    if (stillBlocked && stillBlocked.length) {
+      alert("Regenerated, but it still fails on: " + stillBlocked.join(", ") + "\n\nTry again, or edit the text directly.");
+    }
+  });
+}
+
+// Refresh the warning strip inside the modal after an edit or regeneration.
+function updateQModalWarnings(text, short) {
+  var el = document.getElementById("qModalWarnings");
+  if (!el) return;
+  var all = validatePost(text, short);
+  var blocked = all.filter(function(w) { return warningSeverity(w) === "blocking"; });
+  var review = all.filter(function(w) { return warningSeverity(w) !== "blocking"; });
+  if (!all.length) {
+    el.style.display = "block";
+    el.style.background = "rgba(34,197,94,0.12)";
+    el.style.color = "#22c55e";
+    el.textContent = "Passes every check. Ready to export.";
+    return;
+  }
+  el.style.display = "block";
+  if (blocked.length) {
+    el.style.background = "rgba(239,68,68,0.12)";
+    el.style.color = "#ef4444";
+    el.textContent = "BLOCKED, will not export: " + blocked.join(", ") + (review.length ? "  |  Also: " + review.join(", ") : "");
+  } else {
+    el.style.background = "rgba(234,179,8,0.12)";
+    el.style.color = "#eab308";
+    el.textContent = "Worth a look: " + review.join(", ");
+  }
+}
+
+
+
 function expandQueueItem(id) {
   var q = null;
   for (var i = 0; i < queue.length; i++) { if (String(queue[i].id) === String(id)) { q = queue[i]; break; } }
@@ -3796,6 +3869,7 @@ function expandQueueItem(id) {
 
   // Set text
   document.getElementById("qModalText").value = q.text;
+  updateQModalWarnings(q.text, q.short);
 
   // Show health claim warning in modal (plural-safe — BUG7)
   var healthFlags = ["blood sugar","insulin","cortisol","hormon","testosterone","growth hormone","fat burning","burns fat","detox","toxins","metabolis","immune system","inflammat","menopaus","study shows","studies","research","journal of","clinical trial","proven","scientifically","cures","prevents","treats","supplement","deficien"];
@@ -4162,10 +4236,12 @@ renderImgLibrary();
         &#x2695; This post contains health-related claims. Review carefully before publishing — check any statistics are accurate, avoid diagnosing or prescribing, and ensure nothing could be seen as medical advice.
       </div>
       <div id="qModalValidation" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#ef4444;line-height:1.7"></div>
+      <div id="qModalWarnings" style="display:none;padding:10px 12px;border-radius:var(--rs);font-size:13px;margin-bottom:10px;line-height:1.5"></div>
       <textarea id="qModalText" style="width:100%;min-height:200px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);padding:14px;font-size:14px;line-height:1.7;resize:vertical;box-sizing:border-box;font-family:inherit"></textarea>
     </div>
     <div style="padding:16px;border-top:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn bp" onclick="saveQModalEdit()">&#x2713; Save changes</button>
+      <button class="btn bc" id="qModalRegenBtn" onclick="regenerateQueuePost(currentQModalId)">&#x21BB; Regenerate post</button>
       <button class="btn bg" onclick="swapQueueMedia(currentQModalId)">&#x21C4; Swap photo</button>
       <button class="btn bg" onclick="removeQueueMedia(currentQModalId)">&#x2715; Remove photo</button>
       <button class="btn bg" style="margin-left:auto;background:rgba(239,68,68,0.15);color:#ef4444;border-color:rgba(239,68,68,0.3)" onclick="deleteQueueItem(currentQModalId)">&#x1F5D1; Delete post</button>
