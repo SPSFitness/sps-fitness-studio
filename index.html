@@ -277,6 +277,7 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
       <div id="queueSyncNote" style="display:none;padding:10px 12px;border-radius:var(--rs);font-size:13px;margin-bottom:10px;background:rgba(234,179,8,0.12);color:#eab308;line-height:1.5"></div>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
         <button class="btn bg" style="width:auto;font-size:12px;padding:7px 13px" onclick="restoreQueue()">&#x21BB; Restore queue</button>
+        <button class="btn bg" style="width:auto;font-size:12px;padding:7px 13px" onclick="undoLastExport()">&#x21A9; Undo last export</button>
         <label class="btn bg" style="width:auto;font-size:12px;padding:7px 13px;cursor:pointer;margin:0">
           &#x2191; Rebuild from CSV
           <input type="file" accept=".csv,text/csv" style="display:none" onchange="if(this.files[0]){importQueueFromCsv(this.files[0]);this.value='';}">
@@ -1770,7 +1771,10 @@ function unexpectedProperNouns(text) {
   var body = String(text || "").replace(/#[A-Za-z0-9_]+/g, "");
   var found = {}, m;
   // Mid-sentence only: preceded by a lowercase letter, comma, semicolon or colon.
-  var re = /(?:[a-z,;:]\s+)([A-Z][a-z]{2,})/g;
+  // Mid-sentence only: preceded by a lowercase letter or comma on the SAME line.
+  // A word opening a new paragraph is correctly capitalised and was being
+  // flagged ("Grab a rotisserie chicken" at the top of a block).
+  var re = /(?:[a-z,;:][ \t]+)([A-Z][a-z]{2,})/g;
   while ((m = re.exec(body)) !== null) {
     var w = m[1];
     if (PROPER_NOUN_ALLOW.indexOf(w) > -1) continue;
@@ -1867,7 +1871,7 @@ function validatePost(text, short, publishMonth) {
   if (/\b(?:what it costs|how much it costs|the cost|cost,|costs,|pricing|prices|how much is it)\b/i.test(body) && !/\bpay(?:ing)? the price\b/i.test(body)) warnings.push("Pricing mentioned");
   if (/\b(?:nervous system|cardiovascular system|burns? more energy|energy at rest|calorie surplus|body composition)\b/i.test(body)) warnings.push("Physiological mechanism claim");
   var wc = (body.match(/\S+/g) || []).length;
-  if (wc > 220) warnings.push("Too long (" + wc + " words)");
+  if (wc > 250) warnings.push("Too long (" + wc + " words)");   // 222 against a 220 target is not worth flagging
   else if (wc < 10) warnings.push("Very short (" + wc + " words) — may be over-trimmed");
   else if (wc < 60 && !short) warnings.push("Possibly over-trimmed (" + wc + " words)");
   return warnings;
@@ -1961,15 +1965,44 @@ function approveQueuePost(id) {
 
 // Regenerate a post until it passes, then hand back whatever came out. The
 // retry prompt names the specific failures so the model is not guessing.
-function generateCleanPost(sys, prompt, short, cb, attempt) {
+// When a post fails repeatedly it is usually the angle, not the wording: a
+// quickwin angle will always produce an at-home routine however it is phrased.
+// Retrying the same angle just gets the same failure in different words.
+function alternativeAngle(type, aud, avoid) {
+  if (!TOPIC_ANGLES[type]) return "";
+  var pool = [];
+  ["women", "men", "everyone"].forEach(function(k) {
+    if (Array.isArray(TOPIC_ANGLES[type][k])) pool = pool.concat(TOPIC_ANGLES[type][k]);
+  });
+  if (Array.isArray(TOPIC_ANGLES[type][aud])) pool = TOPIC_ANGLES[type][aud].concat(pool);
+  var avoidLow = String(avoid || "").toLowerCase();
+  var options = pool.filter(function(a) { return a && a.toLowerCase() !== avoidLow; });
+  if (!options.length) return "";
+  return options[Math.floor(Math.random() * options.length)];
+}
+
+function generateCleanPost(sys, prompt, short, cb, attempt, meta) {
   attempt = attempt || 1;
+  meta = meta || {};
   generatePost(sys, prompt, short, function(err, text) {
     if (err) { cb(err, null, []); return; }
-    var blocked = blockingWarnings(text, short);
-    if (!blocked.length || attempt >= 3) { cb(null, text, blocked); return; }
+    var blocked = blockingWarnings(text, short, false, meta.month);
+    if (!blocked.length || attempt >= 4) { cb(null, text, blocked); return; }
+
     var fixNote = "\n\nThe previous attempt was rejected for: " + blocked.join("; ") +
       ". Write it again avoiding those completely. Do not mention session times, schedules, session length, prices, free sessions, waiting lists, spaces being full, any location other than Halesowen, any physiological mechanism, any nutrition target, or any routine the reader performs at home. Do not name anyone.";
-    generateCleanPost(sys, prompt + fixNote, short, cb, attempt + 1);
+
+    // Rewording the same subject twice and still failing means the subject
+    // itself cannot be written about safely. Change it rather than looping.
+    if (attempt >= 2 && meta.type) {
+      var alt = alternativeAngle(meta.type, meta.aud, meta.angle);
+      if (alt) {
+        meta = { type: meta.type, aud: meta.aud, angle: alt, month: meta.month };
+        fixNote += "\n\nChange the subject entirely. Write instead about: " + alt +
+          ". Do not rephrase the previous attempt.";
+      }
+    }
+    generateCleanPost(sys, prompt + fixNote, short, cb, attempt + 1, meta);
   });
 }
 
@@ -3158,6 +3191,24 @@ function importQueueFromCsv(file) {
   reader.readAsText(file);
 }
 
+// Put the last exported batch back into the queue.
+function undoLastExport() {
+  var d = null;
+  try { d = JSON.parse(localStorage.getItem("sps_last_export") || "null"); } catch (e) {}
+  if (!d || !d.posts || !d.posts.length) { alert("No exported batch to put back."); return; }
+  var have = {};
+  queue.forEach(function(q) { have[String(q.id)] = true; });
+  var added = 0;
+  d.posts.forEach(function(q) { if (!have[String(q.id)]) { queue.push(q); added++; } });
+  queue.sort(function(a, b) { return (a.date + a.time).localeCompare(b.date + b.time); });
+  dedupeQueueIds(queue);
+  saveQueueLocal();
+  saveQueueToSheets();
+  renderQueue();
+  document.getElementById("queueBadge").textContent = queue.length;
+  alert("Put " + added + " post" + (added !== 1 ? "s" : "") + " back into the queue.");
+}
+
 function restoreQueue() {
   var local = loadQueueLocal();
   sheetsGet("getQueue", function(err, d) {
@@ -3383,7 +3434,7 @@ function doDay() {
         renderQueue(); updateBadge();
       }
       i++; next();
-    });
+    }, 1, {type: p.type, aud: p.aud, angle: p.angle || "", month: MONTH_NAMES[new Date(ds+"T12:00:00").getMonth()]});
   }
   next();
 }
@@ -3431,7 +3482,7 @@ function doWeek() {
         renderQueue(); updateBadge();
       }
       i++; next();
-    });
+    }, 1, {type: p.type, aud: p.aud, angle: p.angle || "", month: MONTH_NAMES[new Date(ds+"T12:00:00").getMonth()]});
   }
   next();
 }
@@ -3939,7 +3990,7 @@ function do10Days() {
         renderQueue(); updateBadge();
       }
       i++; next();
-    });
+    }, 1, {type: p.type, aud: p.aud, angle: p.angle || "", month: MONTH_NAMES[new Date(ds+"T12:00:00").getMonth()]});
   }
   next();
 }
@@ -3991,7 +4042,7 @@ function do30Days() {
         renderQueue(); updateBadge();
       }
       i++; next();
-    });
+    }, 1, {type: plan.type, aud: plan.aud, angle: plan.angle || "", month: MONTH_NAMES[new Date(ds+"T12:00:00").getMonth()]});
   }
   next();
 }
@@ -4032,9 +4083,21 @@ function regenerateQueuePost(id) {
   if (btn) { btn.disabled = true; btn.textContent = "Regenerating..."; }
 
   var sys = q.aud === "women" ? SYS_WOMEN : (q.aud === "men" ? SYS_MEN : SYS_ALL);
+
+  // Count how many times this post has been regenerated. After the first failed
+  // attempt, switch to a different angle: some angles cannot produce a passing
+  // post no matter how they are worded, so retrying the same one loops forever.
+  q.regenCount = (q.regenCount || 0) + 1;
+  var useAngle = q.angle || "";
+  var switched = false;
+  if (q.regenCount >= 2) {
+    var alt = alternativeAngle(q.type, q.aud, q.angle);
+    if (alt) { useAngle = alt; q.angle = alt; switched = true; }
+  }
+
   var basePrompt = (q.type === "fromleads")
-    ? (getLeadInsightsPrompt(q.type, q.aud) || getPrompt(q.type, q.aud, q.angle || "", q.short))
-    : getPrompt(q.type, q.aud, q.angle || "", q.short);
+    ? (getLeadInsightsPrompt(q.type, q.aud) || getPrompt(q.type, q.aud, useAngle, q.short, q.date))
+    : getPrompt(q.type, q.aud, useAngle, q.short, q.date);
 
   // Tell the model exactly what was wrong, and not to repeat the old opening.
   var note = "";
@@ -4044,6 +4107,7 @@ function regenerateQueuePost(id) {
   }
   var oldOpening = String(q.text || "").split(/\n/)[0];
   if (oldOpening) note += "\n\nDo not reuse this opening line: " + oldOpening.slice(0, 120);
+  if (switched) note += "\n\nWrite about something different this time. The previous subject could not be written about without breaking a rule, so change the subject entirely rather than rephrasing.";
 
   generateCleanPost(sys, basePrompt + note, q.short, function(err, text, stillBlocked) {
     if (btn) { btn.disabled = false; btn.innerHTML = "&#x21BB; Regenerate post"; }
@@ -4060,7 +4124,13 @@ function regenerateQueuePost(id) {
     updateQModalWarnings(text, q.short);
 
     if (stillBlocked && stillBlocked.length) {
-      alert("Regenerated, but it still fails on: " + stillBlocked.join(", ") + "\n\nTry again, or edit the text directly.");
+      q.regenCount = q.regenCount || 0;
+      var advice = q.regenCount >= 3
+        ? "\n\nThis subject keeps producing the same problem. Press Approve anyway if you are happy with it, edit the text directly, or delete the post."
+        : "\n\nPress Regenerate again and it will switch to a different subject.";
+      alert("Still flagged for: " + stillBlocked.join(", ") + advice);
+    } else {
+      q.regenCount = 0;
     }
   });
 }
@@ -4285,12 +4355,14 @@ function exportCSV() {
 
   var rows = [headers];
   var missingMedia = [];
+  var exportedQueueIds = {};
 
   for (var i = 0; i < queue.length; i++) {
     var q = queue[i];
     // When exporting only the passing posts, skip anything still blocked. It
     // stays in the queue so it can be regenerated afterwards.
     if (exportOnlyPassing && blockingWarnings(q.text, q.short, q.approved, monthOfQueueItem(q)).length) continue;
+    exportedQueueIds[String(q.id)] = true;
 
     // Combine date and time into YYYY-MM-DD HH:mm:ss format
     var datetime = q.date + " " + q.time + ":00";
@@ -4376,7 +4448,25 @@ function exportCSV() {
     }
   }
 
-  var msg = "Downloaded " + queue.length + " posts in High Level format. Ready to upload!";
+  // Clear exported posts out of the queue so what remains is only what still
+  // needs attention. Without this there was no way to tell what had been done.
+  var exportedCount = Object.keys(exportedQueueIds).length;
+  // Keep the exported batch so it can be put back if something went wrong with
+  // the download. Removing posts with no undo would be worse than not removing.
+  try {
+    localStorage.setItem("sps_last_export", JSON.stringify({
+      exportedAt: new Date().toISOString(),
+      posts: queue.filter(function(q) { return exportedQueueIds[String(q.id)]; })
+    }));
+  } catch (e) {}
+  queue = queue.filter(function(q) { return !exportedQueueIds[String(q.id)]; });
+  saveQueueLocal();
+  saveQueueToSheets();
+  renderQueue();
+  document.getElementById("queueBadge").textContent = queue.length;
+
+  var msg = "Downloaded " + exportedCount + " post" + (exportedCount !== 1 ? "s" : "") + " in High Level format. Ready to upload!";
+  if (queue.length) msg += " " + queue.length + " post" + (queue.length !== 1 ? "s" : "") + " left in the queue to fix.";
   if (removedCount > 0) msg += " " + removedCount + " photo" + (removedCount !== 1 ? "s" : "") + " marked as used.";
   if (missingMedia.length) { alert("Warning: " + missingMedia.length + " post" + (missingMedia.length !== 1 ? "s" : "") + " exported with no image because the photo could not be found:\n\n" + missingMedia.slice(0,10).join("\n") + (missingMedia.length > 10 ? "\n..." : "")); }
 
@@ -4387,7 +4477,7 @@ function exportCSV() {
     msg += " Moving to Used folder in Drive...";
     showStatus("queueStatus", msg, "info");
     moveUsedFilesToDrive(usedDriveIds, function(moved, errors) {
-      var finalMsg = "Downloaded " + queue.length + " posts. " + removedCount + " photos marked as used.";
+      var finalMsg = "Downloaded " + exportedCount + " post" + (exportedCount !== 1 ? "s" : "") + ". " + removedCount + " photos marked as used." + (queue.length ? " " + queue.length + " left to fix." : "");
       if (moved > 0) {
         finalMsg += " " + moved + " moved to Used folder in Drive.";
         showStatus("queueStatus", finalMsg, "success");
