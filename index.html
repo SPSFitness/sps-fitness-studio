@@ -275,7 +275,13 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
         <button class="btn bg" onclick="doClearQueue()">&#x1F5D1; Clear</button>
       </div>
       <div id="queueSyncNote" style="display:none;padding:10px 12px;border-radius:var(--rs);font-size:13px;margin-bottom:10px;background:rgba(234,179,8,0.12);color:#eab308;line-height:1.5"></div>
-      <button class="btn bg" style="width:auto;font-size:12px;padding:7px 13px;margin-bottom:10px" onclick="restoreQueue()">&#x21BB; Restore queue</button>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+        <button class="btn bg" style="width:auto;font-size:12px;padding:7px 13px" onclick="restoreQueue()">&#x21BB; Restore queue</button>
+        <label class="btn bg" style="width:auto;font-size:12px;padding:7px 13px;cursor:pointer;margin:0">
+          &#x2191; Rebuild from CSV
+          <input type="file" accept=".csv,text/csv" style="display:none" onchange="if(this.files[0]){importQueueFromCsv(this.files[0]);this.value='';}">
+        </label>
+      </div>
       <div class="sb" id="queueStatus" style="margin-bottom:12px"></div>
       <div id="queueList" style="display:flex;flex-direction:column;gap:0"></div>
     </div>
@@ -3029,6 +3035,84 @@ function saveQueueToSheets() {
 }
 
 // Manual recovery. Takes whichever copy has more posts.
+// Rebuild the queue from an exported CSV. The export is a complete record of a
+// batch, so a lost queue never means regenerating: re-import the last CSV.
+function parseCsvRows(text) {
+  var rows = [], field = "", row = [], q = false;
+  for (var i = 0; i < text.length; i++) {
+    var c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i+1] === '"') { field += '"'; i++; } else q = false; }
+      else field += c;
+    } else {
+      if (c === '"') q = true;
+      else if (c === ",") { row.push(field); field = ""; }
+      else if (c === "\r") { /* skip */ }
+      else if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+      else field += c;
+    }
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+function importQueueFromCsv(file) {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var rows = parseCsvRows(e.target.result);
+    if (rows.length < 2) { alert("That file has no posts in it."); return; }
+
+    var head = rows[0].map(function(h) { return h.toLowerCase(); });
+    var iWhen = 0, iText = 1, iImg = 3, iVid = 5;
+    head.forEach(function(h, n) {
+      if (h.indexOf("postatspecifictime") > -1) iWhen = n;
+      else if (h === "content") iText = n;
+      else if (h.indexOf("imageurls") > -1) iImg = n;
+      else if (h.indexOf("videourls") > -1) iVid = n;
+    });
+
+    var rebuilt = [];
+    rows.slice(1).forEach(function(r) {
+      if (!r[iText] || !r[iText].trim()) return;
+      var when = (r[iWhen] || "").trim();
+      var date = when.split(" ")[0] || "";
+      var time = (when.split(" ")[1] || "").slice(0, 5) || "07:00";
+      var img = (r[iImg] || "").trim();
+      var vid = (r[iVid] || "").trim();
+      var text = r[iText];
+      var words = text.replace(/#[A-Za-z0-9_]+/g, "").trim().split(/\s+/).length;
+
+      rebuilt.push({
+        id: nextQueueId(),
+        type: /^myth/i.test(text.trim()) ? "myth" : "motivation",
+        aud: "all",
+        text: text,
+        date: date,
+        time: time,
+        short: words < 80,
+        mediaId: null,
+        mediaUrl: vid || img,
+        mediaDriveId: "",
+        mediaIsVideo: !!vid
+      });
+    });
+
+    if (!rebuilt.length) { alert("No posts could be read from that file."); return; }
+
+    var replace = !queue.length || confirm("Replace the current " + queue.length + " queued posts with " + rebuilt.length + " from this CSV?\n\nCancel to add them alongside what is already there.");
+    queue = replace ? rebuilt : queue.concat(rebuilt);
+    saveQueueLocal();
+    renderQueue();
+    updateBadge();
+
+    var blocked = queue.filter(function(x) { return blockingWarnings(x.text, x.short).length; }).length;
+    alert("Imported " + rebuilt.length + " posts. Queue now holds " + queue.length + "." +
+      (blocked ? "\n\n" + blocked + " of them are blocked and will need regenerating before export." : "\n\nAll pass the checks and are ready to export."));
+  };
+  reader.onerror = function() { alert("Could not read that file."); };
+  reader.readAsText(file);
+}
+
 function restoreQueue() {
   var local = loadQueueLocal();
   sheetsGet("getQueue", function(err, d) {
@@ -4115,16 +4199,23 @@ function exportCSV() {
   // cannot be published by accident. This is the guarantee: if it exports, it
   // passed every check.
   var gateFails = [];
+  var exportOnlyPassing = false;
   queue.forEach(function(q) {
     var bad = blockingWarnings(q.text, q.short);
     if (bad.length) gateFails.push({ date: q.date, time: q.time, why: bad });
   });
   if (gateFails.length) {
     var lines = gateFails.slice(0, 12).map(function(f) { return "  " + f.date + " " + f.time + " — " + f.why.join(", "); });
-    alert(gateFails.length + " post" + (gateFails.length !== 1 ? "s" : "") + " cannot be exported:\n\n" + lines.join("\n") +
-      (gateFails.length > 12 ? "\n  ..." : "") +
-      "\n\nOpen each one in the queue and press Regenerate, or delete it. Nothing exports until these are clear.");
-    return;
+    var passing = queue.length - gateFails.length;
+    // Blocking with no way out was a dead end: a queue could become unexportable
+    // and therefore unrecoverable. The passing posts can always be exported.
+    var msg = gateFails.length + " post" + (gateFails.length !== 1 ? "s" : "") + " cannot be exported:\n\n" +
+      lines.join("\n") + (gateFails.length > 12 ? "\n  ..." : "") +
+      "\n\nOK: export the " + passing + " post" + (passing !== 1 ? "s" : "") + " that pass, and leave the blocked ones in the queue to fix." +
+      "\nCancel: go back and fix them first.";
+    if (passing < 1) { alert("Every post in the queue is blocked.\n\n" + lines.join("\n") + "\n\nOpen each one and press Regenerate."); return; }
+    if (!confirm(msg)) return;
+    exportOnlyPassing = true;
   }
 
   var rows = [headers];
@@ -4132,6 +4223,9 @@ function exportCSV() {
 
   for (var i = 0; i < queue.length; i++) {
     var q = queue[i];
+    // When exporting only the passing posts, skip anything still blocked. It
+    // stays in the queue so it can be regenerated afterwards.
+    if (exportOnlyPassing && blockingWarnings(q.text, q.short).length) continue;
 
     // Combine date and time into YYYY-MM-DD HH:mm:ss format
     var datetime = q.date + " " + q.time + ":00";
