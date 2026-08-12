@@ -3431,20 +3431,25 @@ function renderQueue() {
         if (String(imageLibrary[mi].id) === String(q.mediaId)) { qMedia = imageLibrary[mi]; break; }
       }
     }
+    // Fall back to the URL stored on the post. A CSV-rebuilt post has no
+    // mediaId, so the library lookup alone showed no thumbnail at all.
+    var qThumb = qMedia ? qMedia.dataUrl : (q.mediaUrl || "");
+    var qIsVid = qMedia ? qMedia.isVideo : !!q.mediaIsVideo;
     var mediaHtml = "";
-    if (qMedia) {
-      if (qMedia.isVideo) {
+    if (qThumb || qIsVid) {
+      if (qIsVid) {
         mediaHtml = '<div class="q-img"><div class="q-img-video">&#x1F3A5;</div>';
       } else {
-        mediaHtml = '<div class="q-img"><img src="' + qMedia.dataUrl + '" alt="matched photo" crossorigin="anonymous" /></div>';
+        mediaHtml = '<div class="q-img"><img src="' + qThumb + '" alt="matched photo" crossorigin="anonymous" /></div>';
       }
-      mediaHtml += '<div class="q-img-actions"><button class="btn bg" onclick="swapQueueMedia(' + q.id + ')">&#x21C4; Swap photo</button><button class="btn bg" onclick="removeQueueMedia(' + q.id + ')">&#x2715; Remove photo</button></div>';
+      // Ids are strings now, so they must be quoted in the handler.
+      mediaHtml += '<div class="q-img-actions"><button class="btn bg" onclick="event.stopPropagation();openPhotoPicker(\'' + q.id + '\')">&#x1F5BC; Choose</button><button class="btn bg" onclick="event.stopPropagation();swapQueueMedia(\'' + q.id + '\')">&#x21C4; Swap photo</button><button class="btn bg" onclick="event.stopPropagation();removeQueueMedia(\'' + q.id + '\')">&#x2715; Remove photo</button></div>';
     } else if (imageLibrary.length) {
-      mediaHtml = '<div class="q-img-none">No photo assigned — <span style="cursor:pointer;color:var(--blue2)" onclick="assignQueueMedia(' + q.id + ')">click to assign</span></div>';
+      mediaHtml = '<div class="q-img-none">No photo assigned — <span style="cursor:pointer;color:var(--blue2)" onclick="event.stopPropagation();openPhotoPicker(\'' + q.id + '\')">click to assign</span></div>';
     }
-    html += '<div class="qa"><button class="btn bc" onclick="copyQ('+q.id+')">&#x2398; Copy</button></div>';
+    html += '<div class="qa"><button class="btn bc" onclick="event.stopPropagation();copyQ(\''+q.id+'\')">&#x2398; Copy</button></div>';
     html += mediaHtml;
-    html += '</div><button class="qdel" onclick="removeQ('+q.id+')">&times;</button></div>';
+    html += '</div><button class="qdel" onclick="event.stopPropagation();removeQ(\''+q.id+'\')">&times;</button></div>';
   }
   list.innerHTML = html;
 }
@@ -4273,7 +4278,17 @@ function expandQueueItem(id) {
 
   // Set image
   var imgEl = document.getElementById("qModalImg");
-  if (q.mediaId) {
+  // Prefer the URL stored on the post. A CSV-rebuilt post has no mediaId, and
+  // the library lookup alone made it look like it had no photo.
+  if (!q.mediaId && q.mediaUrl) {
+    if (q.mediaIsVideo) {
+      imgEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:160px;background:var(--surface2);font-size:48px;border-radius:8px">&#x1F3A5; Video</div>';
+    } else {
+      var u = q.mediaUrl;
+      if (u.indexOf("googleusercontent") > -1) u = "/.netlify/functions/imgproxy?url=" + encodeURIComponent(u);
+      imgEl.innerHTML = '<img src="' + u + '" style="width:100%;border-radius:8px;display:block" />';
+    }
+  } else if (q.mediaId) {
     var media = null;
     for (var i = 0; i < imageLibrary.length; i++) {
       if (String(imageLibrary[i].id) === String(q.mediaId)) { media = imageLibrary[i]; break; }
@@ -4345,8 +4360,28 @@ function autoAssignPhotos(force) {
   var ready = imageLibrary.filter(function(img) { return !img.analyzing; });
   if (!ready.length) { alert("No photos in the library. Sync Google Drive in the Images tab first."); return; }
 
-  var targets = queue.filter(function(q) { return force || !q.mediaUrl; });
-  if (!targets.length) { alert("Every post already has a photo. Use Reassign all if you want to redo them."); return; }
+  // A post rebuilt from a CSV carries a mediaUrl but no mediaId, so it looked
+  // "already done" here while showing no photo anywhere in the app. Treat a post
+  // as needing an image if it has no URL at all.
+  function hasUsableImage(q) {
+    if (q.mediaUrl && String(q.mediaUrl).trim()) return true;
+    if (!q.mediaId) return false;
+    for (var k = 0; k < imageLibrary.length; k++) {
+      if (String(imageLibrary[k].id) === String(q.mediaId)) return true;
+    }
+    return false;
+  }
+  var targets = queue.filter(function(q) { return force || !hasUsableImage(q); });
+  if (!targets.length) {
+    // Distinguish "genuinely assigned" from "assigned but not showing", which is
+    // what a CSV rebuild produces: a valid URL but no library entry behind it.
+    var unlinked = queue.filter(function(q) { return q.mediaUrl && !q.mediaId; }).length;
+    var detail = unlinked
+      ? "\n\n" + unlinked + " of them came from a CSV, so the photo is attached and will export correctly even though the library does not hold it."
+      : "";
+    if (confirm("All " + queue.length + " posts already have a photo attached." + detail + "\n\nReassign fresh photos to every post instead?")) autoAssignPhotos(true);
+    return;
+  }
   if (force && !confirm("Replace the photo on all " + queue.length + " posts?")) return;
 
   // Work from a fresh session set so a rebuilt queue does not inherit stale
