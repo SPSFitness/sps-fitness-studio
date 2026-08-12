@@ -4157,14 +4157,17 @@ function saveQModalEdit() {
   updateQModalWarnings(newText, q ? q.short : false, q ? q.approved : false);
   saveQueueToSheets();
   renderQueue();
+  // Always close on save. Keeping the modal open on a flagged post made it look
+  // like the same post kept reopening; the flag is visible on the queue row.
   var stillBad = blockingWarnings(newText, q ? q.short : false, q ? q.approved : false);
-  if (stillBad.length) {
-    showStatus("queueStatus", "Saved, but this post is still blocked: " + stillBad.join(", "), "error");
-    return; // keep the modal open so it can be fixed
-  }
   closeQModal();
-  showStatus("queueStatus", "Post updated and passes every check.", "success");
-  setTimeout(function() { hideStatus("queueStatus"); }, 2500);
+  if (stillBad.length) {
+    showStatus("queueStatus", "Saved. Still flagged for: " + stillBad.join(", ") + ". Reopen it and press Approve anyway if you are happy with it.", "error");
+    setTimeout(function() { hideStatus("queueStatus"); }, 6000);
+  } else {
+    showStatus("queueStatus", "Post updated and passes every check.", "success");
+    setTimeout(function() { hideStatus("queueStatus"); }, 2500);
+  }
 }
 
 function swapQueueMedia(id) {
