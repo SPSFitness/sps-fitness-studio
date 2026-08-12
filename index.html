@@ -274,6 +274,8 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
         <button class="btn bgreen" onclick="exportCSV()">&#x2B07; Export CSV</button>
         <button class="btn bg" onclick="doClearQueue()">&#x1F5D1; Clear</button>
       </div>
+      <div id="queueSyncNote" style="display:none;padding:10px 12px;border-radius:var(--rs);font-size:13px;margin-bottom:10px;background:rgba(234,179,8,0.12);color:#eab308;line-height:1.5"></div>
+      <button class="btn bg" style="width:auto;font-size:12px;padding:7px 13px;margin-bottom:10px" onclick="restoreQueue()">&#x21BB; Restore queue</button>
       <div class="sb" id="queueStatus" style="margin-bottom:12px"></div>
       <div id="queueList" style="display:flex;flex-direction:column;gap:0"></div>
     </div>
@@ -2948,11 +2950,21 @@ function loadFromSheets(cb) {
     check();
   });
 
+  // Load the local copy immediately so a refresh never shows an empty queue,
+  // then let Sheets overwrite it only if it actually has more posts.
+  var localQ = loadQueueLocal();
+  if (localQ) {
+    queue = dedupeQueueIds(localQ.queue);
+    renderQueue();
+    document.getElementById("queueBadge").textContent = queue.length;
+  }
   sheetsGet("getQueue", function(err, d) {
-    if (!err && d.queue && d.queue.length) {
-      queue = dedupeQueueIds(d.queue);
-      renderQueue();
-      updateBadge();
+    if (!err && d && d.queue && d.queue.length) {
+      if (!queue.length || d.queue.length >= queue.length) {
+        queue = dedupeQueueIds(d.queue);
+        renderQueue();
+        updateBadge();
+      }
     }
     check();
   });
@@ -2974,9 +2986,66 @@ function saveHistoryToSheets() {
   }, 5000);
 }
 
+// The queue was the only thing in the app with no local backup: it lived purely
+// in Google Sheets, and a failed save only wrote a console warning nobody sees.
+// A refresh after a failed save lost the whole batch. localStorage is now the
+// primary store, Sheets the cross-device copy.
+var QUEUE_KEY = "sps_queue_backup";
+
+function saveQueueLocal() {
+  try {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify({ savedAt: new Date().toISOString(), queue: queue }));
+    return true;
+  } catch (e) {
+    console.warn("Local queue save failed:", e);
+    return false;
+  }
+}
+
+function loadQueueLocal() {
+  try {
+    var raw = localStorage.getItem(QUEUE_KEY);
+    if (!raw) return null;
+    var d = JSON.parse(raw);
+    return (d && d.queue && d.queue.length) ? d : null;
+  } catch (e) { return null; }
+}
+
 function saveQueueToSheets() {
+  saveQueueLocal(); // always keep a local copy first
   sheetsPost("saveQueue", { queue: queue }, function(err) {
-    if (err) console.warn("Sheets queue save failed:", err);
+    if (err) {
+      console.warn("Sheets queue save failed:", err);
+      var el = document.getElementById("queueSyncNote");
+      if (el) {
+        el.style.display = "block";
+        el.textContent = "Saved on this device, but the cloud copy failed. Your posts are safe here. Press Restore queue if anything looks missing.";
+      }
+    } else {
+      var ok = document.getElementById("queueSyncNote");
+      if (ok) ok.style.display = "none";
+    }
+  });
+}
+
+// Manual recovery. Takes whichever copy has more posts.
+function restoreQueue() {
+  var local = loadQueueLocal();
+  sheetsGet("getQueue", function(err, d) {
+    var remote = (!err && d && d.queue && d.queue.length) ? d.queue : null;
+    var pick = null, from = "";
+    if (local && remote) {
+      pick = remote.length >= local.queue.length ? remote : local.queue;
+      from = remote.length >= local.queue.length ? "the cloud copy" : "this device";
+    } else if (local) { pick = local.queue; from = "this device"; }
+    else if (remote) { pick = remote; from = "the cloud copy"; }
+
+    if (!pick || !pick.length) { alert("No saved queue found in either place."); return; }
+    queue = dedupeQueueIds(pick);
+    renderQueue();
+    document.getElementById("queueBadge").textContent = queue.length;
+    saveQueueLocal();
+    alert("Restored " + queue.length + " posts from " + from + ".");
   });
 }
 
