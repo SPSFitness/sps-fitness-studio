@@ -2128,7 +2128,7 @@ function doAddQueue() {
   }
   var _sMedia = null;
   for (var _si = 0; _si < imageLibrary.length; _si++) { if (String(imageLibrary[_si].id) === String(mediaIdToUse)) { _sMedia = imageLibrary[_si]; break; } }
-  queue.push(Object.assign({id: Date.now(), type: selType, aud: selAud, text: curPost, date: date, time: time, short: false}, mediaFieldsFor(_sMedia)));
+  queue.push(Object.assign({id: nextQueueId(), type: selType, aud: selAud, text: curPost, date: date, time: time, short: false}, mediaFieldsFor(_sMedia)));
   queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
   doSchedClose();
   updateBadge();
@@ -2950,7 +2950,7 @@ function loadFromSheets(cb) {
 
   sheetsGet("getQueue", function(err, d) {
     if (!err && d.queue && d.queue.length) {
-      queue = d.queue;
+      queue = dedupeQueueIds(d.queue);
       renderQueue();
       updateBadge();
     }
@@ -3175,7 +3175,7 @@ function doDay() {
         text = cleanPostText(text);
         var wMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (wMedia) markImageUsed(wMedia.id);
-        queue.push(Object.assign({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short}, mediaFieldsFor(wMedia)));
+        queue.push(Object.assign({id: nextQueueId(), type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short}, mediaFieldsFor(wMedia)));
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         addToPostHistory(p.type, p.aud, text);
         renderQueue(); updateBadge();
@@ -3223,7 +3223,7 @@ function doWeek() {
         text = cleanPostText(text);
         var wMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (wMedia) markImageUsed(wMedia.id);
-        queue.push(Object.assign({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short}, mediaFieldsFor(wMedia)));
+        queue.push(Object.assign({id: nextQueueId(), type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short}, mediaFieldsFor(wMedia)));
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         addToPostHistory(p.type, p.aud, text);
         renderQueue(); updateBadge();
@@ -3731,7 +3731,7 @@ function do10Days() {
         text = cleanPostText(text);
         var pMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (pMedia) markImageUsed(pMedia.id);
-        queue.push(Object.assign({id: Date.now()+idx, type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short}, mediaFieldsFor(pMedia)));
+        queue.push(Object.assign({id: nextQueueId(), type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short}, mediaFieldsFor(pMedia)));
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         addToPostHistory(p.type, p.aud, text);
         renderQueue(); updateBadge();
@@ -3782,7 +3782,7 @@ function do30Days() {
       if (!err && text) {
         var pMedia = imageLibrary.length ? findBestImage(plan.type, plan.aud) : null;
         if (pMedia) markImageUsed(pMedia.id);
-        queue.push(Object.assign({id: Date.now()+idx, type: plan.type, aud: plan.aud, text: text, date: ds, time: slotTime, short: plan.short}, mediaFieldsFor(pMedia)));
+        queue.push(Object.assign({id: nextQueueId(), type: plan.type, aud: plan.aud, text: text, date: ds, time: slotTime, short: plan.short}, mediaFieldsFor(pMedia)));
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         // Add to history so next post avoids this angle
         addToPostHistory(plan.type, plan.aud, text);
@@ -3792,6 +3792,28 @@ function do30Days() {
     });
   }
   next();
+}
+
+// Queue ids must be unique. Date.now()+idx collided whenever two posts finished
+// generating a few milliseconds apart, and the lookup loops return the first
+// match, so several posts all opened the same one.
+// Queues saved before ids were made unique may contain duplicates. Repair on
+// load so the modal opens the post that was actually clicked.
+function dedupeQueueIds(list) {
+  var seen = {}, fixed = 0;
+  (list || []).forEach(function(q) {
+    var id = String(q.id == null ? "" : q.id);
+    if (!id || seen[id]) { q.id = nextQueueId(); fixed++; }
+    else { seen[id] = true; }
+  });
+  if (fixed) console.log("Repaired " + fixed + " duplicate queue id" + (fixed !== 1 ? "s" : "") + ".");
+  return list;
+}
+
+var _queueIdSeq = 0;
+function nextQueueId() {
+  _queueIdSeq++;
+  return "q" + Date.now().toString(36) + "_" + _queueIdSeq;
 }
 
 var currentQModalId = null;
