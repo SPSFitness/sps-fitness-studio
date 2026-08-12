@@ -3168,10 +3168,20 @@ function importQueueFromCsv(file) {
       var text = r[iText];
       var words = text.replace(/#[A-Za-z0-9_]+/g, "").trim().split(/\s+/).length;
 
+      // Infer the audience from the wording so the photo picker can filter by
+      // gender on a rebuilt queue. Without this everything came back as "all"
+      // and the picker offered men's photos for women's posts.
+      var low = text.toLowerCase();
+      var femHits = (low.match(/\b(women|woman|she|her|ladies|dresses|mum|mums|after having kids)\b/g) || []).length;
+      var mascHits = (low.match(/\b(men|man|blokes?|bloke|he|his|guys|lads|dad|dads)\b/g) || []).length;
+      var aud = "everyone";
+      if (femHits >= 2 && femHits > mascHits) aud = "women";
+      else if (mascHits >= 2 && mascHits > femHits) aud = "men";
+
       rebuilt.push({
         id: nextQueueId(),
         type: /^myth/i.test(text.trim()) ? "myth" : "motivation",
-        aud: "all",
+        aud: aud,
         text: text,
         date: date,
         time: time,
