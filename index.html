@@ -1803,7 +1803,12 @@ function validatePost(text, short) {
       // Habit stacking: an instruction attached to a daily routine. The props
       // change every batch (kettle, coat zip, toothbrush) so match the shape.
       /\b(?:brush(?:ing)? your teeth|while you(?:'re| are) (?:getting dressed|brushing|waiting|standing)|before you leave the house|coat zip|jacket zip|in the shower|at your desk|on the school run)\b/i.test(body) ||
-      /\b(?:here(?:'s| is) the stack|stack this|attach (?:it|this|one) to|something you already do)\b/i.test(body) ||
+      // "Attach five air squats to making a brew" — a count between the verb and
+      // the preposition dodged the old pattern. Match the shape, not the props.
+      /\b(?:here(?:'s| is) the stack|stack this|something you already do|you already (?:make|do|brush|wait))\b/i.test(body) ||
+      /\battach\b[^.!?]{0,40}\bto\b/i.test(body) ||
+      /\b\d+\s+(?:air squats|squats|press-?ups|push-?ups|lunges|calf raises|hip circles|shoulder rolls)\b/i.test(body) ||
+      /\bwhile (?:it|the water|the kettle) boils?\b/i.test(body) ||
       /\b(?:on one leg|each side|alternate which leg|thirty seconds each|hold for a minute)\b/i.test(body))
     warnings.push("At-home workout instruction");
   if (/[\u2190-\u21FF\u2794-\u27BF\u2714\u2713\u2717]/.test(body)) warnings.push("Stray symbol character");
@@ -1869,38 +1874,24 @@ function postFailedCleaning(rawText) {
 // regenerates a blocked post instead of queueing it.
 
 var BLOCKING_WARNINGS = [
-  "Wrong location corrected",     // invented town — worst possible error
-  "Invented scarcity",            // waiting lists and full-until claims
-  "Free session claim",           // a promise you would have to honour
+  // Only things that would genuinely embarrass you or commit you to something.
+  // Everything else is a note you can read and ignore. A long blocking list
+  // meant good posts could not be exported and there was no way to argue back.
+  "Wrong location corrected",
   "Pricing mentioned",
+  "Free session claim",
+  "Invented scarcity",
   "Session schedule mentioned",
-  "Session length stated",
-  "At-home workout instruction",  // undermines the coaching proposition
+  "Specific time",
   "Health outcome claim",
   "Nutrition prescription",
   "Physiological mechanism claim",
   "Calorie mechanism claim",
+  "At-home workout instruction",
   "Doubled name placeholder",
   "Name filter residue",
-  "Myth stated without correction",
-  "Banned term: burpees",
-  "Specific time",
-  "Dangling preposition",
-  "Space before punctuation",
-  "Bracketed placeholder",
-  "Session frequency too high",
-  "Broken headline fragment",
-  "Stray mid-sentence capital",
-  "Comma splice before contraction",
-  "Markdown heading",            // cleanPostText strips these; presence means it never ran
-  "Shopping cliche",
-  "Month name",
-  "Phone number in body",
-  "Statistic / percentage",
-  "Orphaned quote mark",
-  "Block capitals",
-  "Banned term:",
-  "Stray symbol character"
+  "Markdown heading",
+  "Bracketed placeholder"
 ];
 
 function warningSeverity(w) {
@@ -1910,8 +1901,25 @@ function warningSeverity(w) {
   return "review";
 }
 
-function blockingWarnings(text, short) {
+function blockingWarnings(text, short, approved) {
+  if (approved) return [];   // you have looked at it and said it is fine
   return validatePost(text, short).filter(function(w) { return warningSeverity(w) === "blocking"; });
+}
+
+// Approve a single post past the gate. Nothing catches everything, and being
+// unable to overrule the checker is worse than the checker being wrong.
+function approveQueuePost(id) {
+  for (var i = 0; i < queue.length; i++) {
+    if (String(queue[i].id) === String(id)) {
+      queue[i].approved = !queue[i].approved;
+      saveQueueToSheets();
+      renderQueue();
+      var b = document.getElementById("qModalApproveBtn");
+      if (b) b.innerHTML = queue[i].approved ? "&#x2713; Approved, will export" : "&#x2713; Approve anyway";
+      updateQModalWarnings(queue[i].text, queue[i].short, queue[i].approved);
+      return;
+    }
+  }
 }
 
 // Regenerate a post until it passes, then hand back whatever came out. The
@@ -3105,7 +3113,7 @@ function importQueueFromCsv(file) {
     renderQueue();
     updateBadge();
 
-    var blocked = queue.filter(function(x) { return blockingWarnings(x.text, x.short).length; }).length;
+    var blocked = queue.filter(function(x) { return blockingWarnings(x.text, x.short, x.approved).length; }).length;
     alert("Imported " + rebuilt.length + " posts. Queue now holds " + queue.length + "." +
       (blocked ? "\n\n" + blocked + " of them are blocked and will need regenerating before export." : "\n\nAll pass the checks and are ready to export."));
   };
@@ -3979,7 +3987,7 @@ function regenerateQueuePost(id) {
   if (!q) return;
 
   var btn = document.getElementById("qModalRegenBtn");
-  var blocked = blockingWarnings(q.text, q.short);
+  var blocked = blockingWarnings(q.text, q.short, q.approved);
   if (btn) { btn.disabled = true; btn.textContent = "Regenerating..."; }
 
   var sys = q.aud === "women" ? SYS_WOMEN : (q.aud === "men" ? SYS_MEN : SYS_ALL);
@@ -4017,11 +4025,11 @@ function regenerateQueuePost(id) {
 }
 
 // Refresh the warning strip inside the modal after an edit or regeneration.
-function updateQModalWarnings(text, short) {
+function updateQModalWarnings(text, short, approved) {
   var el = document.getElementById("qModalWarnings");
   if (!el) return;
   var all = validatePost(text, short);
-  var blocked = all.filter(function(w) { return warningSeverity(w) === "blocking"; });
+  var blocked = approved ? [] : all.filter(function(w) { return warningSeverity(w) === "blocking"; });
   var review = all.filter(function(w) { return warningSeverity(w) !== "blocking"; });
   if (!all.length) {
     el.style.display = "block";
@@ -4059,7 +4067,9 @@ function expandQueueItem(id) {
 
   // Set text
   document.getElementById("qModalText").value = q.text;
-  updateQModalWarnings(q.text, q.short);
+  updateQModalWarnings(q.text, q.short, q.approved);
+  var apBtn = document.getElementById("qModalApproveBtn");
+  if (apBtn) apBtn.innerHTML = q.approved ? "&#x2713; Approved, will export" : "&#x2713; Approve anyway";
 
   // Show health claim warning in modal (plural-safe — BUG7)
   var healthFlags = ["blood sugar","insulin","cortisol","hormon","testosterone","growth hormone","fat burning","burns fat","detox","toxins","metabolis","immune system","inflammat","menopaus","study shows","studies","research","journal of","clinical trial","proven","scientifically","cures","prevents","treats","supplement","deficien"];
@@ -4131,10 +4141,10 @@ function saveQModalEdit() {
     }
   }
   document.getElementById("qModalText").value = newText;
-  updateQModalWarnings(newText, q ? q.short : false);
+  updateQModalWarnings(newText, q ? q.short : false, q ? q.approved : false);
   saveQueueToSheets();
   renderQueue();
-  var stillBad = blockingWarnings(newText, q ? q.short : false);
+  var stillBad = blockingWarnings(newText, q ? q.short : false, q ? q.approved : false);
   if (stillBad.length) {
     showStatus("queueStatus", "Saved, but this post is still blocked: " + stillBad.join(", "), "error");
     return; // keep the modal open so it can be fixed
@@ -4201,20 +4211,22 @@ function exportCSV() {
   var gateFails = [];
   var exportOnlyPassing = false;
   queue.forEach(function(q) {
-    var bad = blockingWarnings(q.text, q.short);
+    var bad = blockingWarnings(q.text, q.short, q.approved);
     if (bad.length) gateFails.push({ date: q.date, time: q.time, why: bad });
   });
   if (gateFails.length) {
-    var lines = gateFails.slice(0, 12).map(function(f) { return "  " + f.date + " " + f.time + " — " + f.why.join(", "); });
+    // Never block outright. Export what passes, tell you what was held back,
+    // and leave those in the queue. Getting your good posts out always wins.
+    var lines = gateFails.slice(0, 10).map(function(f) { return "  " + f.date + " " + f.time + " — " + f.why.join(", "); });
     var passing = queue.length - gateFails.length;
-    // Blocking with no way out was a dead end: a queue could become unexportable
-    // and therefore unrecoverable. The passing posts can always be exported.
-    var msg = gateFails.length + " post" + (gateFails.length !== 1 ? "s" : "") + " cannot be exported:\n\n" +
-      lines.join("\n") + (gateFails.length > 12 ? "\n  ..." : "") +
-      "\n\nOK: export the " + passing + " post" + (passing !== 1 ? "s" : "") + " that pass, and leave the blocked ones in the queue to fix." +
-      "\nCancel: go back and fix them first.";
-    if (passing < 1) { alert("Every post in the queue is blocked.\n\n" + lines.join("\n") + "\n\nOpen each one and press Regenerate."); return; }
-    if (!confirm(msg)) return;
+    if (passing < 1) {
+      alert("Every post is flagged:\n\n" + lines.join("\n") +
+        "\n\nOpen one and either Regenerate it or press Approve anyway if you are happy with it.");
+      return;
+    }
+    alert("Exporting " + passing + " post" + (passing !== 1 ? "s" : "") + ".\n\n" +
+      gateFails.length + " held back:\n" + lines.join("\n") + (gateFails.length > 10 ? "\n  ..." : "") +
+      "\n\nThey stay in the queue. Open one and press Regenerate, or Approve anyway to export it as it is.");
     exportOnlyPassing = true;
   }
 
@@ -4225,7 +4237,7 @@ function exportCSV() {
     var q = queue[i];
     // When exporting only the passing posts, skip anything still blocked. It
     // stays in the queue so it can be regenerated afterwards.
-    if (exportOnlyPassing && blockingWarnings(q.text, q.short).length) continue;
+    if (exportOnlyPassing && blockingWarnings(q.text, q.short, q.approved).length) continue;
 
     // Combine date and time into YYYY-MM-DD HH:mm:ss format
     var datetime = q.date + " " + q.time + ":00";
@@ -4454,6 +4466,7 @@ renderImgLibrary();
     <div style="padding:16px;border-top:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn bp" onclick="saveQModalEdit()">&#x2713; Save changes</button>
       <button class="btn bc" id="qModalRegenBtn" onclick="regenerateQueuePost(currentQModalId)">&#x21BB; Regenerate post</button>
+      <button class="btn bg" id="qModalApproveBtn" onclick="approveQueuePost(currentQModalId)">&#x2713; Approve anyway</button>
       <button class="btn bg" onclick="swapQueueMedia(currentQModalId)">&#x21C4; Swap photo</button>
       <button class="btn bg" onclick="removeQueueMedia(currentQModalId)">&#x2715; Remove photo</button>
       <button class="btn bg" style="margin-left:auto;background:rgba(239,68,68,0.15);color:#ef4444;border-color:rgba(239,68,68,0.3)" onclick="deleteQueueItem(currentQModalId)">&#x1F5D1; Delete post</button>
