@@ -1791,8 +1791,14 @@ function validatePost(text, short) {
       /\b\d+ seconds? (?:each side|each leg|per side|hold)\b/i.test(body) ||
       /\bdo \d+ (?:squats|press-?ups|push-?ups|lunges|reps|rounds)\b/i.test(body) ||
       /\b(?:still in bed|before your feet|before you get out of bed|lying on your back|knees to chest|roll onto your)\b/i.test(body) ||
-      /\b(?:four seconds in|box breathing|breathe in for \d)\b/i.test(body))
+      /\b(?:four seconds in|box breathing|breathe in for \d)\b/i.test(body) ||
+      // Habit stacking: an instruction attached to a daily routine. The props
+      // change every batch (kettle, coat zip, toothbrush) so match the shape.
+      /\b(?:brush(?:ing)? your teeth|while you(?:'re| are) (?:getting dressed|brushing|waiting|standing)|before you leave the house|coat zip|jacket zip|in the shower|at your desk|on the school run)\b/i.test(body) ||
+      /\b(?:here(?:'s| is) the stack|stack this|attach (?:it|this|one) to|something you already do)\b/i.test(body) ||
+      /\b(?:on one leg|each side|alternate which leg|thirty seconds each|hold for a minute)\b/i.test(body))
     warnings.push("At-home workout instruction");
+  if (/[\u2190-\u21FF\u2794-\u27BF\u2714\u2713\u2717]/.test(body)) warnings.push("Stray symbol character");
   if (/\b(?:physio bills|doctor said|blood test|cholesterol dropped|off his medication|off her medication|came off my)\b/i.test(body)) warnings.push("Health outcome claim");
   if (/\b(?:waiting list|priority list|wait list|fully booked|booked up|full until|no spaces left)\b/i.test(body)) warnings.push("Invented scarcity");
   if (/\bsomeone\b/i.test(body) && /\b(?:tired someone|this is someone|someone still deserves|a someone|the someone)\b/i.test(body)) warnings.push("Name filter residue");
@@ -1877,7 +1883,16 @@ var BLOCKING_WARNINGS = [
   "Session frequency too high",
   "Broken headline fragment",
   "Stray mid-sentence capital",
-  "Comma splice before contraction"
+  "Comma splice before contraction",
+  "Markdown heading",            // cleanPostText strips these; presence means it never ran
+  "Shopping cliche",
+  "Month name",
+  "Phone number in body",
+  "Statistic / percentage",
+  "Orphaned quote mark",
+  "Block capitals",
+  "Banned term:",
+  "Stray symbol character"
 ];
 
 function warningSeverity(w) {
@@ -3928,18 +3943,30 @@ function closeQModal() {
 
 function saveQModalEdit() {
   if (!currentQModalId) return;
-  var newText = document.getElementById("qModalText").value.trim();
+  // Run the same cleaning pipeline as generated text. Hand-edited and pasted
+  // posts previously skipped it entirely, which let an em dash, a markdown
+  // heading and a shopping cliche through to a CSV.
+  var newText = cleanPostText(document.getElementById("qModalText").value.trim());
+  var q = null;
   for (var i = 0; i < queue.length; i++) {
     if (String(queue[i].id) === String(currentQModalId)) {
       queue[i].text = newText;
+      q = queue[i];
       break;
     }
   }
+  document.getElementById("qModalText").value = newText;
+  updateQModalWarnings(newText, q ? q.short : false);
   saveQueueToSheets();
   renderQueue();
+  var stillBad = blockingWarnings(newText, q ? q.short : false);
+  if (stillBad.length) {
+    showStatus("queueStatus", "Saved, but this post is still blocked: " + stillBad.join(", "), "error");
+    return; // keep the modal open so it can be fixed
+  }
   closeQModal();
-  showStatus("queueStatus", "Post updated!", "success");
-  setTimeout(function() { hideStatus("queueStatus"); }, 2000);
+  showStatus("queueStatus", "Post updated and passes every check.", "success");
+  setTimeout(function() { hideStatus("queueStatus"); }, 2500);
 }
 
 function swapQueueMedia(id) {
