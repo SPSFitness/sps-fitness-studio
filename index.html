@@ -271,6 +271,7 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
         <button class="btn bp" style="flex:1" onclick="doWeek()">&#x2726; 7 DAYS</button>
         <button class="btn bc" style="flex:1" onclick="do10Days()">&#x1F4C5; 10 DAYS</button>
         <button class="btn bc" style="flex:1" onclick="do30Days()">&#x1F4C5; 30 DAYS</button>
+        <button class="btn bc" onclick="autoAssignPhotos(false)">&#x1F5BC; Add missing photos</button>
         <button class="btn bgreen" onclick="exportCSV()">&#x2B07; Export CSV</button>
         <button class="btn bg" onclick="doClearQueue()">&#x1F5D1; Clear</button>
       </div>
@@ -278,6 +279,8 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
         <button class="btn bg" style="width:auto;font-size:12px;padding:7px 13px" onclick="restoreQueue()">&#x21BB; Restore queue</button>
         <button class="btn bg" style="width:auto;font-size:12px;padding:7px 13px" onclick="undoLastExport()">&#x21A9; Undo last export</button>
+        <button class="btn bg" style="width:auto;font-size:12px;padding:7px 13px" onclick="undoCsvImport()">&#x21A9; Undo CSV import</button>
+        <button class="btn bg" style="width:auto;font-size:12px;padding:7px 13px" onclick="autoAssignPhotos(true)">&#x1F504; Reassign all photos</button>
         <label class="btn bg" style="width:auto;font-size:12px;padding:7px 13px;cursor:pointer;margin:0">
           &#x2191; Rebuild from CSV
           <input type="file" accept=".csv,text/csv" style="display:none" onchange="if(this.files[0]){importQueueFromCsv(this.files[0]);this.value='';}">
@@ -3172,11 +3175,15 @@ function importQueueFromCsv(file) {
       // gender on a rebuilt queue. Without this everything came back as "all"
       // and the picker offered men's photos for women's posts.
       var low = text.toLowerCase();
-      var femHits = (low.match(/\b(women|woman|she|her|ladies|dresses|mum|mums|after having kids)\b/g) || []).length;
-      var mascHits = (low.match(/\b(men|man|blokes?|bloke|he|his|guys|lads|dad|dads)\b/g) || []).length;
+      // Some words settle it on their own. "That dress you kept for one day" is
+      // a women's post whether or not the word "women" appears anywhere in it.
+      var femStrong = /\b(dress|dresses|bra|handbag|leggings|periods?|pregnan\w*|menopaus\w*|mum|mums|mummy|daughter|girls?|ladies|sister|wife|she|her|hers|herself|woman|women)\b/.test(low);
+      var mascStrong = /\b(bloke|blokes|lads?|beard|husband|dad|dads|son|guys|men|man|he|his|himself)\b/.test(low);
+      var femHits = (low.match(/\b(women|woman|she|her|hers|herself|ladies|dress|dresses|leggings|bra|handbag|mum|mums|daughter|sister|wife|pregnan\w*|menopaus\w*|after having kids)\b/g) || []).length;
+      var mascHits = (low.match(/\b(men|man|blokes?|bloke|he|his|himself|guys|lads?|dad|dads|son|husband|beard)\b/g) || []).length;
       var aud = "everyone";
-      if (femHits >= 2 && femHits > mascHits) aud = "women";
-      else if (mascHits >= 2 && mascHits > femHits) aud = "men";
+      if (femHits > mascHits && (femHits >= 2 || femStrong)) aud = "women";
+      else if (mascHits > femHits && (mascHits >= 2 || mascStrong)) aud = "men";
 
       rebuilt.push({
         id: nextQueueId(),
@@ -3195,8 +3202,19 @@ function importQueueFromCsv(file) {
 
     if (!rebuilt.length) { alert("No posts could be read from that file."); return; }
 
-    var replace = !queue.length || confirm("Replace the current " + queue.length + " queued posts with " + rebuilt.length + " from this CSV?\n\nCancel to add them alongside what is already there.");
+    // Snapshot before touching the queue. Replacing used to overwrite the local
+    // backup a moment later, so anything already queued was unrecoverable.
+    if (queue.length) {
+      try { localStorage.setItem("sps_queue_preimport", JSON.stringify({ savedAt: new Date().toISOString(), queue: queue })); } catch (e) {}
+    }
+    var replace = false;
+    if (queue.length) {
+      replace = confirm("You have " + queue.length + " post" + (queue.length !== 1 ? "s" : "") + " in the queue already.\n\nOK: ADD the " + rebuilt.length + " from this CSV, keeping what you have. This is usually what you want.\n\nCancel: REPLACE everything, discarding the " + queue.length + " you have now.") ? false : true;
+      if (replace && !confirm("Really discard the " + queue.length + " post" + (queue.length !== 1 ? "s" : "") + " currently in the queue?")) return;
+    }
     queue = replace ? rebuilt : queue.concat(rebuilt);
+    queue.sort(function(a, b) { return (a.date + a.time).localeCompare(b.date + b.time); });
+    dedupeQueueIds(queue);
     saveQueueLocal();
     renderQueue();
     updateBadge();
@@ -3210,6 +3228,24 @@ function importQueueFromCsv(file) {
 }
 
 // Put the last exported batch back into the queue.
+// Put back whatever was in the queue immediately before the last CSV import.
+function undoCsvImport() {
+  var d = null;
+  try { d = JSON.parse(localStorage.getItem("sps_queue_preimport") || "null"); } catch (e) {}
+  if (!d || !d.queue || !d.queue.length) { alert("No pre-import queue saved."); return; }
+  var have = {};
+  queue.forEach(function(q) { have[String(q.id)] = true; });
+  var added = 0;
+  d.queue.forEach(function(q) { if (!have[String(q.id)]) { queue.push(q); added++; } });
+  queue.sort(function(a, b) { return (a.date + a.time).localeCompare(b.date + b.time); });
+  dedupeQueueIds(queue);
+  saveQueueLocal();
+  saveQueueToSheets();
+  renderQueue();
+  document.getElementById("queueBadge").textContent = queue.length;
+  alert("Put " + added + " post" + (added !== 1 ? "s" : "") + " back.");
+}
+
 function undoLastExport() {
   var d = null;
   try { d = JSON.parse(localStorage.getItem("sps_last_export") || "null"); } catch (e) {}
@@ -4301,6 +4337,64 @@ function saveQModalEdit() {
 // Choose a photo by hand. Random swapping is fine for a quick change but there
 // was no way to say "use that one", which is what you need when the automatic
 // choice is wrong.
+// Assign photos to every post that has none, in one go. Doing it post by post
+// through the picker is fine for a correction but painful after a CSV rebuild,
+// where nothing has an image.
+function autoAssignPhotos(force) {
+  if (!queue.length) { alert("No posts in the queue."); return; }
+  var ready = imageLibrary.filter(function(img) { return !img.analyzing; });
+  if (!ready.length) { alert("No photos in the library. Sync Google Drive in the Images tab first."); return; }
+
+  var targets = queue.filter(function(q) { return force || !q.mediaUrl; });
+  if (!targets.length) { alert("Every post already has a photo. Use Reassign all if you want to redo them."); return; }
+  if (force && !confirm("Replace the photo on all " + queue.length + " posts?")) return;
+
+  // Work from a fresh session set so a rebuilt queue does not inherit stale
+  // "already used this batch" marks and end up with nothing available.
+  var taken = {};
+  if (!force) {
+    queue.forEach(function(q) { if (q.mediaUrl && q.mediaDriveId) taken[String(q.mediaDriveId)] = true; });
+  }
+
+  function eligibleFor(q) {
+    return ready.filter(function(img) {
+      var g = img.gender || "none";
+      if (q.aud === "women" && g === "men") return false;
+      if (q.aud === "men" && g === "women") return false;
+      if (taken[String(img.driveId)]) return false;
+      return true;
+    });
+  }
+
+  var assigned = 0, skipped = [];
+  targets.forEach(function(q) {
+    var options = eligibleFor(q);
+    if (!options.length) {
+      // Allow reuse rather than leave the post bare, but never break gender.
+      options = ready.filter(function(img) {
+        var g = img.gender || "none";
+        if (q.aud === "women" && g === "men") return false;
+        if (q.aud === "men" && g === "women") return false;
+        return true;
+      });
+    }
+    if (!options.length) { skipped.push(q.date + " " + q.time + " (" + q.aud + ")"); return; }
+    var pick = options[Math.floor(Math.random() * options.length)];
+    if (pick.driveId) taken[String(pick.driveId)] = true;
+    markImageUsed(pick.id);
+    Object.assign(q, mediaFieldsFor(pick));
+    assigned++;
+  });
+
+  saveQueueLocal();
+  saveQueueToSheets();
+  renderQueue();
+
+  var msg = "Assigned photos to " + assigned + " post" + (assigned !== 1 ? "s" : "") + ".";
+  if (skipped.length) msg += "\n\n" + skipped.length + " could not be matched because there are no suitable photos:\n" + skipped.slice(0, 8).join("\n") + (skipped.length > 8 ? "\n..." : "") + "\n\nAdd more photos in the Images tab.";
+  alert(msg);
+}
+
 function openPhotoPicker(id) {
   var q = null;
   for (var i = 0; i < queue.length; i++) { if (String(queue[i].id) === String(id)) { q = queue[i]; break; } }
