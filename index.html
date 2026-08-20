@@ -1519,6 +1519,10 @@ function stripBannedTerms(t) {
   t = t.replace(/\b(?:a |the )?flight of stairs\b/gi, "everyday effort");
   // Replace only the object, never the verb. Swallowing "walking up the stairs"
   // whole produced "It is through the day without getting out of breath".
+  // "Your knees complain going up stairs" became "complain on everyday tasks".
+  // Rewrite the whole prepositional phrase so the sentence still reads.
+  t = t.replace(/\b(?:going|walking|heading|climbing|coming)\s+up\s+(?:the\s+)?stairs\b/gi, "moving about");
+  t = t.replace(/\b(?:on|going)\s+(?:the\s+)?stairs\b/gi, "moving about");
   t = t.replace(/\bup\s+(?:the\s+)?stairs\b/gi, "around");
   // Preserve the verb form: "you walk upstairs" must not become "you walking around".
   t = t.replace(/\b(walk|walks|walked|walking|get|gets|got|getting|go|goes|went|going)\s+upstairs\b/gi, "$1 around");
@@ -2967,8 +2971,11 @@ function removeImg(id) {
 
 function findBestImage(postType, aud) {
   if (!imageLibrary.length) return null;
-  var ready = imageLibrary.filter(function(img) { return !img.analyzing && !img.exported; });
-  if (!ready.length) ready = imageLibrary.filter(function(img) { return !img.analyzing; });
+  // "exported" used to hard-exclude a photo, with a fallback only when the pool
+  // was completely empty. After marking 45 photos as used, 28 posts were sharing
+  // 17 pictures while the rest sat unusable. It is now a ranking preference:
+  // fresh photos first, then least-used, then longest since last export.
+  var ready = imageLibrary.filter(function(img) { return !img.analyzing; });
   if (!ready.length) return null;
 
   // Gender is a HARD constraint and must be applied FIRST. It used to run last,
@@ -3007,8 +3014,23 @@ function findBestImage(postType, aud) {
     }
     saveImageLibrary();
   }
-  var unused = pool.filter(function(img) { return !img.usedCount || img.usedCount === 0; });
-  pool = unused.length ? unused : pool;
+  // Rank rather than filter, so nothing is ever unreachable.
+  pool = pool.slice().sort(function(a, b) {
+    var ae = a.exported ? 1 : 0, be = b.exported ? 1 : 0;
+    if (ae !== be) return ae - be;                                    // never exported first
+    var au = a.usedCount || 0, bu = b.usedCount || 0;
+    if (au !== bu) return au - bu;                                    // then least used
+    var at = a.exportedAt || "", bt = b.exportedAt || "";
+    return String(at).localeCompare(String(bt));                      // then longest ago
+  });
+  // Choose randomly from the best-ranked group so a batch does not always open
+  // with the same picture, while still never touching a stale one early.
+  var bestExported = pool[0].exported ? 1 : 0;
+  var bestUsed = pool[0].usedCount || 0;
+  var topBand = pool.filter(function(img) {
+    return ((img.exported ? 1 : 0) === bestExported) && ((img.usedCount || 0) === bestUsed);
+  });
+  pool = topBand.length ? topBand : pool;
 
   var genderPool = pool;
 
@@ -4534,6 +4556,13 @@ function autoAssignPhotos(force) {
   if (!queue.length) { alert("No posts in the queue."); return; }
   var ready = imageLibrary.filter(function(img) { return !img.analyzing; });
   if (!ready.length) { alert("No photos in the library. Sync Google Drive in the Images tab first."); return; }
+  // Prefer never-exported, then least-used, so a bulk assign spreads across the
+  // whole library instead of recycling whatever happens to be unflagged.
+  ready = ready.slice().sort(function(a, b) {
+    var ae = a.exported ? 1 : 0, be = b.exported ? 1 : 0;
+    if (ae !== be) return ae - be;
+    return (a.usedCount || 0) - (b.usedCount || 0);
+  });
 
   // A post rebuilt from a CSV carries a mediaUrl but no mediaId, so it looked
   // "already done" here while showing no photo anywhere in the app. Treat a post
@@ -4589,7 +4618,10 @@ function autoAssignPhotos(force) {
       });
     }
     if (!options.length) { skipped.push(q.date + " " + q.time + " (" + q.aud + ")"); return; }
-    var pick = options[Math.floor(Math.random() * options.length)];
+    // options preserves the ranked order, so take from the freshest band.
+    var bestE = options[0].exported ? 1 : 0, bestU = options[0].usedCount || 0;
+    var band = options.filter(function(im) { return ((im.exported ? 1 : 0) === bestE) && ((im.usedCount || 0) === bestU); });
+    var pick = (band.length ? band : options)[Math.floor(Math.random() * (band.length ? band.length : options.length))];
     if (pick.driveId) taken[String(pick.driveId)] = true;
     markImageUsed(pick.id);
     Object.assign(q, mediaFieldsFor(pick));
