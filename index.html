@@ -1875,6 +1875,9 @@ function validatePost(text, short, publishMonth) {
   // from an earlier pass ("you Want to get back", "home workouts just, don't").
   // Scan every line, not just the first: the scar can appear anywhere.
   if (/(?:^|[a-z,])\s+[A-Z][a-z]{2,}\s+(?:to|the|a|that|it|you|your|back|for)\b/m.test(body.replace(/(?:^|[.!?"'\u201c\u201d]\s*)[A-Z]/gm, "x"))) warnings.push("Stray mid-sentence capital");
+  // A capitalised common verb/pronoun mid-sentence: "But you Can get", "you Will
+  // notice", "it Does work". These are cleanup artefacts, not proper nouns.
+  if (/[a-z,]\s+(?:Can|Will|Does|Do|Is|Are|Was|Were|Have|Has|Had|Should|Would|Could|Might|Must|May|Get|Got|Go|Went|Make|Made|Take|Took)\s+[a-z]/.test(body.replace(/(?:^|[.!?"'\u201c\u201d]\s*)[A-Z]/gm, "x"))) warnings.push("Stray mid-sentence capital");
   if (/,\s*(?:don't|doesn't|didn't|won't|can't|isn't|aren't)\b/i.test(body)) warnings.push("Comma splice before contraction");
   if (/\b(?:burns?|burning) calories\b|\bcalorie deficit\b|\bafterburn\b/i.test(body)) warnings.push("Calorie mechanism claim");
   // A myth stated with fewer than two correcting sentences after it (item 2).
@@ -1979,7 +1982,8 @@ var BLOCKING_WARNINGS = [
   "Wrong month",
   "Transformation claim",
   "Shopping cliche",
-  "Session frequency too high"
+  "Session frequency too high",
+  "Stray mid-sentence capital"
 ];
 
 // The month a queued post publishes in, for the month check.
@@ -2133,7 +2137,8 @@ function renderMatchedImage(postType, forceId) {
     ? imageLibrary.filter(function(i) { return String(i.id) === String(forceId); })[0]
     : findBestImage(postType, selAud);
   if (!img) return;
-  if (!forceId) markImageUsed(img.id);
+  // findBestImage already records the pick; forceId path is a manual choice.
+  if (forceId) markImageUsed(img.id);
   curMediaId = img.id;
   var card = document.getElementById("outputCard");
   var box = document.createElement("div");
@@ -2264,7 +2269,7 @@ function doAddQueue() {
   var mediaIdToUse = curMediaId;
   if (!mediaIdToUse && imageLibrary.length) {
     var assignedMedia = findBestImage(selType, selAud);
-    if (assignedMedia) { markImageUsed(assignedMedia.id); mediaIdToUse = assignedMedia.id; }
+    if (assignedMedia) { mediaIdToUse = assignedMedia.id; }  // findBestImage already recorded it
   }
   var _sMedia = null;
   for (var _si = 0; _si < imageLibrary.length; _si++) { if (String(imageLibrary[_si].id) === String(mediaIdToUse)) { _sMedia = imageLibrary[_si]; break; } }
@@ -3093,7 +3098,7 @@ function removeImg(id) {
   saveImageLibrary();
 }
 
-function findBestImage(postType, aud) {
+function _pickBestImage(postType, aud) {
   if (!imageLibrary.length) return null;
   // "exported" used to hard-exclude a photo, with a fallback only when the pool
   // was completely empty. After marking 45 photos as used, 28 posts were sharing
@@ -3191,6 +3196,20 @@ function findBestImage(postType, aud) {
   var finalPool = exact.length ? exact : (nonVideo.length ? nonVideo : genderPool);
   return finalPool[Math.floor(Math.random() * finalPool.length)];
   // NOTE: does NOT mark as used — call markImageUsed() separately when actually assigning
+}
+
+// Every caller of findBestImage generates a whole batch before anything is
+// scheduled, so _sessionUsedIds was never populated during generation and the
+// picker handed out the same top-ranked photo 28 times. Recording the pick here
+// — for the duration of this generation run — is what actually spreads a batch
+// across the whole library.
+function findBestImage(postType, aud) {
+  var img = _pickBestImage(postType, aud);
+  if (img) {
+    _sessionUsedIds.add(String(img.id));
+    img.usedCount = (img.usedCount || 0) + 1;   // so ranking moves on to the next photo
+  }
+  return img;
 }
 
 // The queue must carry the resolved media URL, not just a library id. The export
@@ -4759,9 +4778,17 @@ function autoAssignPhotos(force) {
     return base;
   }
 
+  // Track what this run has already handed out by the photo's OWN id. The old
+  // version keyed on driveId, so every photo without one collided on
+  // taken[undefined] and read as taken — which is why a whole queue collapsed
+  // onto a couple of images. It also sorted once and never re-ranked, so every
+  // post saw the same freshest band. Pick, mark, and let the next pick re-rank.
+  var takenIds = {};
+  queue.forEach(function(q) { if (!force && q.mediaId) takenIds[String(q.mediaId)] = true; });
+
   var assigned = 0, skipped = [];
   targets.forEach(function(q) {
-    var options = eligibleFor(q);
+    var options = eligibleFor(q).filter(function(img) { return !takenIds[String(img.id)]; });
     if (!options.length) {
       // Allow reuse rather than leave the post bare, but never break gender.
       options = ready.filter(function(img) {
@@ -4769,14 +4796,23 @@ function autoAssignPhotos(force) {
         if (q.aud === "women" && (g === "men" || g === "unknown")) return false;
         if (q.aud === "men" && (g === "women" || g === "unknown")) return false;
         return true;
-      });
+      }).filter(function(img) { return !takenIds[String(img.id)]; });
     }
-    if (!options.length) { skipped.push(q.date + " " + q.time + " (" + q.aud + ")"); return; }
-    // options preserves the ranked order, so take from the freshest band.
+    // Truly nothing fresh left — fall back to the least-used eligible photo.
+    if (!options.length) {
+      options = eligibleFor(q);
+      if (!options.length) { skipped.push(q.date + " " + q.time + " (" + q.aud + ")"); return; }
+    }
+    // Re-rank every time, because usedCount changes as we assign.
+    options = options.slice().sort(function(a, b) {
+      var ae = a.exported ? 1 : 0, be = b.exported ? 1 : 0;
+      if (ae !== be) return ae - be;
+      return (a.usedCount || 0) - (b.usedCount || 0);
+    });
     var bestE = options[0].exported ? 1 : 0, bestU = options[0].usedCount || 0;
     var band = options.filter(function(im) { return ((im.exported ? 1 : 0) === bestE) && ((im.usedCount || 0) === bestU); });
-    var pick = (band.length ? band : options)[Math.floor(Math.random() * (band.length ? band.length : options.length))];
-    if (pick.driveId) taken[String(pick.driveId)] = true;
+    var pick = band[Math.floor(Math.random() * band.length)];
+    takenIds[String(pick.id)] = true;
     markImageUsed(pick.id);
     Object.assign(q, mediaFieldsFor(pick));
     assigned++;
