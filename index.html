@@ -346,7 +346,15 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
           <button class="btn bg" style="width:auto;font-size:13px;padding:9px 16px" onclick="photoCoverage()">Photo coverage</button>
           <button class="btn bg" style="width:auto;font-size:13px;padding:9px 16px" onclick="checkStore()">Check cloud sync</button>
           <button class="btn bc" style="width:auto;font-size:13px;padding:9px 16px" onclick="moveUsedToDriveFolder()">Move used into Used folder</button>
+          <label class="btn bp" style="width:auto;font-size:13px;padding:9px 16px;cursor:pointer;margin:0">
+            &#x1F504; Rebuild Used folder from CSVs
+            <input type="file" id="rebuildUsedInput" accept=".csv,text/csv" multiple style="display:none" onchange="if(this.files.length)rebuildUsedFromCsv(this.files)">
+          </label>
           <button class="btn bg" style="width:auto;font-size:13px;padding:9px 16px" onclick="showUsedSummary()">What have I got left?</button>
+          <label class="btn bc" style="width:auto;font-size:13px;padding:9px 16px;cursor:pointer;margin:0">
+            &#x21A9; Free up photos from a CSV
+            <input type="file" id="releaseCsvInput" accept=".csv,text/csv" style="display:none" onchange="if(this.files.length)releaseFromCsvFiles(this.files)">
+          </label>
           <button class="btn bg" style="width:auto;font-size:13px;padding:9px 16px;margin-left:auto" onclick="releaseAllUsed()">Release all</button>
         </div>
         <div class="sb" id="usedPhotoStatus" style="margin-top:10px"></div>
@@ -2509,6 +2517,81 @@ function importUsedFromPaste() {
   }
   var added = applyUsedIds(extractDriveIds(txt), "the pasted text");
   if (added >= 0 && box) box.value = "";
+}
+
+// Rebuild the Used folder in Drive from one or more exported CSVs. The workflow:
+// empty the Used folder by hand, then drop the CSVs of everything you have
+// actually posted. Each photo named in a CSV is marked used AND moved into the
+// Used subfolder, so the folder ends up matching the record exactly.
+function rebuildUsedFromCsv(fileList) {
+  var files = Array.prototype.slice.call(fileList || []);
+  if (!files.length) return;
+  if (!isGoogleConnected()) {
+    reportUsed("Connect Google Drive first — this needs to move the files in Drive.", "error");
+    return;
+  }
+  reportUsed("Reading " + files.length + " CSV file" + (files.length !== 1 ? "s" : "") + "...", "info");
+  var all = {}, read = 0;
+  files.forEach(function(f) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      extractDriveIds(e.target.result).forEach(function(id) { all[id] = true; });
+      read++;
+      if (read === files.length) finish();
+    };
+    reader.onerror = function() { read++; if (read === files.length) finish(); };
+    reader.readAsText(f);
+  });
+
+  function finish() {
+    var ids = Object.keys(all);
+    if (!ids.length) { reportUsed("No image ids found in those CSVs.", "error"); return; }
+    // 1. Mark them used in the record.
+    seedExportedIds(ids);
+    // 2. Move the files into the Used subfolder in Drive.
+    reportUsed("Marked " + ids.length + " photos as used. Moving them into the Used folder in Drive...", "info");
+    moveUsedFilesToDrive(ids, function(moved, errors) {
+      var sum = usedPhotoSummary();
+      if (moved > 0) {
+        reportUsed(ids.length + " photos marked used, " + moved + " moved into the Used folder. " +
+          sum.available + " still available." + (errors ? " " + errors + " could not be moved (already there, or not found)." : ""), "success");
+      } else {
+        reportUsed("Marked " + ids.length + " as used, but the Drive move failed. Reconnect Google Drive and try again — the used record is still correct.", "error");
+      }
+      renderImgLibrary();
+      var inp = document.getElementById("rebuildUsedInput");
+      if (inp) inp.value = "";
+    });
+  }
+}
+
+function releaseFromCsvFiles(fileList) {
+  var files = Array.prototype.slice.call(fileList || []);
+  if (!files.length) return;
+  reportUsed("Reading " + files.length + " file...", "info");
+  var all = {}, read = 0;
+  files.forEach(function(f) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      extractDriveIds(e.target.result).forEach(function(id) { all[id] = true; });
+      read++;
+      if (read === files.length) {
+        var ids = Object.keys(all);
+        if (!ids.length) { reportUsed("No image ids found in that CSV.", "error"); return; }
+        clearExportedIds(ids);
+        // Also re-add them to the library as available if a sync dropped them.
+        var stillMarked = getExportedIds();
+        var freed = ids.filter(function(id) { return !stillMarked[id]; }).length;
+        var sum = usedPhotoSummary();
+        reportUsed(freed + " photo" + (freed !== 1 ? "s" : "") + " from that CSV put back into rotation. " +
+          sum.available + " now available. If any are missing from the grid, press Sync now to pull them back from Drive.", "success");
+        var inp = document.getElementById("releaseCsvInput");
+        if (inp) inp.value = "";
+      }
+    };
+    reader.onerror = function() { read++; };
+    reader.readAsText(f);
+  });
 }
 
 function showUsedSummary() {
