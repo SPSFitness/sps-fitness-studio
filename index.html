@@ -2448,7 +2448,12 @@ function usedPhotoSummary() {
 function extractDriveIds(text) {
   var found = {};
   var t = String(text || "");
-  var urlRe = /(?:[?&]id=|\/d\/|\/file\/d\/)([A-Za-z0-9_-]{15,})/g;
+  // Cover every Drive URL shape the app has ever written:
+  //   ...uc?export=download&id=ID   (download link)
+  //   ...lh3.googleusercontent.com/d/ID   (image host)
+  //   ...drive.google.com/file/d/ID/view  (share link)
+  //   ...thumbnail?id=ID   (thumbnail)
+  var urlRe = /(?:[?&]id=|\/d\/|\/file\/d\/|googleusercontent\.com\/d\/|thumbnail\?id=)([A-Za-z0-9_-]{15,})/g;
   var m;
   while ((m = urlRe.exec(t)) !== null) found[m[1]] = true;
   // Bare ids sitting on their own line or in their own cell
