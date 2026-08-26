@@ -3234,6 +3234,24 @@ function publicMediaUrl(url, isVideo) {
   return m ? "https://lh3.googleusercontent.com/d/" + m[1] + "=w1600" : url;
 }
 
+// Pull the Drive file id out of any URL shape we might hold.
+function driveIdOf(url) {
+  if (!url) return "";
+  var m = /(?:[?&]id=|\/d\/|\/file\/d\/|googleusercontent\.com\/d\/)([\w-]{15,})/.exec(url);
+  return m ? m[1] : "";
+}
+
+// High Level accepts a Drive video, but not the uc?export=download shape — it
+// wants the standard share link. Convert, and give it a thumbnail poster.
+function publicVideoUrl(url, driveId) {
+  var id = driveId || driveIdOf(url);
+  return id ? "https://drive.google.com/file/d/" + id + "/view?usp=sharing" : (url || "");
+}
+function videoThumbUrl(url, driveId) {
+  var id = driveId || driveIdOf(url);
+  return id ? "https://drive.google.com/thumbnail?id=" + id + "&sz=w1280" : "";
+}
+
 function markImageUsed(id) {
   for (var i = 0; i < imageLibrary.length; i++) {
     if (String(imageLibrary[i].id) === String(id)) {
@@ -5002,9 +5020,14 @@ function exportCSV() {
         }
       }
     }
+    var thumbUrl = "";
     if (rawUrl) {
-      if (isVid) { videoUrl = rawUrl; }
-      else { imageUrl = publicMediaUrl(rawUrl, false); }
+      if (isVid) {
+        videoUrl = publicVideoUrl(rawUrl, q.mediaDriveId);
+        thumbUrl = videoThumbUrl(rawUrl, q.mediaDriveId);
+      } else {
+        imageUrl = publicMediaUrl(rawUrl, false);
+      }
     } else if (q.mediaId) {
       missingMedia.push(q.date + " " + q.time);
     }
@@ -5015,7 +5038,7 @@ function exportCSV() {
       imageUrl,
       "",
       videoUrl,
-      ""
+      thumbUrl
     ]);
   }
 
