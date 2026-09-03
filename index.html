@@ -1920,7 +1920,12 @@ function validatePost(text, short, publishMonth) {
   if (/\b(?:shifted|lost|dropped|shed|down|gained|put on)\s+(?:another\s+)?(?:\d+|one|two|three|four|five|six|a|half a)\s*(?:stone|kg|kilos?|pounds?|lbs?|inches|dress sizes?)\b/i.test(body))
     warnings.push("Transformation claim");
   // Pricing framed as positioning rather than a number.
-  if (/\bnot the cheapest\b|\bcheaper than\b|\bmore expensive\b|\bwhat you (?:are|'re) paying for\b|\bcost is (?:always )?a fair question\b|\bworth the money\b/i.test(body))
+  if (/\bnot the cheapest\b|\bcheaper than\b|\bmore expensive\b|\bwhat you (?:are|'re) paying for\b|\bcost is (?:always )?a fair question\b|\bworth the money\b/i.test(body) ||
+      // Cost-comparison framing: "a fraction of what you pay for PT", "less than
+      // a coffee", "costs less than". Naming price relative to anything is out.
+      /\bfraction of (?:what|the cost|the price)\b.{0,30}(?:pay|cost|pt|personal train)|\bcosts? less\b|\bfor the price of\b|\bwon'?t break the bank\b|\baffordabl/i.test(body) ||
+      /\bless than (?:you|what) (?:you )?(?:pay|spend|would pay)\b/i.test(body) ||
+      /\band cost\??\s|\bwhat (?:it|this|a session|membership) costs?\b|\bper session\b|\bper month\b|\bcost per\b/i.test(body))
     warnings.push("Pricing mentioned");
   if (/\b(?:what it costs|how much it costs|the cost|cost,|costs,|pricing|prices|how much is it)\b/i.test(body) && !/\bpay(?:ing)? the price\b/i.test(body)) warnings.push("Pricing mentioned");
   if (/\b(?:nervous system|cardiovascular system|burns? more energy|energy at rest|calorie surplus|body composition)\b/i.test(body)) warnings.push("Physiological mechanism claim");
@@ -3184,10 +3189,13 @@ function _pickBestImage(postType, aud) {
     }
     console.warn("Reels post but no video in the library — falling back to a still.");
   }
-  // Non-reels posts should not take a video, or the reels slots get starved.
+  // Non-reels posts must NEVER take a video. Videos are reserved for the two
+  // reels slots; a third video on an ordinary post means one leaked through.
+  // Exclude them from the whole eligible set here, not just when stills remain,
+  // so no later fallback can re-introduce one.
   if (postType !== "reels") {
-    var stills = genderPool.filter(function(img) { return !img.isVideo; });
-    if (stills.length) genderPool = stills;
+    genderPool = genderPool.filter(function(img) { return !img.isVideo; });
+    eligible = eligible.filter(function(img) { return !img.isVideo; });
   }
 
   // Within gender pool prefer post type match
