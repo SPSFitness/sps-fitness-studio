@@ -2147,6 +2147,16 @@ function validatePost(text, short, publishMonth, postType) {
   // Contract / lock-in / paid-upfront terms — invented commitment structure.
   if (/\block(?:ed)? into a contract\b|\bpaid upfront\b|\bpay upfront\b|\btied into a contract\b|\bcontract you'?re? (?:locked|tied)\b|\bcommitment that costs\b/i.test(body))
     warnings.push("Invented price detail");
+  // Broken price artefact — a figure stripped mid-sentence leaving a dangling
+  // "at.", "gyms at.", "from.", "cost you." with nothing after it.
+  if (/\b(?:gyms?|options?|memberships?|prices?|costs?|from|only|just|around|about)\s+(?:at|from|around|about|of)\.\s/i.test(body) ||
+      /\bbudget gyms? at\b|\bgyms? (?:at|from)\s*[.,]/i.test(body) ||
+      /\b(?:costs?|pay|priced?)\s+(?:you\s+)?(?:at|from|around)\s*[.,]/i.test(body))
+    warnings.push("Invented price detail");
+  // "more than I expected to pay", "more than you expected" — cost-comparison
+  // framing that blocks even for lead posts (it invents a price reaction).
+  if (/\bmore than (?:I|you|we|they) expected to pay\b|\bthat'?s more than (?:I|you) (?:expected|thought)\b|\bcheaper (?:options?|gyms?|alternatives?)\b|\bbudget gyms?\b/i.test(body))
+    warnings.push("Invented price detail");
 
   // 12. Medical condition checklist — naming specific conditions as a list.
   //     "Bad back. Dodgy knee. Diabetes. Heart condition." Rules forbid symptom/
