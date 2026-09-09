@@ -573,9 +573,9 @@ var PROMPTS = {
     everyone: "Write a post celebrating the local community feel of SPS Fitness in Halesowen. Reference being independent and local, not a chain, knowing your members by name, being part of the West Midlands community."
   },
   fromleads: {
-    women: "Write a Facebook post for SPS Fitness that directly addresses a real concern or question from actual leads. Use the lead intelligence provided to write something that speaks to people who are on the fence about joining. Honest, warm, specific. No pressure. British English. Under 180 words.",
-    men: "Write a Facebook post for SPS Fitness that directly addresses a real concern or question from actual male leads. Use the lead intelligence provided. Direct, honest, no hype. British English. Under 180 words.",
-    everyone: "Write a Facebook post for SPS Fitness that directly addresses a real concern or barrier from actual leads. Use the lead intelligence provided to write something that speaks directly to people considering joining. British English. Under 180 words."
+    women: "Write a Facebook post for SPS Fitness that directly addresses a real concern or question from actual leads. Use the lead intelligence provided to write something that speaks to people who are on the fence about joining. Honest, warm, specific. No pressure. British English. Under 180 words. If the lead question is about price or cost, you may acknowledge it honestly as a real question and talk about value and it being an investment worth making, but you must NEVER state a specific price, a monthly or weekly figure, a joining fee, a contract or cancellation term, or anything from an invoice. Keep it to the value, not the numbers, and end with message us to find out more.",
+    men: "Write a Facebook post for SPS Fitness that directly addresses a real concern or question from actual male leads. Use the lead intelligence provided. Direct, honest, no hype. British English. Under 180 words. If the lead question is about price or cost, you may acknowledge it honestly as a real question and talk about value and it being an investment worth making, but you must NEVER state a specific price, a monthly or weekly figure, a joining fee, a contract or cancellation term, or anything from an invoice. Keep it to the value, not the numbers, and end with message us to find out more.",
+    everyone: "Write a Facebook post for SPS Fitness that directly addresses a real concern or barrier from actual leads. Use the lead intelligence provided to write something that speaks directly to people considering joining. British English. Under 180 words. If the lead question is about price or cost, you may acknowledge it honestly as a real question and talk about value and it being an investment worth making, but you must NEVER state a specific price, a monthly or weekly figure, a joining fee, a contract or cancellation term, or anything from an invoice. Keep it to the value, not the numbers, and end with message us to find out more."
   },
   reels: {
     women: "Write a Facebook or Instagram caption for a short video post from SPS Fitness aimed at women over 30. Write it as if the video shows a real moment from a coached session — someone working hard, a coaching interaction, the group atmosphere, a member hitting something they could not do before. The caption should feel like it was written by the coach in the moment. Real, warm, direct. Under 120 words. Max 3 hashtags. No direction notes, no filming instructions — just the post text ready to publish.",
@@ -1864,7 +1864,7 @@ function unexpectedProperNouns(text) {
 
 // Validation pass — flags problems for review instead of silently mangling.
 // Pass the short flag so it knows a short-form post is meant to be brief.
-function validatePost(text, short, publishMonth) {
+function validatePost(text, short, publishMonth, postType) {
   var warnings = [];
   if (!text) return warnings;
   var body = text.replace(/#[A-Za-z0-9_]+/g, "").trim();
@@ -2009,8 +2009,8 @@ function validatePost(text, short, publishMonth) {
   // 1. Invented pricing / contract terms. The model started answering "how much
   //    does it cost" with fabricated terms: joining fee, contract, cancellation
   //    notice, "unlimited access". None of that is ever to be stated.
-  if (/\b(?:joining fee|sign-?up fee|no contract|no commitment|cancel(?:lation)? (?:any ?time|with|policy)|month'?s notice|unlimited (?:access|sessions)|pay as you go|direct debit|monthly fee|membership fee|per week|weekly fee)\b/i.test(body))
-    warnings.push("Pricing mentioned");
+  if (/\b(?:joining fee|sign-?up fee|no contract|no commitment|cancel(?:lation)? (?:any ?time|with|policy)|month'?s notice|unlimited (?:access|sessions)|pay as you go|direct debit|monthly fee|membership fee|per week|per month|per session|weekly fee|£\s?\d|\d+\s?(?:pounds|quid)|the invoice|number on the invoice)\b/i.test(body))
+    warnings.push("Invented price detail");
   //    A question about cost/charges/price that the post then answers is out,
   //    even when no number appears — "how much does it cost / fair question /
   //    here's the honest answer" is the shape.
@@ -2101,8 +2101,31 @@ function validatePost(text, short, publishMonth) {
   // 10. Invoice / payment framing. Even without a number, framing the decision
   //     around "the number on the invoice", "a lot more than I wanted to pay",
   //     "what you pay", is a pricing conversation.
-  if (/\b(?:number on the invoice|on the invoice|a lot more than (?:I|you) wanted to pay|more than (?:I|you) wanted to (?:pay|spend)|the invoice|what you'?re paying|the price tag)\b/i.test(body))
-    warnings.push("Pricing mentioned");
+  if (/\b(?:number on the invoice|on the invoice|a lot more than (?:I|you) wanted to pay|more than (?:I|you) wanted to (?:pay|spend)|the invoice|the price tag)\b/i.test(body))
+    warnings.push("Invented price detail");
+
+  // 12. Medical condition checklist — naming specific conditions as a list.
+  //     "Bad back. Dodgy knee. Diabetes. Heart condition." Rules forbid symptom/
+  //     condition checklists and naming specific medical conditions.
+  var conditions = (body.match(/\b(?:diabetes|diabetic|heart condition|heart disease|high blood pressure|hypertension|arthritis|osteoporosis|fibromyalgia|sciatica|hernia|angina|copd|asthma|cancer|stroke)\b/gi) || []);
+  if (conditions.length >= 2 ||
+      /\b(?:bad back|dodgy knee)\b[^.!?]{0,40}\b(?:diabetes|heart|surgery|arthritis)\b/i.test(body))
+    warnings.push("Medical condition list");
+
+  // 13. Group size "four or five", "four or five other" as the session size.
+  if (/\b(?:four or five|five or six|three or four|six or seven|two or three)\s+(?:other\s+)?(?:people|women|men|of you|of us|others?)\b[^.!?]{0,15}\b(?:max|maximum|in|small group)\b/i.test(body) ||
+      /\bsmall group\b[^.!?]{0,25}\b(?:four or five|five or six|three or four|six or seven)\b/i.test(body) ||
+      /\b(?:four or five|five or six)\s+(?:other\s+)?(?:people|women|men)\b.{0,6}(?:max|,\s*max)/i.test(body))
+    warnings.push("Group size claim");
+
+  // 14. "sometimes four", "three times a week, sometimes four" — four as norm.
+  if (/\b(?:three times?\s*(?:a week)?,?\s*)?sometimes four\b/i.test(body) ||
+      /\bthree,?\s*(?:sometimes|even)\s*four\s+times?\b/i.test(body))
+    warnings.push("Session frequency too high");
+
+  // 15. "drop a stone" / weight-target aesthetic framing.
+  if (/\bdrop a stone\b|\blose a stone\b|\bshed a stone\b|\bdrop (?:a|two|three) (?:dress )?sizes?\b/i.test(body))
+    warnings.push("Aesthetic framing");
 
   // 11. "Muscle is denser than fat" / "muscle weighs more than fat" — a common
   //     mechanism claim used in scales myth-busts. The point (scales mislead) can
@@ -2175,7 +2198,9 @@ var BLOCKING_WARNINGS = [
   "Aesthetic framing",
   "Named person",
   "Calorie mechanism claim",
-  "Nutrition prescription"
+  "Nutrition prescription",
+  "Medical condition list",
+  "Invented price detail"
 ];
 
 // The month a queued post publishes in, for the month check.
@@ -2192,9 +2217,17 @@ function warningSeverity(w) {
   return "review";
 }
 
-function blockingWarnings(text, short, approved, publishMonth) {
+function blockingWarnings(text, short, approved, publishMonth, postType) {
   if (approved) return [];   // you have looked at it and said it is fine
-  return validatePost(text, short, publishMonth).filter(function(w) { return warningSeverity(w) === "blocking"; });
+  var isLeadPost = postType === "fromleads";
+  return validatePost(text, short, publishMonth, postType).filter(function(w) {
+    if (warningSeverity(w) !== "blocking") return false;
+    // Lead-question posts may acknowledge cost as a topic ("Pricing mentioned"
+    // framing), because a real lead asked — but invented numbers or terms
+    // ("Invented price detail") are never allowed, in any post.
+    if (isLeadPost && w === "Pricing mentioned") return false;
+    return true;
+  });
 }
 
 // Approve a single post past the gate. Nothing catches everything, and being
@@ -2231,13 +2264,41 @@ function alternativeAngle(type, aud, avoid) {
   return options[Math.floor(Math.random() * options.length)];
 }
 
+// Tracks the opening lines used in the batch currently generating, so three
+// posts do not open with the same sentence (the "Not sure if current PT is right
+// for me" triple). Reset at the start of each batch.
+var _batchOpenings = [];
+function openingClashes(text) {
+  if (!text) return false;
+  var first = text.split(/\n+/)[0].toLowerCase().replace(/[^a-z ]/g, "").trim();
+  var key = first.split(/\s+/).slice(0, 6).join(" ");
+  if (!key || key.length < 10) return false;
+  for (var i = 0; i < _batchOpenings.length; i++) {
+    if (_batchOpenings[i] === key) return true;
+  }
+  return false;
+}
+function recordOpening(text) {
+  if (!text) return;
+  var first = text.split(/\n+/)[0].toLowerCase().replace(/[^a-z ]/g, "").trim();
+  var key = first.split(/\s+/).slice(0, 6).join(" ");
+  if (key && key.length >= 10) _batchOpenings.push(key);
+}
+
 function generateCleanPost(sys, prompt, short, cb, attempt, meta) {
   attempt = attempt || 1;
   meta = meta || {};
   generatePost(sys, prompt, short, function(err, text) {
     if (err) { cb(err, null, []); return; }
-    var blocked = blockingWarnings(text, short, false, meta.month);
-    if (!blocked.length || attempt >= 4) { cb(null, text, blocked); return; }
+    var blocked = blockingWarnings(text, short, false, meta.month, meta.type);
+    // A repeated opening within the batch is treated as a soft block so it gets
+    // regenerated, but never blocks export on its own (it is a variety issue,
+    // not a content breach).
+    if (openingClashes(text) && attempt < 4) {
+      var altP = prompt + "\n\nThe opening line is too similar to another post in this batch. Open with a completely different first sentence and structure.";
+      generateCleanPost(sys, altP, short, cb, attempt + 1, meta); return;
+    }
+    if (!blocked.length || attempt >= 4) { recordOpening(text); cb(null, text, blocked); return; }
 
     var fixNote = "\n\nThe previous attempt was rejected for: " + blocked.join("; ") +
       ". Write it again avoiding those completely. Do not mention session times, schedules, session length, prices, free sessions, waiting lists, spaces being full, any location other than Halesowen, any physiological mechanism, any nutrition target, or any routine the reader performs at home. Do not name anyone.";
@@ -3722,7 +3783,7 @@ function importQueueFromCsv(file) {
     renderQueue();
     updateBadge();
 
-    var blocked = queue.filter(function(x) { return blockingWarnings(x.text, x.short, x.approved, monthOfQueueItem(x)).length; }).length;
+    var blocked = queue.filter(function(x) { return blockingWarnings(x.text, x.short, x.approved, monthOfQueueItem(x), x.type).length; }).length;
     alert("Imported " + rebuilt.length + " posts. Queue now holds " + queue.length + "." +
       (blocked ? "\n\n" + blocked + " of them are blocked and will need regenerating before export." : "\n\nAll pass the checks and are ready to export."));
   };
@@ -4059,6 +4120,7 @@ function doDay() {
   var total = slots.length;
   var plan = buildBatchPlan(total);
   _sessionUsedIds = new Set();
+  _batchOpenings = [];
   document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x2726;</div><p>Generating ' + total + ' post' + (total !== 1 ? "s" : "") + ' for today... <span id="prog1">0</span> of ' + total + ' done.</p></div>';
   var done = 0;
   var ds = today.toISOString().split("T")[0];
@@ -4849,7 +4911,7 @@ function regenerateQueuePost(id) {
   if (!q) return;
 
   var btn = document.getElementById("qModalRegenBtn");
-  var blocked = blockingWarnings(q.text, q.short, q.approved, monthOfQueueItem(q));
+  var blocked = blockingWarnings(q.text, q.short, q.approved, monthOfQueueItem(q), q.type);
   if (btn) { btn.disabled = true; btn.textContent = "Regenerating..."; }
 
   var sys = q.aud === "women" ? SYS_WOMEN : (q.aud === "men" ? SYS_MEN : SYS_ALL);
@@ -5046,7 +5108,7 @@ function saveQModalEdit() {
   renderQueue();
   // Always close on save. Keeping the modal open on a flagged post made it look
   // like the same post kept reopening; the flag is visible on the queue row.
-  var stillBad = blockingWarnings(newText, q ? q.short : false, q ? q.approved : false);
+  var stillBad = blockingWarnings(newText, q ? q.short : false, q ? q.approved : false, q ? q.monthPub : "", q ? q.type : "");
   closeQModal();
   if (stillBad.length) {
     showStatus("queueStatus", "Saved. Still flagged for: " + stillBad.join(", ") + ". Reopen it and press Approve anyway if you are happy with it.", "error");
@@ -5370,7 +5432,7 @@ function exportCSV(platform) {
   var gateFails = [];
   var exportOnlyPassing = false;
   queue.forEach(function(q) {
-    var bad = blockingWarnings(q.text, q.short, q.approved, monthOfQueueItem(q));
+    var bad = blockingWarnings(q.text, q.short, q.approved, monthOfQueueItem(q), q.type);
     if (bad.length) gateFails.push({ date: q.date, time: q.time, why: bad });
   });
   if (gateFails.length) {
@@ -5397,7 +5459,7 @@ function exportCSV(platform) {
     var q = queue[i];
     // When exporting only the passing posts, skip anything still blocked. It
     // stays in the queue so it can be regenerated afterwards.
-    if (exportOnlyPassing && blockingWarnings(q.text, q.short, q.approved, monthOfQueueItem(q)).length) continue;
+    if (exportOnlyPassing && blockingWarnings(q.text, q.short, q.approved, monthOfQueueItem(q), q.type).length) continue;
     exportedQueueIds[String(q.id)] = true;
 
     // Combine date and time into YYYY-MM-DD HH:mm:ss format
