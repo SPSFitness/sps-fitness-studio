@@ -272,8 +272,9 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
         <button class="btn bc" style="flex:1" onclick="do10Days()">&#x1F4C5; 10 DAYS</button>
         <button class="btn bc" style="flex:1" onclick="do30Days()">&#x1F4C5; 30 DAYS</button>
         <button class="btn bc" onclick="autoAssignPhotos(false)">&#x1F5BC; Add missing photos</button>
-        <button class="btn bgreen" onclick="exportCSV()">&#x2B07; Export Facebook CSV</button>
-        <button class="btn bc" onclick="exportInstagramCSV()">&#x1F4F8; Export Instagram CSV</button>
+        <button class="btn bgreen" onclick="exportBothCSV()">&#x2B07; Export both (FB + Insta)</button>
+        <button class="btn bc" onclick="exportInstagramCSV()">&#x1F4F8; Instagram only</button>
+        <button class="btn bc" onclick="exportCSV('facebook')">&#x1F310; Facebook only</button>
         <button class="btn bg" onclick="doClearQueue()">&#x1F5D1; Clear</button>
       </div>
       <div id="queueSyncNote" style="display:none;padding:10px 12px;border-radius:var(--rs);font-size:13px;margin-bottom:10px;background:rgba(234,179,8,0.12);color:#eab308;line-height:1.5"></div>
@@ -1927,6 +1928,11 @@ function validatePost(text, short, publishMonth) {
       /\b(?:space|spaces|spot|spots|place|places)\s+(?:opening up|coming up|freeing up|available|left|remaining)\b/i.test(body) ||
       /\b(?:opening up|freeing up)\s+soon\b|\bfew (?:spaces|spots|places) left\b|\blimited (?:spaces|spots|places|availability)\b/i.test(body)) warnings.push("Invented scarcity");
   if (/\bsomeone\b/i.test(body) && /\b(?:tired someone|this is someone|someone still deserves|a someone|the someone)\b/i.test(body)) warnings.push("Name filter residue");
+  // "supposed to Meet someone you're allowed" — a mid-sentence "Meet someone" or
+  // "Say hello to someone" that is not a real introduction is mangled residue.
+  if (/\b(?:to |supposed to |going to )(?:Meet|meet)\s+someone\s+(?:you|to|where|and|before|when)\b/i.test(body) ||
+      /\bstandard[^.!?]{0,20}\b(?:Meet|meet)\s+someone\b/i.test(body))
+    warnings.push("Name filter residue");
   if (/\b\d{1,2}[- ]minute session\b|\bsessions? (?:are|last|run for) \d{1,2}\b/i.test(body)) warnings.push("Session length stated");
   // A first line that is one short word ending in a full stop is a split scar
   // ("Twelve." / "The." / "Will I Be."), never a real headline.
@@ -1968,7 +1974,12 @@ function validatePost(text, short, publishMonth) {
     warnings.push("Session schedule mentioned");
   // Four or more sessions a week stated as something members do, not debunked.
   if (/\b(?:some|others?|people|members)\s+train\s+(?:four|five|six|4|5|6)\s+times?\b/i.test(body) ||
-      /\btrain\s+(?:four|five|six)\s+times?\s+a\s+week\b/i.test(body) && !/\b(?:not|instead of|rather than|myth|wrong|do not need|don't need)\b/i.test(body))
+      /\btrain\s+(?:four|five|six)\s+times?\s+a\s+week\b/i.test(body) && !/\b(?:not|instead of|rather than|myth|wrong|do not need|don't need)\b/i.test(body) ||
+      // "Four would change things properly" / "now he's at four" — four sessions
+      // presented as the better or normal amount.
+      /\bfour\s+would\s+(?:change|make|be|get|really)\b/i.test(body) ||
+      /\b(?:now|then)\s+(?:he'?s|she'?s|they'?re)\s+at\s+four\b/i.test(body) ||
+      /\badded\s+a\s+(?:third|fourth)\b[^.!?]{0,40}\bfour\b/i.test(body))
     warnings.push("Session frequency too high");
   if (/\b(?:some|others?)\s+(?:come|train|go)\s+(?:early|midday|evenings?|mornings?|afternoons?)\b/i.test(body) ||
       /\bbefore the school run\b|\bfit it in midday\b|\btrain evenings\b|\bfixed class time\b/i.test(body))
@@ -1989,6 +2000,57 @@ function validatePost(text, short, publishMonth) {
       /\band cost\??\s|\bwhat (?:it|this|a session|membership) costs?\b|\bper session\b|\bper month\b|\bcost per\b/i.test(body))
     warnings.push("Pricing mentioned");
   if (/\b(?:what it costs|how much it costs|the cost|cost,|costs,|pricing|prices|how much is it)\b/i.test(body) && !/\bpay(?:ing)? the price\b/i.test(body)) warnings.push("Pricing mentioned");
+  // === HARDENING PASS: failures found in the 2026-09-13 batch that the gate missed ===
+
+  // 1. Invented pricing / contract terms. The model started answering "how much
+  //    does it cost" with fabricated terms: joining fee, contract, cancellation
+  //    notice, "unlimited access". None of that is ever to be stated.
+  if (/\b(?:joining fee|sign-?up fee|no contract|no commitment|cancel(?:lation)? (?:any ?time|with|policy)|month'?s notice|unlimited (?:access|sessions)|pay as you go|direct debit|monthly fee|membership fee|per week|weekly fee)\b/i.test(body))
+    warnings.push("Pricing mentioned");
+  //    A question about cost/charges/price that the post then answers is out,
+  //    even when no number appears — "how much does it cost / fair question /
+  //    here's the honest answer" is the shape.
+  if (/\b(?:how much (?:does it|is it|do you|would it)|what (?:do you|are the|it) charge|the charges?|programme and charges|training programme and charges)\b/i.test(body))
+    warnings.push("Pricing mentioned");
+
+  // 2. Group size stated as a number. Rules allow "max 12" as a ceiling in
+  //    bodyblast context only; any other number, or "usually six", "never more
+  //    than eight", "six or seven in a session" is an invented operational claim.
+  if (/\b(?:usually|typically|normally|often|about|around|only|just|never more than|no more than|maximum of|max of|up to)\s+(?:two|three|four|five|six|seven|eight|nine|ten|eleven|\d{1,2})\s+(?:people|in a session|in the group|in each|of us|of you)\b/i.test(body) ||
+      /\b(?:two|three|four|five|six|seven|eight|nine|ten)\s+(?:people|max)\b.{0,20}\b(?:session|group|class)\b/i.test(body) ||
+      /\bgroups? of\s+(?:two|three|four|five|six|seven|eight|nine|ten|\d{1,2})\s+(?:people|max)\b/i.test(body) ||
+      /\b(?:sessions?|classes|groups?|we)\s+(?:are|is|have|keep|cap|capped|kept)\b[^.!?]{0,20}\b(?:two|three|four|five|six|seven|eight|nine|ten|\d{1,2})\b/i.test(body) ||
+      // Standalone number sentence right after a group mention: "...a small
+      // group. Usually six." The number is the size even with a full stop between.
+      (/\b(?:small group|the group|a group|group session|in a group|the session)\b/i.test(body) &&
+       /(?:^|[.!?]\s+)(?:usually|typically|normally|often|about|around)\s+(?:two|three|four|five|six|seven|eight|nine|ten)\b/i.test(body)))
+    warnings.push("Group size claim");
+
+  // 3. Schedule-drift / drop-in timetable. "we run sessions throughout the week",
+  //    "catch Thursday or Saturday instead", "fit sessions around your life",
+  //    "swap sessions" — implies drop-in access that is not offered.
+  if (/\b(?:run|running) sessions? (?:throughout|through|across|all) the (?:week|day)\b/i.test(body) ||
+      /\bcatch (?:the )?(?:another|thursday|friday|saturday|sunday|monday|tuesday|wednesday)\b/i.test(body) ||
+      /\bsessions? (?:throughout|through|across) the week\b/i.test(body) ||
+      /\bmiss (?:one|a session|tuesday|monday)\??\s*(?:come|catch|make|grab)\b/i.test(body) ||
+      /\bif (?:tuesday|monday|wednesday|thursday|work) (?:disappears|falls through|goes|vanishes)\b/i.test(body) ||
+      /\bswap (?:your )?sessions?\b/i.test(body))
+    warnings.push("Session schedule mentioned");
+
+  // 3b. Naming specific training days even as a personal habit — "I train on
+  //     Tuesday and Thursday", "she trains Monday and Wednesday".
+  var _DAY = "(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)";
+  if (new RegExp("\\b(?:I|she|he|we|you)\\s+train\\s+(?:on\\s+)?" + _DAY + "\\s+and\\s+" + _DAY, "i").test(body) ||
+      new RegExp("\\btrain\\s+(?:on\\s+)?" + _DAY + "s?\\s+and\\s+" + _DAY, "i").test(body))
+    warnings.push("Session schedule mentioned");
+
+  // 4. Weight-loss / toning aesthetic framing (positioning is capability, not
+  //    aesthetics). "weight loss and toning", "tone up", "slim down", "shift the belly".
+  var _debunk = /\b(?:myth|wrong|won'?t|will not|does ?n'?t|cannot|can'?t|not how|stop chasing|there is no|isn'?t how|no such thing)\b/i.test(body);
+  if (/\b(?:weight loss and toning|toning (?:up|and)|tone up|slim(?:ming)? down|drop a dress size|beach body|bikini body)\b/i.test(body) ||
+      (/\bshift (?:the |your )?(?:belly|fat|weight)\b/i.test(body) && !_debunk))
+    warnings.push("Aesthetic framing");
+
   if (/\b(?:nervous system|cardiovascular system|burns? more energy|energy at rest|calorie surplus|body composition)\b/i.test(body)) warnings.push("Physiological mechanism claim");
   var wc = (body.match(/\S+/g) || []).length;
   if (wc > 250) warnings.push("Too long (" + wc + " words)");   // 222 against a 220 target is not worth flagging
@@ -2049,7 +2111,9 @@ var BLOCKING_WARNINGS = [
   "Transformation claim",
   "Shopping cliche",
   "Session frequency too high",
-  "Stray mid-sentence capital"
+  "Stray mid-sentence capital",
+  "Group size claim",
+  "Aesthetic framing"
 ];
 
 // The month a queued post publishes in, for the month check.
@@ -5203,6 +5267,17 @@ function toInstaCaption(fullText) {
 }
 
 function exportInstagramCSV() { exportCSV("instagram"); }
+
+// Export both platforms in one action. Instagram runs first because it does not
+// consume the queue; Facebook runs second and finalises the batch (marks photos
+// used, clears the queue, moves Drive files). This guarantees the two CSVs come
+// from the same queue and can never get out of sync.
+function exportBothCSV() {
+  if (!queue.length) { alert("No posts in queue to export. Generate some posts first!"); return; }
+  exportCSV("instagram");
+  // Small gap so the two downloads do not collide in the browser.
+  setTimeout(function() { exportCSV("facebook"); }, 800);
+}
 
 function exportCSV(platform) {
   platform = platform || "facebook";
