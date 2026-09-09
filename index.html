@@ -1979,7 +1979,11 @@ function validatePost(text, short, publishMonth) {
       // presented as the better or normal amount.
       /\bfour\s+would\s+(?:change|make|be|get|really)\b/i.test(body) ||
       /\b(?:now|then)\s+(?:he'?s|she'?s|they'?re)\s+at\s+four\b/i.test(body) ||
-      /\badded\s+a\s+(?:third|fourth)\b[^.!?]{0,40}\bfour\b/i.test(body))
+      /\badded\s+a\s+(?:third|fourth)\b[^.!?]{0,40}\bfour\b/i.test(body) ||
+      // "some weeks four times", "sometimes four times a week" — four stated as a
+      // normal amount of attendance.
+      /\b(?:some weeks?|sometimes|other weeks?|occasionally)\s+(?:it (?:is|was) |that (?:is|was) |it'?s |that'?s )?four\s+times?\b/i.test(body) ||
+      /\bfour\s+times?\s+(?:a week|some weeks)\b/i.test(body))
     warnings.push("Session frequency too high");
   if (/\b(?:some|others?)\s+(?:come|train|go)\s+(?:early|midday|evenings?|mornings?|afternoons?)\b/i.test(body) ||
       /\bbefore the school run\b|\bfit it in midday\b|\btrain evenings\b|\bfixed class time\b/i.test(body))
@@ -2047,11 +2051,45 @@ function validatePost(text, short, publishMonth) {
   // 4. Weight-loss / toning aesthetic framing (positioning is capability, not
   //    aesthetics). "weight loss and toning", "tone up", "slim down", "shift the belly".
   var _debunk = /\b(?:myth|wrong|won'?t|will not|does ?n'?t|cannot|can'?t|not how|stop chasing|there is no|isn'?t how|no such thing)\b/i.test(body);
-  if (/\b(?:weight loss and toning|toning (?:up|and)|tone up|slim(?:ming)? down|drop a dress size|beach body|bikini body)\b/i.test(body) ||
+  if (/\b(?:weight loss and toning|toning (?:up|and)|tone up|see more tone|more toned|slim(?:ming)? down|drop a dress size|beach body|bikini body|lose weight and (?:see|get|tone))\b/i.test(body) ||
       (/\bshift (?:the |your )?(?:belly|fat|weight)\b/i.test(body) && !_debunk))
     warnings.push("Aesthetic framing");
 
-  if (/\b(?:nervous system|cardiovascular system|burns? more energy|energy at rest|calorie surplus|body composition)\b/i.test(body)) warnings.push("Physiological mechanism claim");
+  // 5. Named person — the absolute rule. A capitalised first name used as a
+  //    subject: "Lee knows", "Sarah started", "Dave came in". The location/allow
+  //    lists already protect Halesowen etc; this catches a person's name acting.
+  // Only a capitalised name NOT at a sentence start is a real name acting —
+  // "Lee knows" mid-flow. A sentence-initial capital ("Two coached", "Who
+  // walked", "You know") is just normal capitalisation, so require a lowercase
+  // word or comma immediately before the candidate.
+  var NAME_VERBS = "(?:knows|said|says|told|asked|came|started|joined|trains|showed|coaches|coached|greets|remembers|noticed|smashed|nailed)";
+  var nameMatch = new RegExp("(?:[a-z,]\\s+)([A-Z][a-z]{2,11})\\s+" + NAME_VERBS + "\\b").exec(body);
+  if (nameMatch) {
+    var w1 = nameMatch[1];
+    var NOT_NAME = /^(?:The|This|That|These|Those|They|Then|There|Here|Some|Most|Every|Everyone|Someone|Small|Bodyblast|Halesowen|Members|People|Women|Men|When|What|Where|Which|While|After|Before|Because|Session|Sessions|Training|Coaching|Progress|Strength|September|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Nobody|Nothing|Being|Getting|Having|Walking|Turning|Showing|Coming|Going|Consistency|Confidence|Nobody|Half)$/;
+    if (!NOT_NAME.test(w1)) warnings.push("Named person");
+  }
+
+  // 6. Availability / "always space" — the opposite of scarcity but equally an
+  //    operational claim we do not make. "there's always space", "join any week",
+  //    "always room", "spaces available".
+  if (/\b(?:always (?:space|room|spaces|availability)|join any (?:week|time)|spaces? (?:are )?available|room for (?:you|everyone|more)|never full)\b/i.test(body))
+    warnings.push("Invented scarcity");
+
+  // 7. Calorie / energy-balance mechanism. "eat less energy than you burn",
+  //    "calories in versus out", "energy deficit", "burn more than you eat".
+  if (/\b(?:less energy than you burn|more energy than you (?:eat|consume)|energy (?:deficit|balance)|calories? (?:in|out|deficit|burned)|burn (?:more|off) (?:calories|fat|energy)|eat(?:ing)? (?:less|fewer) (?:energy|calories))\b/i.test(body))
+    warnings.push("Calorie mechanism claim");
+
+  // 8. Diet / nutrition prescription. "cut carbs", "eat more protein to", specific
+  //    dietary instruction. Simple "protein helps muscle" is allowed by the rules;
+  //    an instruction to change what you eat is not.
+  if (/\b(?:cut (?:carbs|calories|sugar)|cutting carbs|carbs are ?n'?t fattening|low carb\b|keto|calorie count|track(?:ing)? (?:your )?(?:macros|calories)|the source matters less)\b/i.test(body) ||
+      // "eat less energy/calories" only as an instruction, not "eating less energy than you burn" (that is the calorie-mechanism rule) and not "no meal plan".
+      (/\bmeal plan\b/i.test(body) && !/\b(?:no|without|never|not a|do ?n'?t (?:do|offer|need)|there'?s no)\s+(?:\w+\s+){0,2}meal plan\b/i.test(body)))
+    warnings.push("Nutrition prescription");
+
+  if (/\b(?:nervous system|cardiovascular system|burns? more energy|energy at rest|calorie surplus|body composition|cartilage|loading (?:actually )?helps|keeps? (?:the )?(?:cartilage|joints?) (?:healthy|strong)|puts? (?:far )?(?:more )?(?:long-term )?strain on your (?:knees|joints|back))\b/i.test(body)) warnings.push("Physiological mechanism claim");
   var wc = (body.match(/\S+/g) || []).length;
   if (wc > 250) warnings.push("Too long (" + wc + " words)");   // 222 against a 220 target is not worth flagging
   else if (wc < 10) warnings.push("Very short (" + wc + " words) — may be over-trimmed");
@@ -2113,7 +2151,10 @@ var BLOCKING_WARNINGS = [
   "Session frequency too high",
   "Stray mid-sentence capital",
   "Group size claim",
-  "Aesthetic framing"
+  "Aesthetic framing",
+  "Named person",
+  "Calorie mechanism claim",
+  "Nutrition prescription"
 ];
 
 // The month a queued post publishes in, for the month check.
@@ -4020,7 +4061,6 @@ function doDay() {
       if (prog) prog.textContent = done;
       if (!err && text) {
         text = cleanPostText(text);
-        text = applyHashtags(text, p.aud);
         var wMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (wMedia) markImageUsed(wMedia.id);
         queue.push(Object.assign({id: nextQueueId(), type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short}, mediaFieldsFor(wMedia)));
@@ -4069,7 +4109,6 @@ function doWeek() {
       if (prog) prog.textContent = done;
       if (!err && text) {
         text = cleanPostText(text);
-        text = applyHashtags(text, p.aud);
         var wMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (wMedia) markImageUsed(wMedia.id);
         queue.push(Object.assign({id: nextQueueId(), type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short}, mediaFieldsFor(wMedia)));
@@ -4692,7 +4731,6 @@ function do10Days() {
       if (prog) prog.textContent = done;
       if (!err && text) {
         text = cleanPostText(text);
-        text = applyHashtags(text, p.aud);
         var pMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (pMedia) markImageUsed(pMedia.id);
         queue.push(Object.assign({id: nextQueueId(), type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short}, mediaFieldsFor(pMedia)));
@@ -4746,7 +4784,6 @@ function do30Days() {
       if (!err && text) {
         var pMedia = imageLibrary.length ? findBestImage(plan.type, plan.aud) : null;
         if (pMedia) markImageUsed(pMedia.id);
-        text = applyHashtags(text, plan.aud);
         queue.push(Object.assign({id: nextQueueId(), type: plan.type, aud: plan.aud, text: text, date: ds, time: slotTime, short: plan.short}, mediaFieldsFor(pMedia)));
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         // Add to history so next post avoids this angle
@@ -5227,44 +5264,61 @@ window.addEventListener("DOMContentLoaded", function() {
 // text: the algorithm wants a hook, brevity, and saves. This keeps the opening
 // (the strongest line), trims the middle, keeps a CTA, and moves hashtags into a
 // separated block so the caption itself reads clean.
-function toInstaCaption(fullText) {
+function toInstaCaption(fullText, aud) {
   if (!fullText) return fullText;
-  // Split body from any trailing hashtag block.
+  // Strip any trailing hashtag block from the source (FB text is now clean, but
+  // handle legacy posts that still carry tags).
   var lines = fullText.split(/\n+/).map(function(l){ return l.trim(); }).filter(Boolean);
-  var bodyLines = [], tagLine = "";
-  lines.forEach(function(l){
-    if (/^#/.test(l) && l.replace(/#[A-Za-z0-9]+/g,"").replace(/\s+/g,"").length === 0) tagLine = l;
-    else bodyLines.push(l);
+  var bodyLines = lines.filter(function(l){
+    return !(/^[#.\s]+$/.test(l) || (/^#/.test(l) && l.replace(/#[A-Za-z0-9]+/g,"").replace(/\s+/g,"").length === 0));
   });
 
   var hook = bodyLines[0] || "";
-  // Keep the hook plus up to two more short supporting sentences, capped so the
-  // whole caption stays tight (IG rewards brevity; long captions get buried).
-  var rest = bodyLines.slice(1);
-  var kept = [];
-  // IG wants brevity: hook plus at most ONE supporting line, and only if the
-  // hook alone is thin. A caption that runs four paragraphs is a Facebook post,
-  // and IG buries it. Cap hard.
-  var budget = 120; // chars of supporting text after the hook
-  for (var i = 0; i < rest.length && kept.length < 1; i++) {
-    var line = rest[i];
-    if (/message us|drop us a message|get in touch|send us a message/i.test(line)) break;
-    if (line.length > budget) continue;      // skip long lines entirely
-    kept.push(line);
+  // IG caption: a strong hook, at most one short supporting line, an engagement
+  // question (IG rewards comments and saves), a CTA, then hashtags in a first-
+  // comment-style block. Kept tight — long captions get buried on IG.
+  var support = "";
+  for (var i = 1; i < bodyLines.length; i++) {
+    var line = bodyLines[i];
+    if (/message us|drop us a message|get in touch|send us a message/i.test(line)) continue;
+    if (line.length <= 140 && !support) { support = line; break; }
   }
-  // If the hook is already a full thought (ends in . ! ?) and reasonably long,
-  // keep it alone — punchiest for IG.
-  if (hook.length > 60 && /[.!?]$/.test(hook)) kept = [];
+  // If the hook is already a complete, punchy thought, let it stand alone.
+  if (hook.length > 70 && /[.!?"]$/.test(hook)) support = "";
+
+  // An engagement prompt tuned to the audience — invites a comment, which IG
+  // weights heavily. Rotated so a batch is not identical.
+  var prompts = {
+    women: ["Does this sound like you? Tell us below.", "Who needs to read this today? Tag them.", "Save this for the week you need it.", "Sound familiar? Let us know."],
+    men:   ["Recognise this? Drop a comment.", "Know someone who needs to see this? Tag them.", "Save this for later.", "This you? Let us know below."],
+    everyone: ["Does this land for you? Comment below.", "Tag someone who needs to hear it.", "Save this to come back to.", "Agree? Let us know."]
+  };
+  var pool = prompts[aud] || prompts.everyone;
+  var engage = pool[_igEngageRot % pool.length];
+  _igEngageRot++;
 
   var caption = hook;
-  if (kept.length) caption += "\n\n" + kept.join("\n\n");
+  if (support) caption += "\n\n" + support;
+  caption += "\n\n" + engage;
   caption += "\n\nMessage us to find out more.";
-  // Hashtags on their own, after a separator dot line so they sit apart from the
-  // caption the way native IG posts format them.
-  var tags = tagLine || "#SPSFitness #HalesowenGym #Halesowen";
-  caption += "\n.\n.\n.\n" + tags;
+  // Hashtags: audience-matched, more of them for IG (discovery), first-comment style.
+  var core = ["#SPSFitness", "#HalesowenGym", "#Halesowen"];
+  var disc = {
+    women:    ["#WomenWhoLift", "#Over40Fitness", "#WomensFitness", "#SmallGroupTraining", "#StrengthTraining", "#FitnessOver40", "#HalesowenFitness", "#StrongWomen"],
+    men:      ["#Over40Fitness", "#Over50Fitness", "#MensFitness", "#StrengthTraining", "#SmallGroupTraining", "#StrongerAfter40", "#HalesowenFitness", "#MensHealth"],
+    everyone: ["#SmallGroupTraining", "#StrengthTraining", "#Over30Fitness", "#PersonalTraining", "#WestMidlands", "#FitnessMotivation", "#HalesowenFitness", "#GymHalesowen"]
+  };
+  var dp = disc[aud] || disc.everyone;
+  // IG tolerates more tags — take 6 rotating, non-repeating.
+  var picked = [];
+  for (var k = 0; k < 6; k++) picked.push(dp[(_igTagRot + k) % dp.length]);
+  _igTagRot = (_igTagRot + 1) % dp.length;
+  var tags = core.concat(picked).filter(function(t,idx,arr){ return arr.indexOf(t)===idx; });
+  caption += "\n.\n.\n.\n" + tags.join(" ");
   return caption;
 }
+var _igEngageRot = 0;
+var _igTagRot = 0;
 
 function exportInstagramCSV() { exportCSV("instagram"); }
 
@@ -5331,7 +5385,7 @@ function exportCSV(platform) {
     // Combine post text and hashtags into one content field. For Instagram the
     // caption is shortened to an IG-native hook so the same calendar produces a
     // format-tuned variant rather than the long Facebook body.
-    var outText = isInsta ? toInstaCaption(q.text) : q.text;
+    var outText = isInsta ? toInstaCaption(q.text, q.aud) : q.text;
     var fullText = outText.replace(/"/g, '""');
 
     // Use the URL stored on the queue item. Falling back to a library lookup is
