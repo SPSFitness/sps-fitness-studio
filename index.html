@@ -2140,7 +2140,12 @@ function validatePost(text, short, publishMonth, postType) {
 
   // 18. Broken pricing artefact — a stray + or currency symbol left where a
   //     number was stripped, next to pay/session/per. "paying + per session".
-  if (/\bpay(?:ing)?\s*\+/i.test(body) || /\+\s*per (?:session|month|one-to-one|one to one)\b/i.test(body) || /\bwithout paying \+/i.test(body))
+  if (/\bpay(?:ing)?\s*\+/i.test(body) || /\+\s*(?:a|per)\s*(?:month|week|session|one-to-one|one to one)\b/i.test(body) ||
+      /\bcosts?\s*(?:you\s*)?\+/i.test(body) || /\bwithout paying \+/i.test(body) ||
+      /\+\s*(?:a month|a week|per)/i.test(body))
+    warnings.push("Invented price detail");
+  // Contract / lock-in / paid-upfront terms — invented commitment structure.
+  if (/\block(?:ed)? into a contract\b|\bpaid upfront\b|\bpay upfront\b|\btied into a contract\b|\bcontract you'?re? (?:locked|tied)\b|\bcommitment that costs\b/i.test(body))
     warnings.push("Invented price detail");
 
   // 12. Medical condition checklist — naming specific conditions as a list.
@@ -2337,18 +2342,28 @@ function generateCleanPost(sys, prompt, short, cb, attempt, meta) {
     // A repeated opening within the batch is treated as a soft block so it gets
     // regenerated, but never blocks export on its own (it is a variety issue,
     // not a content breach).
-    if (openingClashes(text) && attempt < 4) {
+    if (openingClashes(text) && attempt < 6) {
       var altP = prompt + "\n\nThe opening line is too similar to another post in this batch. Open with a completely different first sentence and structure.";
       generateCleanPost(sys, altP, short, cb, attempt + 1, meta); return;
     }
-    if (!blocked.length || attempt >= 4) { recordOpening(text); cb(null, text, blocked); return; }
+    // Raised to 6 attempts, and after a FINAL failure the slot is rewritten as a
+    // plain, safe motivation post rather than queued broken — so the held-back
+    // count at export drops to near zero.
+    if (!blocked.length) { recordOpening(text); cb(null, text, blocked); return; }
+    if (attempt >= 6) {
+      // Last resort: one clean rewrite on the safest possible brief, ignoring the
+      // original type/angle. If even this is blocked, queue it flagged.
+      var safeBrief = "Write a short, warm Facebook post for SPS Fitness, a small group gym in Halesowen. Talk about how showing up consistently to coached sessions builds strength and capability over time, and how the group keeps people going. No prices, no schedules, no session counts, no locations other than Halesowen, no nutrition, no physiological mechanisms, no aesthetics, no names, no numbers. Under 120 words. End with: message us to find out more.";
+      if (attempt === 6) { generateCleanPost(sys, safeBrief, short, cb, 7, { type: "motivation", aud: meta.aud, month: meta.month }); return; }
+      recordOpening(text); cb(null, text, blocked); return;   // attempt 7 blocked too — give up
+    }
 
     var fixNote = "\n\nThe previous attempt was rejected for: " + blocked.join("; ") +
-      ". Write it again avoiding those completely. Do not mention session times, schedules, session length, prices, free sessions, waiting lists, spaces being full, any location other than Halesowen, any physiological mechanism, any nutrition target, or any routine the reader performs at home. Do not name anyone.";
+      ". Write it again avoiding those completely. Do not mention session times, schedules, session length, prices, costs, invoices, joining fees, cancellation, booking flexibility, free sessions, waiting lists, availability, spaces, any location other than Halesowen, any physiological mechanism, any nutrition or diet, weight loss or toning, any routine performed at home, or any specific number of sessions or people. Do not name anyone.";
 
-    // Rewording the same subject twice and still failing means the subject
-    // itself cannot be written about safely. Change it rather than looping.
-    if (attempt >= 2 && meta.type) {
+    // Switch angle immediately after the FIRST failure, not the second — a failing
+    // angle rarely recovers by rewording.
+    if (meta.type) {
       var alt = alternativeAngle(meta.type, meta.aud, meta.angle);
       if (alt) {
         meta = { type: meta.type, aud: meta.aud, angle: alt, month: meta.month };
