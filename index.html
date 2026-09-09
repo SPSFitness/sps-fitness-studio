@@ -272,7 +272,8 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
         <button class="btn bc" style="flex:1" onclick="do10Days()">&#x1F4C5; 10 DAYS</button>
         <button class="btn bc" style="flex:1" onclick="do30Days()">&#x1F4C5; 30 DAYS</button>
         <button class="btn bc" onclick="autoAssignPhotos(false)">&#x1F5BC; Add missing photos</button>
-        <button class="btn bgreen" onclick="exportCSV()">&#x2B07; Export CSV</button>
+        <button class="btn bgreen" onclick="exportCSV()">&#x2B07; Export Facebook CSV</button>
+        <button class="btn bc" onclick="exportInstagramCSV()">&#x1F4F8; Export Instagram CSV</button>
         <button class="btn bg" onclick="doClearQueue()">&#x1F5D1; Clear</button>
       </div>
       <div id="queueSyncNote" style="display:none;padding:10px 12px;border-radius:var(--rs);font-size:13px;margin-bottom:10px;background:rgba(234,179,8,0.12);color:#eab308;line-height:1.5"></div>
@@ -280,6 +281,10 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
         <button class="btn bg" style="width:auto;font-size:12px;padding:7px 13px" onclick="restoreQueue()">&#x21BB; Restore queue</button>
         <button class="btn bg" style="width:auto;font-size:12px;padding:7px 13px" onclick="undoLastExport()">&#x21A9; Undo last export</button>
         <button class="btn bg" style="width:auto;font-size:12px;padding:7px 13px" onclick="undoCsvImport()">&#x21A9; Undo CSV import</button>
+        <label class="btn bg" style="width:auto;font-size:12px;padding:7px 13px;cursor:pointer;margin:0">
+          &#x21BB; Rebuild history from CSV
+          <input type="file" id="rebuildHistoryInput" accept=".csv,text/csv" multiple style="display:none" onchange="if(this.files.length)rebuildHistoryFromCsv(this.files)">
+        </label>
         <button class="btn bg" style="width:auto;font-size:12px;padding:7px 13px" onclick="autoAssignPhotos(true)">&#x1F504; Reassign all photos</button>
         <label class="btn bg" style="width:auto;font-size:12px;padding:7px 13px;cursor:pointer;margin:0">
           &#x2191; Rebuild from CSV
@@ -519,7 +524,7 @@ var SYS_MEN = SYS_BASE + " This post is specifically for men in their 40s, 50s a
 
 var SYS_ALL = SYS_BASE + " This post is for the whole SPS Fitness community — women and men from their 30s through their 50s and beyond. Around half of SPS members are over 50, training alongside members in their 30s and 40s. This is a mixed age community where everyone trains together. Write something that resonates with anyone who is busy, time-poor, and trying to get fit or stay fit around a full life. Be inclusive without being vague. Speak to real shared experiences: not having enough time, feeling like fitness keeps slipping down the priority list, wanting to feel stronger and have more energy, having tried other gyms and been let down, feeling intimidated by big gyms, coming back after a gap or illness and not knowing where to start, discovering they actually enjoy training when it is done right. The SPS difference: small group sessions, different workout every time, coaching that meets you where you are, a community where people genuinely support each other.";
 
-var SYS_BASE = "You write Facebook posts for SPS Fitness, a small group personal training gym in Halesowen, West Midlands. Run by the coach. You are writing in the voice of someone who has coached real people in this gym for years and has seen everything. These are the things you actually know from being on the gym floor every day: members who never liked exercise in their lives now miss sessions when they cannot come. People join for the fitness and stay for the friendships. The support in the room is something members talk about more than the training itself. With new members getting them moving matters more than perfect form at the start. Confidence and consistency beat technique obsession every time and the movement improves naturally as they get stronger. The memory in the ladies sessions is genuinely shocking in the funniest way. You can demo an exercise turn around and thirty seconds later someone asks what they are supposed to be doing. That is one of the best things about the job. About half the members are over 50 and they are some of the most committed people in the building. People come in exhausted from their week and leave feeling better than when they walked in every single time. ON OUTCOMES: Never sell the surface result. Sell the outcome behind the outcome. Not weight loss but confidence. Not fitness but capability. Not training but feeling like yourself again. Do NOT use specific examples like shopping bags, carrying grandchildren or grandkids, walking upstairs, up the stairs or getting off the sofa   these are overused gym content cliches that every gym uses. Find fresh, specific, unexpected ways to describe what strength and capability actually feel like in real life. ON POSITIONING: Position SPS around strength, capability and independence not aesthetics. The people who train for those reasons stay longer work harder and value the coaching more. ON LANGUAGE: Every gym within ten miles is saying lose weight burn fat transform your body. That language is dead. The market has heard it too many times and gone numb to it. SPS content should never sound like a gym advert. It should sound like a person who understands what people actually want and is not afraid to talk about it honestly. ON VALUE: People say SPS is expensive before they join and never say it again after they do. The problem is they cannot attach a value to something they have not experienced. The posts should help people understand what they are getting by making them feel what it is worth. ON HATERS: Some people have someone in their life quietly discouraging them. Never let someone elses opinion of your potential become your ceiling. Other peoples noise is not your business. Showing up for yourself is. TONE: Straight-talking, warm, occasionally dry and funny, never preachy, never corporate, never generic. Short sentences. Direct. Sounds like a real person not a fitness brand. CONTRACTIONS: Mix contractions and full forms naturally. Use dont and do not, its and it is, youre and you are, cant and cannot, wont and will not interchangeably. Never use only full forms throughout a post as that sounds robotic. FORMATTING: Max 3 hashtags. LENGTH IS A HARD CEILING NOT A TARGET TO FILL. Never write more than 220 words under any circumstances, and never exceed a shorter length limit given for a specific post. Most posts are strongest between 90 and 160 words and many work best shorter. Never pad a post to reach a length. If the point is made in three sentences, stop at three sentences. Short posts get more engagement than long ones. British English. No markdown. No dashes or em dashes. Never output bracketed placeholders of any kind such as [insert gym name], [name] or {location}. Always write the actual wording a real post would use, never a placeholder for someone to fill in later. PARAGRAPH BREAKS: separate every 1-2 sentences with a blank line. Facebook posts must have breathing room between thoughts. Never write more than 2 sentences in a row without a line break. Use blank lines between paragraphs   this is mandatory. Never end with meta-commentary. VARIETY IS THE PRIORITY: each post is given a required structure that dictates how it opens and moves. Follow that structure exactly. Do not default to the same problem-then-reassurance-then-message-us arc every post — that pattern is worn out and gets ignored. Vary rhythm, sentence length and the way you open every single time. Some posts should ask a real question and invite a reply. Some should take a clear stance. Some should tell a story and trust the reader to get it. The worst outcome is a post that sounds like every other gym post, so when in doubt, be more specific, more human and more surprising. OVERUSED PATTERNS TO ROTATE: Phrases like someone said to me this morning, had a conversation today, a member asked me, this came up in a session are fine occasionally but must not appear in consecutive posts or more than once every 8 to 10 posts. Choose a completely different structure if recently used. Never use: your future self will thank you, beast mode, level up, game changer, hustle, grind, feel the burn, trust the process, smash your goals, crush it, journey, transformation, proper as in proper coaching, amazing, incredible, awesome, fantastic. Never suggest sleeping in gym clothes. Never write posts that sound trivial or gimmicky. Never provide detailed medical or medical health advice   do not diagnose symptoms, recommend specific supplement doses, or present detailed physiological mechanisms as if giving medical guidance. Keep health content at the level of worth discussing with your GP rather than medical instruction. Never list specific symptoms as a diagnostic checklist. Never write content that positions SPS as a home workout solution, a self-directed fitness resource, or a general wellness brand. SPS is a coached small group gym. Posts should always anchor back to the coached environment, the community, or the value of showing up to a session. Do not write posts that tell people to do press-ups against the kitchen counter or squats while the kettle boils   that undermines the coaching proposition entirely. Never use title case on any line   every word capitalised is a blog headline not a Facebook post. Write in normal sentence case throughout. ABSOLUTE RULE — NEVER NAME A PERSON IN A POST. Do not use any first name ever. Do not write This is Bev or Meet Sarah or Dave came in or any variation. Do not write about a specific named individual at all. If referencing a member experience write it as 'someone' or 'a member' or frame it as something that happens commonly. This rule has no exceptions. A named person in a post is always wrong. Hashtags: always spell Halesowen correctly. Approved hashtags: SPSFitness HalesowenGym Halesowen SmallGroupTraining PersonalTraining WestMidlands StrengthTraining Over30Fitness Over40Fitness WomenWhoLift. COMMUNITY CONTEXT: approximately 50 percent of SPS members are over 50 training alongside people in their 30s and 40s. SPS has been established in Halesowen for years with real members real results and real relationships. No waiting list just start. Never mention specific session times. Never reference specific months, seasons or dates. Posts are evergreen and should read correctly whenever they are published. Never use January, February or any month name. Sessions have a maximum of 12 people, never say 8 or 10 or any other number. Never make specific operational claims that cannot be verified. Never invent scarcity or urgency such as spaces left, spots available, limited availability, starting next week, booking now closing   unless specifically told these are real and accurate. Never mention specific prices, costs, monthly fees or trial session offers   pricing is never to be invented or assumed. Never say first session is free or quote any specific price. If a CTA is needed say message us to find out more or drop us a message only. Keep claims to: coached small group training, max 12 people, progressive programming, Halesowen West Midlands. LOCATION IS ABSOLUTE: SPS Fitness is in Halesowen, West Midlands, and nowhere else. Never name any other town, village, city or region anywhere in a post, not even as an example or comparison. If a location is needed it is Halesowen. SESSION FREQUENCY: members train two to three sessions a week. Two is the standard, three is the upper end. Never suggest four, five or six sessions a week as what someone should do, and never state a specific weekly schedule such as Monday and Wednesday. Never state or imply session times, slots, prices, costs or what anything costs, and never invite someone to ask what it costs. Never name the days sessions run on. Do not write things like 'every Monday, Wednesday and Friday' or 'you squat on Monday and deadlift on Friday'. Never compare the price to other gyms or say whether it is cheap or expensive. Never state how much weight or how many dress sizes anyone has lost. The only CTA is message us to find out more. Never claim sessions are full, filling up, or that there is a waiting list. Never describe a physiological mechanism, including the nervous system, cardiovascular system, body composition, energy burned at rest, calorie surplus or deficit. Never write a headline in Title Case With Every Word Capitalised. Write headlines in normal sentence case. HEALTH AND SCIENCE CONTENT   HARD RULES: Do not write about blood sugar, insulin, cortisol, hormones, fat burning mechanisms, metabolic processes, inflammation, immune system, detox, supplements or any biochemical claim. Do not cite studies, journals, percentages, statistics or research findings, and never write phrases like research shows, studies show, decades of research or science says. Never write about circadian rhythms, cortisol peaks, internal clocks, morning light protocols, sleep science mechanisms or any biological timing systems. Never invent member groups that do not exist such as 5am members or early morning regulars. Do not write nutrition advice, meal plans or dietary prescriptions. Do not write anything that could be construed as medical advice. If a health topic comes up, keep it to simple practical behaviour   more protein means more muscle, walking is good for you, strength training helps as you age. Nothing more specific than that. A gym social media page is not a medical journal. Stay in your lane.";
+var SYS_BASE = "You write Facebook posts for SPS Fitness, a small group personal training gym in Halesowen, West Midlands. Run by the coach. You are writing in the voice of someone who has coached real people in this gym for years and has seen everything. These are the things you actually know from being on the gym floor every day: members who never liked exercise in their lives now miss sessions when they cannot come. People join for the fitness and stay for the friendships. The support in the room is something members talk about more than the training itself. With new members getting them moving matters more than perfect form at the start. Confidence and consistency beat technique obsession every time and the movement improves naturally as they get stronger. The memory in the ladies sessions is genuinely shocking in the funniest way. You can demo an exercise turn around and thirty seconds later someone asks what they are supposed to be doing. That is one of the best things about the job. About half the members are over 50 and they are some of the most committed people in the building. People come in exhausted from their week and leave feeling better than when they walked in every single time. ON OUTCOMES: Never sell the surface result. Sell the outcome behind the outcome. Not weight loss but confidence. Not fitness but capability. Not training but feeling like yourself again. Do NOT use specific examples like shopping bags, carrying grandchildren or grandkids, walking upstairs, up the stairs or getting off the sofa   these are overused gym content cliches that every gym uses. Find fresh, specific, unexpected ways to describe what strength and capability actually feel like in real life. ON POSITIONING: Position SPS around strength, capability and independence not aesthetics. The people who train for those reasons stay longer work harder and value the coaching more. ON LANGUAGE: Every gym within ten miles is saying lose weight burn fat transform your body. That language is dead. The market has heard it too many times and gone numb to it. SPS content should never sound like a gym advert. It should sound like a person who understands what people actually want and is not afraid to talk about it honestly. ON VALUE: People say SPS is expensive before they join and never say it again after they do. The problem is they cannot attach a value to something they have not experienced. The posts should help people understand what they are getting by making them feel what it is worth. ON HATERS: Some people have someone in their life quietly discouraging them. Never let someone elses opinion of your potential become your ceiling. Other peoples noise is not your business. Showing up for yourself is. TONE: Straight-talking, warm, occasionally dry and funny, never preachy, never corporate, never generic. Short sentences. Direct. Sounds like a real person not a fitness brand. CONTRACTIONS: Mix contractions and full forms naturally. Use dont and do not, its and it is, youre and you are, cant and cannot, wont and will not interchangeably. Never use only full forms throughout a post as that sounds robotic. FORMATTING: Do NOT add any hashtags yourself. The app appends the correct hashtags automatically after your text, so end on your last sentence with no hashtags at all. LENGTH IS A HARD CEILING NOT A TARGET TO FILL. Never write more than 220 words under any circumstances, and never exceed a shorter length limit given for a specific post. Most posts are strongest between 90 and 160 words and many work best shorter. Never pad a post to reach a length. If the point is made in three sentences, stop at three sentences. Short posts get more engagement than long ones. British English. No markdown. No dashes or em dashes. Never output bracketed placeholders of any kind such as [insert gym name], [name] or {location}. Always write the actual wording a real post would use, never a placeholder for someone to fill in later. PARAGRAPH BREAKS: separate every 1-2 sentences with a blank line. Facebook posts must have breathing room between thoughts. Never write more than 2 sentences in a row without a line break. Use blank lines between paragraphs   this is mandatory. Never end with meta-commentary. VARIETY IS THE PRIORITY: each post is given a required structure that dictates how it opens and moves. Follow that structure exactly. Do not default to the same problem-then-reassurance-then-message-us arc every post — that pattern is worn out and gets ignored. Vary rhythm, sentence length and the way you open every single time. Some posts should ask a real question and invite a reply. Some should take a clear stance. Some should tell a story and trust the reader to get it. The worst outcome is a post that sounds like every other gym post, so when in doubt, be more specific, more human and more surprising. OVERUSED PATTERNS TO ROTATE: Phrases like someone said to me this morning, had a conversation today, a member asked me, this came up in a session are fine occasionally but must not appear in consecutive posts or more than once every 8 to 10 posts. Choose a completely different structure if recently used. Never use: your future self will thank you, beast mode, level up, game changer, hustle, grind, feel the burn, trust the process, smash your goals, crush it, journey, transformation, proper as in proper coaching, amazing, incredible, awesome, fantastic. Never suggest sleeping in gym clothes. Never write posts that sound trivial or gimmicky. Never provide detailed medical or medical health advice   do not diagnose symptoms, recommend specific supplement doses, or present detailed physiological mechanisms as if giving medical guidance. Keep health content at the level of worth discussing with your GP rather than medical instruction. Never list specific symptoms as a diagnostic checklist. Never write content that positions SPS as a home workout solution, a self-directed fitness resource, or a general wellness brand. SPS is a coached small group gym. Posts should always anchor back to the coached environment, the community, or the value of showing up to a session. Do not write posts that tell people to do press-ups against the kitchen counter or squats while the kettle boils   that undermines the coaching proposition entirely. Never use title case on any line   every word capitalised is a blog headline not a Facebook post. Write in normal sentence case throughout. ABSOLUTE RULE — NEVER NAME A PERSON IN A POST. Do not use any first name ever. Do not write This is Bev or Meet Sarah or Dave came in or any variation. Do not write about a specific named individual at all. If referencing a member experience write it as 'someone' or 'a member' or frame it as something that happens commonly. This rule has no exceptions. A named person in a post is always wrong. Hashtags: always spell Halesowen correctly. Approved hashtags: SPSFitness HalesowenGym Halesowen SmallGroupTraining PersonalTraining WestMidlands StrengthTraining Over30Fitness Over40Fitness WomenWhoLift. COMMUNITY CONTEXT: approximately 50 percent of SPS members are over 50 training alongside people in their 30s and 40s. SPS has been established in Halesowen for years with real members real results and real relationships. No waiting list just start. Never mention specific session times. Never reference specific months, seasons or dates. Posts are evergreen and should read correctly whenever they are published. Never use January, February or any month name. Sessions have a maximum of 12 people, never say 8 or 10 or any other number. Never make specific operational claims that cannot be verified. Never invent scarcity or urgency such as spaces left, spots available, limited availability, starting next week, booking now closing   unless specifically told these are real and accurate. Never mention specific prices, costs, monthly fees or trial session offers   pricing is never to be invented or assumed. Never say first session is free or quote any specific price. If a CTA is needed say message us to find out more or drop us a message only. Keep claims to: coached small group training, max 12 people, progressive programming, Halesowen West Midlands. LOCATION IS ABSOLUTE: SPS Fitness is in Halesowen, West Midlands, and nowhere else. Never name any other town, village, city or region anywhere in a post, not even as an example or comparison. If a location is needed it is Halesowen. SESSION FREQUENCY: members train two to three sessions a week. Two is the standard, three is the upper end. Never suggest four, five or six sessions a week as what someone should do, and never state a specific weekly schedule such as Monday and Wednesday. Never state or imply session times, slots, prices, costs or what anything costs, and never invite someone to ask what it costs. Never name the days sessions run on. Do not write things like 'every Monday, Wednesday and Friday' or 'you squat on Monday and deadlift on Friday'. Never compare the price to other gyms or say whether it is cheap or expensive. Never state how much weight or how many dress sizes anyone has lost. The only CTA is message us to find out more. Never claim sessions are full, filling up, or that there is a waiting list. Never describe a physiological mechanism, including the nervous system, cardiovascular system, body composition, energy burned at rest, calorie surplus or deficit. Never write a headline in Title Case With Every Word Capitalised. Write headlines in normal sentence case. HEALTH AND SCIENCE CONTENT   HARD RULES: Do not write about blood sugar, insulin, cortisol, hormones, fat burning mechanisms, metabolic processes, inflammation, immune system, detox, supplements or any biochemical claim. Do not cite studies, journals, percentages, statistics or research findings, and never write phrases like research shows, studies show, decades of research or science says. Never write about circadian rhythms, cortisol peaks, internal clocks, morning light protocols, sleep science mechanisms or any biological timing systems. Never invent member groups that do not exist such as 5am members or early morning regulars. Do not write nutrition advice, meal plans or dietary prescriptions. Do not write anything that could be construed as medical advice. If a health topic comes up, keep it to simple practical behaviour   more protein means more muscle, walking is good for you, strength training helps as you age. Nothing more specific than that. A gym social media page is not a medical journal. Stay in your lane.";
 var PROMPTS = {
   motivation: {
     women: "Write a motivational post for busy women over 30. Make it feel real and earned — not cheesy. Draw on one of these real member experiences or feelings: felt too intimidated to go to a regular gym, tried other gyms and felt like just a number, coming back after illness or a long gap and not knowing where to start, feeling stuck and like nothing is working, not expecting to actually enjoy training but surprising herself. Name a specific struggle: school run chaos, guilt about not doing enough, not having trained in weeks or months. End with something that makes her feel seen and understood, not lectured. Do not mention SPS Fitness by name — let the feeling do the work.",
@@ -1213,7 +1218,7 @@ function getLeadInsightsPrompt(type, aud) {
   if (objection) prompt += ' This specific barrier is also common: ' + objection + '.';
   if (question) prompt += ' People also commonly ask: ' + question + '.';
   prompt += " The audience is " + audienceCtx + ". Address the concern honestly and specifically — not with hype or pressure. Make the reader feel understood. Use the language and framing of someone who has heard this exact concern hundreds of times and knows how to respond to it genuinely. The post type is " + type + ".";
-  prompt += " British English. Under 180 words. Max 3 hashtags including #SPSFitness #HalesowenGym. No markdown. No dashes or em dashes.";
+  prompt += " British English. Under 180 words. Do not add hashtags, the app appends them. No markdown. No dashes or em dashes.";
   return prompt;
 }
 
@@ -1627,6 +1632,30 @@ function fixFirstLine(text) {
   }
   text = fparts.join("\n") + rest;
   return text.replace(/^(\s*)([a-z])/, function(m0, sp, c) { return sp + c.toUpperCase(); });
+}
+
+// Discovery hashtags. FB reach barely responds to tags, but IG does, and varied
+// audience-matched tags cost nothing. Core three always present; two rotating
+// discovery tags chosen by audience and a rotating index so a batch is not
+// identical. Strips whatever hashtags the model wrote first.
+var _hashtagRot = 0;
+function applyHashtags(text, aud) {
+  if (!text) return text;
+  // Remove any existing hashtag block / stray tags the model produced.
+  var body = text.replace(/(?:^|\n)[ \t]*#[^\n]*$/g, "").replace(/\s*#[A-Za-z][A-Za-z0-9]+/g, "").trimEnd();
+  var core = ["#SPSFitness", "#HalesowenGym", "#Halesowen"];
+  var discovery = {
+    women:    ["#WomenWhoLift", "#Over40Fitness", "#SmallGroupTraining", "#StrengthTraining", "#WomensFitness", "#FitnessOver40"],
+    men:      ["#Over40Fitness", "#Over50Fitness", "#StrengthTraining", "#SmallGroupTraining", "#MensFitness", "#StrongerAfter40"],
+    everyone: ["#SmallGroupTraining", "#PersonalTraining", "#StrengthTraining", "#WestMidlands", "#Over30Fitness", "#FitnessMotivation"]
+  };
+  var pool = discovery[aud] || discovery.everyone;
+  // pick two, rotating, non-repeating within the pair
+  var a = pool[_hashtagRot % pool.length];
+  var b = pool[(_hashtagRot + 2) % pool.length];
+  _hashtagRot = (_hashtagRot + 1) % pool.length;
+  var tags = core.concat([a, b]).filter(function(t, i, arr) { return arr.indexOf(t) === i; });
+  return body + "\n\n" + tags.join(" ");
 }
 
 function cleanPostText(text) {
@@ -3418,6 +3447,17 @@ function saveHistoryToSheets() {
   }, 5000);
 }
 
+// Upload history to the store NOW, cancelling any pending debounce. The debounced
+// save was being killed whenever the tab was closed or navigated within 5 seconds
+// of generating — which is every time in practice — so the cloud copy never
+// updated even though writes work. Call this the moment a batch finishes.
+function flushHistoryToStore() {
+  if (saveHistoryToSheets._timer) { clearTimeout(saveHistoryToSheets._timer); saveHistoryToSheets._timer = null; }
+  sheetsPost("saveHistory", { history: postHistory }, function(err) {
+    if (err) console.warn("History flush failed:", err);
+  });
+}
+
 // The queue was the only thing in the app with no local backup: it lived purely
 // in Google Sheets, and a failed save only wrote a console warning nobody sees.
 // A refresh after a failed save lost the whole batch. localStorage is now the
@@ -3631,6 +3671,19 @@ function savePostHistory() {
   saveHistoryToSheets();
 }
 
+// Last-chance flush when the tab is hidden or closed, using sendBeacon so it
+// completes even as the page unloads.
+window.addEventListener("visibilitychange", function() {
+  if (document.visibilityState === "hidden" && postHistory && postHistory.length) {
+    try {
+      var payload = JSON.stringify({ history: postHistory });
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(SHEETS_URL + "?action=saveHistory", new Blob([payload], { type: "application/json" }));
+      }
+    } catch (e) {}
+  }
+});
+
 function loadPostHistory() {
   try {
     var saved = localStorage.getItem("sps_post_history");
@@ -3684,6 +3737,71 @@ function addToPostHistory(type, aud, text) {
   try { localStorage.setItem("sps_post_history", JSON.stringify(postHistory)); } catch(e) {}
   savePostHistory(); // Also try Sheets in background
 }
+
+// Rebuild anti-repetition HISTORY (not the queue) from exported CSVs. History is
+// the record of past openings and angles the generator avoids repeating. It
+// lives in localStorage and, when the store works, in the cloud — but a browser
+// clear can wipe the local copy. This reseeds it from the posts you actually
+// published, using the SAME opening/angle fingerprint addToPostHistory uses so
+// the generator matches against them correctly. Accepts multiple CSVs.
+function rebuildHistoryFromCsv(fileList) {
+  var files = Array.prototype.slice.call(fileList || []);
+  if (!files.length) return;
+  var added = 0, read = 0, seen = {};
+  // Seed dedupe with what history already holds so we do not double up.
+  postHistory.forEach(function(h) { if (h.opening) seen[h.opening.toLowerCase()] = true; });
+
+  files.forEach(function(f) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var rows = parseCsvRows(e.target.result);
+      if (rows.length >= 2) {
+        var head = rows[0].map(function(h) { return h.toLowerCase(); });
+        var iWhen = 0, iText = 1;
+        head.forEach(function(h, n) {
+          if (h.indexOf("postatspecifictime") > -1) iWhen = n;
+          else if (h === "content") iText = n;
+        });
+        for (var r = 1; r < rows.length; r++) {
+          var text = (rows[r][iText] || "").trim();
+          if (!text) continue;
+          var opening = text.split(/\s+/).slice(0, 6).join(" ");
+          var okey = opening.toLowerCase();
+          if (seen[okey]) continue;
+          seen[okey] = true;
+          // Infer audience and a rough type from the wording (same heuristics as
+          // the queue rebuild) so history entries are usefully filterable.
+          var low = text.toLowerCase();
+          var femStrong = /\b(dress|dresses|bra|leggings|pregnan\w*|menopaus\w*|mum|mums|daughter|ladies|sister|wife|she|her|woman|women)\b/.test(low);
+          var mascStrong = /\b(bloke|blokes|lads?|beard|husband|dad|dads|son|guys|men|man|he|his)\b/.test(low);
+          var f = (low.match(/\b(women|woman|she|her|ladies|dress|dresses|mum|daughter|sister|wife)\b/g) || []).length;
+          var m = (low.match(/\b(men|man|blokes?|he|his|guys|lads?|dad|son|husband)\b/g) || []).length;
+          var aud = (f > m && (f >= 2 || femStrong)) ? "women" : (m > f && (m >= 2 || mascStrong)) ? "men" : "everyone";
+          var type = /^myth/i.test(text) ? "myth" : "motivation";
+          var when = (rows[r][iWhen] || "").split(" ")[0] || new Date().toISOString().split("T")[0];
+          postHistory.push({ type: type, aud: aud, angle: extractAngle(text), opening: opening, date: when });
+          added++;
+        }
+      }
+      read++;
+      if (read === files.length) finishRebuild();
+    };
+    reader.onerror = function() { read++; if (read === files.length) finishRebuild(); };
+    reader.readAsText(f);
+  });
+
+  function finishRebuild() {
+    // Keep newest 250, sorted by date so the most recent posts win the cap.
+    postHistory.sort(function(a, b) { return String(a.date).localeCompare(String(b.date)); });
+    if (postHistory.length > 250) postHistory = postHistory.slice(-250);
+    try { localStorage.setItem("sps_post_history", JSON.stringify(postHistory)); } catch (e) {}
+    if (typeof flushHistoryToStore === "function") flushHistoryToStore(); else savePostHistory();
+    alert("Added " + added + " post" + (added !== 1 ? "s" : "") + " to history. The generator will now avoid repeating their openings and angles. History holds " + postHistory.length + " entries.");
+    var inp = document.getElementById("rebuildHistoryInput");
+    if (inp) inp.value = "";
+  }
+}
+
 
 function getHistoryContext(type, aud) {
   // Look back over 60 posts of this type rather than 15. The repeats that get
@@ -3824,7 +3942,7 @@ function doDay() {
       queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
       renderQueue(); updateBadge();
       releaseWakeLock();
-      showStatus("queueStatus", total + " post" + (total !== 1 ? "s" : "") + " ready for today!", "success");
+      showStatus("queueStatus", total + " post" + (total !== 1 ? "s" : "") + " ready for today!", "success"); flushHistoryToStore();
       return;
     }
     var slotTime = slots[i % slots.length];
@@ -3838,6 +3956,7 @@ function doDay() {
       if (prog) prog.textContent = done;
       if (!err && text) {
         text = cleanPostText(text);
+        text = applyHashtags(text, p.aud);
         var wMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (wMedia) markImageUsed(wMedia.id);
         queue.push(Object.assign({id: nextQueueId(), type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short}, mediaFieldsFor(wMedia)));
@@ -3869,7 +3988,7 @@ function doWeek() {
       queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
       renderQueue(); updateBadge();
       releaseWakeLock();
-      showStatus("queueStatus", total + " posts ready across 7 days!", "success");
+      showStatus("queueStatus", total + " posts ready across 7 days!", "success"); flushHistoryToStore();
       return;
     }
     var dayIndex = Math.floor(i / slots.length);
@@ -3886,6 +4005,7 @@ function doWeek() {
       if (prog) prog.textContent = done;
       if (!err && text) {
         text = cleanPostText(text);
+        text = applyHashtags(text, p.aud);
         var wMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (wMedia) markImageUsed(wMedia.id);
         queue.push(Object.assign({id: nextQueueId(), type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short}, mediaFieldsFor(wMedia)));
@@ -4491,7 +4611,7 @@ function do10Days() {
       queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
       renderQueue(); updateBadge();
       releaseWakeLock();
-      showStatus("queueStatus", total + " posts ready across 10 days!", "success");
+      showStatus("queueStatus", total + " posts ready across 10 days!", "success"); flushHistoryToStore();
       return;
     }
     var dayIndex = Math.floor(i / slots.length);
@@ -4508,6 +4628,7 @@ function do10Days() {
       if (prog) prog.textContent = done;
       if (!err && text) {
         text = cleanPostText(text);
+        text = applyHashtags(text, p.aud);
         var pMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (pMedia) markImageUsed(pMedia.id);
         queue.push(Object.assign({id: nextQueueId(), type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short}, mediaFieldsFor(pMedia)));
@@ -4543,7 +4664,7 @@ function do30Days() {
       queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
       renderQueue(); updateBadge();
       releaseWakeLock();
-      showStatus("queueStatus", total + " posts generated across 30 days! Export CSV to upload to High Level.", "success");
+      showStatus("queueStatus", total + " posts generated across 30 days! Export CSV to upload to High Level.", "success"); flushHistoryToStore();
       return;
     }
     var dayIndex = Math.floor(i / slots.length);
@@ -4561,6 +4682,7 @@ function do30Days() {
       if (!err && text) {
         var pMedia = imageLibrary.length ? findBestImage(plan.type, plan.aud) : null;
         if (pMedia) markImageUsed(pMedia.id);
+        text = applyHashtags(text, plan.aud);
         queue.push(Object.assign({id: nextQueueId(), type: plan.type, aud: plan.aud, text: text, date: ds, time: slotTime, short: plan.short}, mediaFieldsFor(pMedia)));
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         // Add to history so next post avoids this angle
@@ -5037,7 +5159,54 @@ window.addEventListener("DOMContentLoaded", function() {
   });
 });
 
-function exportCSV() {
+// Turn a full Facebook post into an Instagram-native caption. IG buries long
+// text: the algorithm wants a hook, brevity, and saves. This keeps the opening
+// (the strongest line), trims the middle, keeps a CTA, and moves hashtags into a
+// separated block so the caption itself reads clean.
+function toInstaCaption(fullText) {
+  if (!fullText) return fullText;
+  // Split body from any trailing hashtag block.
+  var lines = fullText.split(/\n+/).map(function(l){ return l.trim(); }).filter(Boolean);
+  var bodyLines = [], tagLine = "";
+  lines.forEach(function(l){
+    if (/^#/.test(l) && l.replace(/#[A-Za-z0-9]+/g,"").replace(/\s+/g,"").length === 0) tagLine = l;
+    else bodyLines.push(l);
+  });
+
+  var hook = bodyLines[0] || "";
+  // Keep the hook plus up to two more short supporting sentences, capped so the
+  // whole caption stays tight (IG rewards brevity; long captions get buried).
+  var rest = bodyLines.slice(1);
+  var kept = [];
+  // IG wants brevity: hook plus at most ONE supporting line, and only if the
+  // hook alone is thin. A caption that runs four paragraphs is a Facebook post,
+  // and IG buries it. Cap hard.
+  var budget = 120; // chars of supporting text after the hook
+  for (var i = 0; i < rest.length && kept.length < 1; i++) {
+    var line = rest[i];
+    if (/message us|drop us a message|get in touch|send us a message/i.test(line)) break;
+    if (line.length > budget) continue;      // skip long lines entirely
+    kept.push(line);
+  }
+  // If the hook is already a full thought (ends in . ! ?) and reasonably long,
+  // keep it alone — punchiest for IG.
+  if (hook.length > 60 && /[.!?]$/.test(hook)) kept = [];
+
+  var caption = hook;
+  if (kept.length) caption += "\n\n" + kept.join("\n\n");
+  caption += "\n\nMessage us to find out more.";
+  // Hashtags on their own, after a separator dot line so they sit apart from the
+  // caption the way native IG posts format them.
+  var tags = tagLine || "#SPSFitness #HalesowenGym #Halesowen";
+  caption += "\n.\n.\n.\n" + tags;
+  return caption;
+}
+
+function exportInstagramCSV() { exportCSV("instagram"); }
+
+function exportCSV(platform) {
+  platform = platform || "facebook";
+  var isInsta = platform === "instagram";
   if (!queue.length) {
     alert("No posts in queue to export. Generate some posts first!");
     return;
@@ -5084,8 +5253,11 @@ function exportCSV() {
     // Combine date and time into YYYY-MM-DD HH:mm:ss format
     var datetime = q.date + " " + q.time + ":00";
 
-    // Combine post text and hashtags into one content field
-    var fullText = q.text.replace(/"/g, '""');
+    // Combine post text and hashtags into one content field. For Instagram the
+    // caption is shortened to an IG-native hook so the same calendar produces a
+    // format-tuned variant rather than the long Facebook body.
+    var outText = isInsta ? toInstaCaption(q.text) : q.text;
+    var fullText = outText.replace(/"/g, '""');
 
     // Use the URL stored on the queue item. Falling back to a library lookup is
     // only for queue items created before this field existed — the library may
@@ -5131,12 +5303,21 @@ function exportCSV() {
   var a = document.createElement("a");
   a.href = url;
   var now = new Date();
-  var fname = "sps-fitness-posts-" + now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0") + ".csv";
+  var fname = "sps-fitness-" + (isInsta ? "instagram" : "facebook") + "-posts-" + now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0") + ".csv";
   a.download = fname;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+
+  // Instagram is a SECOND export of the same calendar. It must not consume the
+  // queue, mark photos used, or move anything in Drive — those belong to the
+  // Facebook export, which is the one that finalises the batch. Just download.
+  if (isInsta) {
+    var exCount = Object.keys(exportedQueueIds).length;
+    showStatus("queueStatus", "Downloaded " + exCount + " Instagram post" + (exCount !== 1 ? "s" : "") + " (short captions). Your queue and Facebook export are untouched.", "success");
+    return;
+  }
 
   // Remove exported images from library and move to Used folder in Drive
   var usedMediaIds = {};
