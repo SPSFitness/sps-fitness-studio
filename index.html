@@ -2034,7 +2034,9 @@ function validatePost(text, short, publishMonth, postType) {
   // 2. Group size stated as a number. Rules allow "max 12" as a ceiling in
   //    bodyblast context only; any other number, or "usually six", "never more
   //    than eight", "six or seven in a session" is an invented operational claim.
-  if (/\b(?:usually|typically|normally|often|about|around|only|just|never more than|no more than|maximum of|max of|up to)\s+(?:two|three|four|five|six|seven|eight|nine|ten|eleven|\d{1,2})\s+(?:people|in a session|in the group|in each|of us|of you)\b/i.test(body) ||
+  if (/\b(?:usually|typically|normally|often|about|around|only|just|never more than|no more than|maximum of|max of|up to|never above|capped at)\s+(?:two|three|four|five|six|seven|eight|nine|ten|eleven|\d{1,2})\s+(?:people|in a session|in the group|in each|of us|of you)\b/i.test(body) ||
+      /\b(?:small groups?|groups?|sessions?)\b[^.!?]{0,20}\b(?:never more than|no more than|capped at|max(?:imum)? (?:of )?)\s*(?:two|three|four|five|six|seven|eight|nine|ten)\b/i.test(body) ||
+      /\b(?:never more than|no more than|capped at)\s+(?:two|three|four|five|six|seven|eight|nine|ten)\b/i.test(body) ||
       /\b(?:two|three|four|five|six|seven|eight|nine|ten)\s+(?:people|max)\b.{0,20}\b(?:session|group|class)\b/i.test(body) ||
       /\bgroups? of\s+(?:two|three|four|five|six|seven|eight|nine|ten|\d{1,2})\s+(?:people|max)\b/i.test(body) ||
       /\b(?:sessions?|classes|groups?|we)\s+(?:are|is|have|keep|cap|capped|kept)\b[^.!?]{0,20}\b(?:two|three|four|five|six|seven|eight|nine|ten|\d{1,2})\b/i.test(body) ||
@@ -2111,6 +2113,13 @@ function validatePost(text, short, publishMonth, postType) {
       /\bbook into any session\b/i.test(body) ||
       /\byour membership works around\b/i.test(body))
     warnings.push("Session schedule mentioned");
+
+  // 9b. Price comparison to personal training — "without paying one-to-one
+  //     rates", "less than regular PT", "cheaper than a PT". Blocks even on lead
+  //     posts: it is a specific price comparison, not value framing.
+  if (/\b(?:without paying |not paying |less than |cheaper than |a fraction of )(?:the )?(?:one[- ]to[- ]one|1[- ]to[- ]1|1:1|personal train\w*|regular pt|pt)\s*(?:rates?|prices?|costs?|sessions?|fees?)?\b/i.test(body) ||
+      /\bone[- ]to[- ]one rates?\b|\bcost is (?:considerably |much |far )?less than\b|\bless than (?:regular |a )?pt\b/i.test(body))
+    warnings.push("Invented price detail");
 
   // 10. Invoice / payment framing. Even without a number, framing the decision
   //     around "the number on the invoice", "a lot more than I wanted to pay",
@@ -4791,7 +4800,7 @@ function buildBatchPlan(days) {
     {type:"faq",          aud:"women"},
     {type:"bodyblast",    aud:"men"},
     {type:"motivation",   aud:"everyone"},
-    {type:"fromleads",    aud:"everyone"},
+    {type:"motivation",    aud:"everyone"},
     {type:"myth",         aud:"everyone"},
     {type:"quickwin",     aud:"women"},
     {type:"evidence",     aud:"men"}
