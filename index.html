@@ -272,6 +272,7 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
         <button class="btn bc" style="flex:1" onclick="do10Days()">&#x1F4C5; 10 DAYS</button>
         <button class="btn bc" style="flex:1" onclick="do30Days()">&#x1F4C5; 30 DAYS</button>
         <button class="btn bc" onclick="autoAssignPhotos(false)">&#x1F5BC; Add missing photos</button>
+        <button class="btn bc" onclick="fillBatchGaps(7)">&#x21BB; Fill gaps</button>
         <button class="btn bgreen" onclick="exportBothCSV()">&#x2B07; Export both (FB + Insta)</button>
         <button class="btn bc" onclick="exportInstagramCSV()">&#x1F4F8; Instagram only</button>
         <button class="btn bc" onclick="exportCSV('facebook')">&#x1F310; Facebook only</button>
@@ -4369,8 +4370,14 @@ function doDay() {
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         addToPostHistory(p.type, p.aud, text);
         renderQueue(); updateBadge();
+        i++; _slotErr = 0; next();
+      } else {
+        // The post errored or came back empty. Retry the SAME slot a couple of
+        // times before giving up, so a transient API blip does not leave a gap.
+        _slotErr = (_slotErr || 0) + 1;
+        if (_slotErr <= 2) { next(); }
+        else { i++; _slotErr = 0; next(); }
       }
-      i++; next();
     }, 1, {type: p.type, aud: p.aud, angle: p.angle || "", month: MONTH_NAMES[new Date(ds+"T12:00:00").getMonth()]});
   }
   next();
@@ -4387,7 +4394,7 @@ function doWeek() {
   requestWakeLock();
   _sessionUsedIds = new Set(); // reset for new batch
   document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x2726;</div><p>Generating ' + total + ' posts across 7 days... <span id="prog7">0</span> of ' + total + ' done.</p></div>';
-  var done = 0;
+  var done = 0, _slotErr = 0;
   var i = 0;
   function next() {
     if (i >= plan.length) {
@@ -4417,8 +4424,14 @@ function doWeek() {
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         addToPostHistory(p.type, p.aud, text);
         renderQueue(); updateBadge();
+        i++; _slotErr = 0; next();
+      } else {
+        // The post errored or came back empty. Retry the SAME slot a couple of
+        // times before giving up, so a transient API blip does not leave a gap.
+        _slotErr = (_slotErr || 0) + 1;
+        if (_slotErr <= 2) { next(); }
+        else { i++; _slotErr = 0; next(); }
       }
-      i++; next();
     }, 1, {type: p.type, aud: p.aud, angle: p.angle || "", month: MONTH_NAMES[new Date(ds+"T12:00:00").getMonth()]});
   }
   next();
@@ -4882,6 +4895,69 @@ var STRUCTURE_ROTATION = (function() {
   return pool;
 })();
 
+// After a sleep/interruption stalls a batch, generate ONLY the missing slots
+// instead of starting over. Works out the intended date/time grid for N days and
+// fills any slot the queue does not already have a post for.
+function fillBatchGaps(days) {
+  days = days || 7;
+  var slots = getTimeSlots();
+  var startInput = document.getElementById("planStartDate").value;
+  var today = startInput ? new Date(startInput + "T12:00:00") : new Date();
+  // Build the full intended grid.
+  var wanted = [];
+  for (var day = 0; day < days; day++) {
+    for (var sIdx = 0; sIdx < slots.length; sIdx++) {
+      var d = new Date(today); d.setDate(today.getDate() + day);
+      wanted.push({ date: d.toISOString().split("T")[0], time: slots[sIdx] });
+    }
+  }
+  // Which are already filled?
+  var have = {};
+  queue.forEach(function(q) { have[q.date + " " + q.time] = true; });
+  var missing = wanted.filter(function(w) { return !have[w.date + " " + w.time]; });
+  if (!missing.length) { alert("No gaps — every slot for these " + days + " days already has a post."); return; }
+  if (!confirm(missing.length + " slot" + (missing.length !== 1 ? "s are" : " is") + " empty. Generate just those now?")) return;
+
+  var plan = buildBatchPlan(missing.length);
+  requestWakeLock();
+  var done = 0, _slotErr = 0, i = 0;
+  function next() {
+    if (i >= missing.length) {
+      queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
+      renderQueue(); updateBadge(); releaseWakeLock(); flushHistoryToStore();
+      showStatus("queueStatus", "Filled " + missing.length + " gap" + (missing.length !== 1 ? "s" : "") + ".", "success");
+      return;
+    }
+    var slot = missing[i];
+    var pl = plan[i];
+    var sys = pl.aud === "women" ? SYS_WOMEN : (pl.aud === "men" ? SYS_MEN : SYS_ALL);
+    generateCleanPost(sys, pl.type === "fromleads" ? (getLeadInsightsPrompt(pl.type, pl.aud) || getPrompt(pl.type, pl.aud, pl.angle || "", pl.short, slot.date, pl.structureBrief)) : getPrompt(pl.type, pl.aud, pl.angle || "", pl.short, slot.date, pl.structureBrief), pl.short, function(err, text) {
+      done++;
+      if (!err && text) {
+        text = cleanPostText(text);
+        var m = imageLibrary.length ? findBestImage(pl.type, pl.aud) : null;
+        if (m) markImageUsed(m.id);
+        queue.push(Object.assign({id: nextQueueId(), type: pl.type, aud: pl.aud, text: text, date: slot.date, time: slot.time, short: pl.short}, mediaFieldsFor(m)));
+        queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
+        addToPostHistory(pl.type, pl.aud, text);
+        renderQueue(); updateBadge();
+        i++; _slotErr = 0; next();
+      } else {
+        // The post errored or came back empty. Retry the SAME slot a couple of
+        // times before giving up, so a transient API blip does not leave a gap.
+        _slotErr = (_slotErr || 0) + 1;
+        if (_slotErr <= 2) { next(); }
+        else { i++; _slotErr = 0; next(); }
+      }
+    }, 1, { type: pl.type, aud: pl.aud, angle: pl.angle, month: monthFromDate(slot.date) });
+  }
+  next();
+}
+function monthFromDate(ds) {
+  var d = new Date(ds + "T12:00:00");
+  return isNaN(d.getTime()) ? "" : MONTH_NAMES[d.getMonth()];
+}
+
 function buildBatchPlan(days) {
   // Full 30-day plan — slice to needed length
   var fullPlan = [
@@ -5012,7 +5088,7 @@ function do10Days() {
   _sessionUsedIds = new Set();
   var plan = buildBatchPlan(total);
   document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x1F4C5;</div><p>Generating ' + total + ' posts... <span id="prog10">0</span> of ' + total + ' done.</p></div>';
-  var done = 0;
+  var done = 0, _slotErr = 0;
   var i = 0;
   function next() {
     if (i >= plan.length) {
@@ -5042,8 +5118,14 @@ function do10Days() {
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         addToPostHistory(p.type, p.aud, text);
         renderQueue(); updateBadge();
+        i++; _slotErr = 0; next();
+      } else {
+        // The post errored or came back empty. Retry the SAME slot a couple of
+        // times before giving up, so a transient API blip does not leave a gap.
+        _slotErr = (_slotErr || 0) + 1;
+        if (_slotErr <= 2) { next(); }
+        else { i++; _slotErr = 0; next(); }
       }
-      i++; next();
     }, 1, {type: p.type, aud: p.aud, angle: p.angle || "", month: MONTH_NAMES[new Date(ds+"T12:00:00").getMonth()]});
   }
   next();
@@ -5094,8 +5176,14 @@ function do30Days() {
         // Add to history so next post avoids this angle
         addToPostHistory(plan.type, plan.aud, text);
         renderQueue(); updateBadge();
+        i++; _slotErr = 0; next();
+      } else {
+        // The post errored or came back empty. Retry the SAME slot a couple of
+        // times before giving up, so a transient API blip does not leave a gap.
+        _slotErr = (_slotErr || 0) + 1;
+        if (_slotErr <= 2) { next(); }
+        else { i++; _slotErr = 0; next(); }
       }
-      i++; next();
     }, 1, {type: plan.type, aud: plan.aud, angle: plan.angle || "", month: MONTH_NAMES[new Date(ds+"T12:00:00").getMonth()]});
   }
   next();
