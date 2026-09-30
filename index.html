@@ -1963,7 +1963,11 @@ function validatePost(text, short, publishMonth, postType) {
   if (/,\s*(?:don't|doesn't|didn't|won't|can't|isn't|aren't)\b/i.test(body)) warnings.push("Comma splice before contraction");
   // Wrong terminology for the offering. It is "group personal training", not
   // "small group" anything, not "bootcamp", not "classes".
-  if (/\bsmall group (?:training|sessions?|strength|fitness|classes?|workouts?|gym|coaching|personal training)\b/i.test(body) ||
+  // Only flag "small group" used as the NAME of the offering ("small group
+  // training", "small group strength and conditioning", "small group personal
+  // training") — not "small group sessions" or "a small group", which correctly
+  // describe the format. Bootcamp/classes are always wrong as the label.
+  if (/\bsmall group (?:training|strength|conditioning|fitness|coaching|personal training)\b/i.test(body) ||
       /\b(?:bootcamp|boot camp|fitness class(?:es)?|group class(?:es)?)\b/i.test(body))
     warnings.push("Wrong terminology");
   // Generic sales pivot: a post that starts with a specific person then swings
@@ -2084,6 +2088,7 @@ function validatePost(text, short, publishMonth, postType) {
       // "It just requires Tuesday and Thursday" / "needs Tuesday and Thursday" —
       // naming the two days as the training pattern.
       new RegExp("(?:requires?|needs?|just|means|is)\\s+" + _DAY + "\\s+and\\s+" + _DAY, "i").test(body) ||
+      new RegExp("(?:booked?|books?|booking|trains?|training|comes?|coming|in)\\s+(?:in\\s+)?(?:for\\s+)?" + _DAY + "\\s+and\\s+" + _DAY, "i").test(body) ||
       new RegExp("^\\s*" + _DAY + "\\s+and\\s+" + _DAY + "\\s*[..]", "im").test(body))
     warnings.push("Session schedule mentioned");
 
@@ -2189,6 +2194,33 @@ function validatePost(text, short, publishMonth, postType) {
   if (/\beat (?:the same|less|more)[^.!?]{0,30}(?:store fat|gain fat|lose fat|move (?:less|more))\b/i.test(body) ||
       /\bmove (?:less|more)[^.!?]{0,20}store fat\b/i.test(body))
     warnings.push("Calorie mechanism claim");
+
+  // 33. Session length stated — "thirty minutes", "45 minute session", "half an
+  //     hour". Operational fact.
+  if (/\b(?:thirty|forty[- ]?five|forty|sixty|twenty|fifteen|\d{2})[- ]?minutes?\b(?![^.!?]*\brest\b)/i.test(body) && /\bsession|train|workout|round\b/i.test(body) ||
+      /\b(?:half an hour|an hour|45 ?min|30 ?min|60 ?min)\b/i.test(body) && /\bsession|train|workout\b/i.test(body))
+    warnings.push("Session length");
+
+  // 34. Fabricated frequency timetable — "runs six mornings and five evenings",
+  //     "sessions run X times a week", "pick two that fit" style scheduling.
+  if (/\b(?:runs?|running|open|available)\s+(?:six|seven|five|four|three|two|\d)\s+(?:mornings?|evenings?|days?)\b/i.test(body) ||
+      /\b(?:six|seven|five|four)\s+mornings?\s+and\s+(?:six|seven|five|four|three)\s+evenings?\b/i.test(body) ||
+      /\bpick (?:any )?two that fit\b/i.test(body))
+    warnings.push("Session schedule mentioned");
+
+  // 35. Mangled stairs/shopping cliche — "flights of everyday tasks", "flights of
+  //     stairs", "lugging shopping up", "carrying shopping".
+  if (/\bflights? of (?:everyday tasks|stairs)\b|\blugging (?:the )?shopping\b|\bup three flights\b|\bcarry(?:ing)? (?:the )?shopping up\b/i.test(body))
+    warnings.push("Shopping cliche");
+
+  // 36. Aesthetic body-part framing — "belly fat", "midsection", "middle section",
+  //     "softness", "the middle sorted".
+  if (/\bbelly fat\b|\bmid[- ]?section\b|\bmiddle section\b|\bsoftness\b|\bmuffin top\b|\bmiddle sorted\b|\bshift (?:the )?middle\b|\bstubborn fat\b/i.test(body))
+    warnings.push("Aesthetic framing");
+
+  // 37. Bulk-and-cut / eating-more nutrition strategy.
+  if (/\bbulk and cut\b|\bbulk(?:ing)? (?:then|and) cut(?:ting)?\b|\beating? more to build\b|\beat more.{0,20}(?:strength|muscle|size).{0,20}(?:drop|strip|cut)\b/i.test(body))
+    warnings.push("Nutrition prescription");
 
   // 29. Overused opener — "You think X" / "Most people think X" then correction.
   //     Flags for regeneration (review-level, not a hard block).
@@ -2393,7 +2425,9 @@ var BLOCKING_WARNINGS = [
   "Invented price detail",
   "Service overclaim",
   "Invented premises or competitor detail",
-  "Invented member backstory"
+  "Invented member backstory",
+  "Session length",
+  "Wrong terminology"
 ];
 
 // The month a queued post publishes in, for the month check.
@@ -4924,23 +4958,31 @@ var STRUCTURE_ROTATION = (function() {
 // instead of starting over. Works out the intended date/time grid for N days and
 // fills any slot the queue does not already have a post for.
 function fillBatchGaps(days) {
-  days = days || 7;
   var slots = getTimeSlots();
-  var startInput = document.getElementById("planStartDate").value;
-  var today = startInput ? new Date(startInput + "T12:00:00") : new Date();
-  // Build the full intended grid.
+  if (!queue.length) { alert("The queue is empty — nothing to fill gaps in. Generate a batch first."); return; }
+  // Derive the intended grid from the QUEUE ITSELF, not a date field. Find the
+  // date range the existing posts span, and fill any missing date+time slot
+  // inside that range. This is why the old version did nothing: it built the
+  // grid from today's date, which did not match the batch's actual dates.
+  var dates = queue.map(function(q) { return q.date; }).filter(Boolean).sort();
+  var first = dates[0], last = dates[dates.length - 1];
   var wanted = [];
-  for (var day = 0; day < days; day++) {
+  var d = new Date(first + "T12:00:00");
+  var end = new Date(last + "T12:00:00");
+  while (d <= end) {
+    var ds = d.toISOString().split("T")[0];
     for (var sIdx = 0; sIdx < slots.length; sIdx++) {
-      var d = new Date(today); d.setDate(today.getDate() + day);
-      wanted.push({ date: d.toISOString().split("T")[0], time: slots[sIdx] });
+      wanted.push({ date: ds, time: slots[sIdx] });
     }
+    d.setDate(d.getDate() + 1);
   }
-  // Which are already filled?
   var have = {};
   queue.forEach(function(q) { have[q.date + " " + q.time] = true; });
   var missing = wanted.filter(function(w) { return !have[w.date + " " + w.time]; });
-  if (!missing.length) { alert("No gaps — every slot for these " + days + " days already has a post."); return; }
+  if (!missing.length) {
+    alert("No gaps found. Every time slot between " + first + " and " + last + " already has a post.\n\nIf you expected more posts, check your time slots in Settings match how the batch was generated.");
+    return;
+  }
   if (!confirm(missing.length + " slot" + (missing.length !== 1 ? "s are" : " is") + " empty. Generate just those now?")) return;
 
   var plan = buildBatchPlan(missing.length);
