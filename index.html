@@ -1513,6 +1513,15 @@ function stripInventedNames(text) {
            /^(?:\s*)(?:this is|meet|say hello to)\s+someone\b/i.test(sen.trim());
   }).join("");
 
+  // "Someone came in / asked / turned up" AFTER a specific person was already
+  // introduced is stripped-name residue that reads as broken. Drop that sentence.
+  var hasSpecificPerson = /\b(?:he|she|his|her|the man|the woman|the bloke|the lad)\b/i.test(text);
+  if (hasSpecificPerson) {
+    text = splitSentences(text).filter(function(sen) {
+      return !/^\s*Someone\s+(?:came|asked|turned|walked|said|expecting|expected|started|stood|finished|kept|thought)\b/i.test(sen.trim());
+    }).join("");
+  }
+
   // Any remaining mid-post occurrence still gets the name swapped for "someone".
   text = text.replace(/\b(this is|meet|say hello to)\s+([A-Za-z][a-z]{1,11})\b/gi, function(m, intro, name) {
     if (whitelist.indexOf(name.toLowerCase()) > -1) return m;
@@ -2213,6 +2222,40 @@ function validatePost(text, short, publishMonth, postType) {
   if (/\b(?:thirty|forty[- ]?five|forty|sixty|twenty|fifteen|\d{2})[- ]?minutes?\b(?![^.!?]*\brest\b)/i.test(body) && /\bsession|train|workout|round\b/i.test(body) ||
       /\b(?:half an hour|an hour|45 ?min|30 ?min|60 ?min)\b/i.test(body) && /\bsession|train|workout\b/i.test(body))
     warnings.push("Session length");
+
+  // 45. Name-filter residue mid-post: "Someone came in", "Someone asked",
+  //     "Someone turned up" appearing AFTER a specific person was already
+  //     introduced (he/she/the man/the woman/the bloke earlier). This is a
+  //     stripped name leaving a broken reference. Flag when "Someone" starts a
+  //     sentence and an earlier sentence already established a specific person.
+  if (/\b(?:he|she|his|her|the man|the woman|the bloke|the lad)\b/i.test(body) &&
+      /(?:^|[.!?]\s+)Someone\s+(?:came|asked|turned|walked|said|expecting|expected|started|stood|finished)\b/i.test(body))
+    warnings.push("Name filter residue");
+
+  // 46. Physiological "fixes the joint" claim — "when the movement is right and
+  //     the load is correct, things settle", "the shoulder settles", "the pain
+  //     goes when you load it properly". Implies treating a condition.
+  if (/\b(?:things?|the (?:shoulder|knee|back|hip|joint|pain)) settles?\b/i.test(body) ||
+      /\bwhen the (?:movement|load).{0,30}(?:settles?|goes|eases?|fixes?)\b/i.test(body) ||
+      /\bload(?:ing)? it (?:right|properly|correctly).{0,20}(?:settles?|eases?|fixes?|goes)\b/i.test(body))
+    warnings.push("Physiological mechanism claim");
+
+  // 42. Timetable as a list of times of day, with or without days — "mornings,
+  //     lunchtimes, evenings", "Monday through Saturday", "pick two slots".
+  if (/\b(?:mornings?|lunchtimes?|afternoons?|evenings?)\s*,\s*(?:lunchtimes?|afternoons?|evenings?|mornings?)\s*,\s*(?:evenings?|afternoons?|lunchtimes?|mornings?)\b/i.test(body) ||
+      /\bmonday (?:through|to|-)\s*(?:saturday|sunday|friday)\b/i.test(body) ||
+      /\bpick (?:any )?two slots?\b|\btwo slots? a week\b|\bpick (?:two|a slot|your slots)\b/i.test(body) ||
+      /\b(?:slots?|sessions?) (?:run |are )?(?:available )?(?:every day|all day|throughout the day|monday)\b/i.test(body))
+    warnings.push("Session schedule mentioned");
+
+  // 43. Shift pattern spelled out — "seven on seven off", "two weeks on".
+  if (/\b(?:seven|five|four|three|two|fourteen|ten)\s+(?:days?\s+)?on,?\s+(?:seven|five|four|three|two|fourteen|ten)\s+(?:days?\s+)?off\b/i.test(body) ||
+      /\b(?:weeks?|days?) on,? (?:weeks?|days?) off\b/i.test(body))
+    warnings.push("Invented member backstory");
+
+  // 44. Weight-crept / mirror aesthetic framing.
+  if (/\bweight has crept\b|\bcrept on\b|\bshirts? fit differently\b|\bclothes fit differently\b|\bcatch (?:yourself|myself) in the mirror\b|\bwhen did that happen\b/i.test(body))
+    warnings.push("Aesthetic framing");
 
   // 34. Fabricated frequency timetable — "runs six mornings and five evenings",
   //     "sessions run X times a week", "pick two that fit" style scheduling.
@@ -5395,10 +5438,18 @@ function expandQueueItemAt(index) {
 }
 
 function expandQueueItem(id) {
-  var q = null;
-  for (var i = 0; i < queue.length; i++) { if (String(queue[i].id) === String(id)) { q = queue[i]; break; } }
-  if (!q) return;
-  currentQModalId = id;
+  // Ensure ids are unique before we look one up, so a click can never resolve to
+  // the wrong post (the reported "clicking a flagged post opens a reel" bug).
+  dedupeQueueIds(queue);
+  var q = null, matches = 0;
+  for (var i = 0; i < queue.length; i++) { if (String(queue[i].id) === String(id)) { q = queue[i]; matches++; if (!q._first) q._first = true; break; } }
+  if (!q) {
+    // Id did not resolve — the queue changed under us. Fall back to nothing
+    // rather than opening the wrong post.
+    console.warn("expandQueueItem: no post with id", id);
+    return;
+  }
+  currentQModalId = String(q.id);
 
   // Set badge and meta
   var badge = document.getElementById("qModalBadge");
