@@ -2195,6 +2195,19 @@ function validatePost(text, short, publishMonth, postType) {
       /\bmove (?:less|more)[^.!?]{0,20}store fat\b/i.test(body))
     warnings.push("Calorie mechanism claim");
 
+  // 39. Carb / macro / food-specific nutrition advice.
+  if (/\b(?:eat (?:less|fewer|more) carbs?|cut(?:ting)? (?:out )?(?:carbs?|bread|pasta|sugar)|stopped (?:eating )?(?:pasta|bread|carbs)|carbs? (?:do ?n'?t|don't|make you|cause)|eating more than your body needs|total (?:intake|calories)|dropped (?:her|his|their) (?:evening )?potatoes|at every meal)\b/i.test(body))
+    warnings.push("Nutrition prescription");
+
+  // 40. Muscle-turns-to-fat / fat-gain-mechanism physiology.
+  if (/\bmuscle (?:cannot|can'?t|does ?n'?t|won'?t) turn (?:in)?to fat\b|\bturn (?:all )?(?:the )?muscle (?:in)?to fat\b|\bmuscle and fat are (?:two )?different\b|\bgain fat if your eating\b|\bmuscle (?:in)?to fat\b/i.test(body))
+    warnings.push("Physiological mechanism claim");
+
+  // 41. Named specific medical condition (beyond the general checklist). Naming a
+  //     serious condition like sarcoidosis, fibromyalgia, MS, lupus etc.
+  if (/\b(?:sarcoidosis|fibromyalgia|lupus|multiple sclerosis|\bms\b|rheumatoid|crohn'?s|colitis|parkinson|cancer|chemotherapy|copd|emphysema|angina|osteoporosis)\b/i.test(body))
+    warnings.push("Medical condition list");
+
   // 33. Session length stated — "thirty minutes", "45 minute session", "half an
   //     hour". Operational fact.
   if (/\b(?:thirty|forty[- ]?five|forty|sixty|twenty|fifteen|\d{2})[- ]?minutes?\b(?![^.!?]*\brest\b)/i.test(body) && /\bsession|train|workout|round\b/i.test(body) ||
