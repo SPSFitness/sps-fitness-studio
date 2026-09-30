@@ -1974,7 +1974,8 @@ function validatePost(text, short, publishMonth, postType) {
        /\bwhat (?:actually )?happens when (?:men|women|people|someone) (?:that age |their age )?(?:start|starts|join|joins)\b/i.test(body) ||
        /\bthe (?:men|women|people|blokes|lads|guys|folk) (?:here )?who (?:make it stick|stay|thrive|last|get the most)\b/i.test(body) ||
        /\bthe (?:men|women|people|blokes|lads|guys|folk) who get the most (?:out )?of sps\b/i.test(body) ||
-       /\b(?:aren't|are not) the ones who\b[^.!?]{0,60}\bthey(?:'?re| are) the ones who\b/i.test(body) ||
+       /\b(?:aren't|are not|are|were) (?:the ones|those)\b[^.!?]{0,80}\bthey(?:'?re| are|'?re the| were) (?:the ones|those)?\s*who\b/i.test(body) ||
+       /\bthe (?:people|ones|members|men|women|blokes|lads) who (?:hit|reach|reached|get to|make it to|pass)\s+\d+\b/i.test(body) ||
        /\bmost (?:men|women|people) who (?:join|come to) sps (?:in their|aren't|are not)\b/i.test(body)))
     warnings.push("Generic sales pivot");
   if (/\b(?:burns?|burning) calories\b|\bcalorie deficit\b|\bafterburn\b/i.test(body)) warnings.push("Calorie mechanism claim");
@@ -2078,7 +2079,11 @@ function validatePost(text, short, publishMonth, postType) {
   //     Tuesday and Thursday", "she trains Monday and Wednesday".
   var _DAY = "(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)";
   if (new RegExp("\\b(?:I|she|he|we|you)\\s+train\\s+(?:on\\s+)?" + _DAY + "\\s+and\\s+" + _DAY, "i").test(body) ||
-      new RegExp("\\btrain\\s+(?:on\\s+)?" + _DAY + "s?\\s+and\\s+" + _DAY, "i").test(body))
+      new RegExp("\\btrain\\s+(?:on\\s+)?" + _DAY + "s?\\s+and\\s+" + _DAY, "i").test(body) ||
+      // "It just requires Tuesday and Thursday" / "needs Tuesday and Thursday" —
+      // naming the two days as the training pattern.
+      new RegExp("(?:requires?|needs?|just|means|is)\\s+" + _DAY + "\\s+and\\s+" + _DAY, "i").test(body) ||
+      new RegExp("^\\s*" + _DAY + "\\s+and\\s+" + _DAY + "\\s*[..]", "im").test(body))
     warnings.push("Session schedule mentioned");
 
   // 4. Weight-loss / toning aesthetic framing (positioning is capability, not
@@ -2095,11 +2100,16 @@ function validatePost(text, short, publishMonth, postType) {
   // "Lee knows" mid-flow. A sentence-initial capital ("Two coached", "Who
   // walked", "You know") is just normal capitalisation, so require a lowercase
   // word or comma immediately before the candidate.
-  var NAME_VERBS = "(?:knows|said|says|told|asked|came|started|joined|trains|showed|coaches|coached|greets|remembers|noticed|smashed|nailed)";
-  var nameMatch = new RegExp("(?:[a-z,]\\s+)([A-Z][a-z]{2,11})\\s+" + NAME_VERBS + "\\b").exec(body);
+  var NAME_VERBS = "(?:knows|said|says|told|asked|came|started|joined|trains|showed|coaches|coached|greets|remembers|noticed|smashed|nailed|hit|hits|reached|passed|ticked|celebrated|walked|finished|completed|clocked|made|did|got|turned|stepped|pulled|lifted)";
+  // Catch a name mid-sentence OR at the very start of the post ("Christina hit
+  // her 100th"). Sentence-start capitals are normally skipped to avoid false
+  // positives, but a capitalised word followed by an action verb, at the start
+  // of the whole post or a sentence, is a name.
+  var nameMatch = new RegExp("(?:[a-z,]\\s+)([A-Z][a-z]{2,11})\\s+" + NAME_VERBS + "\\b").exec(body) ||
+                  new RegExp("(?:^|[.!?]\\s+)([A-Z][a-z]{2,11})\\s+(?:hit|hits|reached|passed|ticked|celebrated|finished|completed|clocked|smashed|nailed|joined|started|came|walked|stepped|pulled|lifted)\\b").exec(body.trim());
   if (nameMatch) {
     var w1 = nameMatch[1];
-    var NOT_NAME = /^(?:The|This|That|These|Those|They|Then|There|Here|Some|Most|Every|Everyone|Someone|Small|Bodyblast|Halesowen|Members|People|Women|Men|When|What|Where|Which|While|After|Before|Because|Session|Sessions|Training|Coaching|Progress|Strength|September|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Nobody|Nothing|Being|Getting|Having|Walking|Turning|Showing|Coming|Going|Consistency|Confidence|Nobody|Half)$/;
+    var NOT_NAME = /^(?:The|This|That|These|Those|They|Then|There|Here|Some|Most|Every|Everyone|Someone|Somebody|Anyone|Nobody|She|He|You|We|It|Small|Bodyblast|Halesowen|Members|People|Women|Men|When|What|Where|Which|While|After|Before|Because|Session|Sessions|Training|Coaching|Progress|Strength|September|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Nobody|Nothing|Being|Getting|Having|Walking|Turning|Showing|Coming|Going|Consistency|Confidence|Nobody|Half)$/;
     if (!NOT_NAME.test(w1)) warnings.push("Named person");
   }
 
@@ -2178,6 +2188,16 @@ function validatePost(text, short, publishMonth, postType) {
   if (/\beat (?:the same|less|more)[^.!?]{0,30}(?:store fat|gain fat|lose fat|move (?:less|more))\b/i.test(body) ||
       /\bmove (?:less|more)[^.!?]{0,20}store fat\b/i.test(body))
     warnings.push("Calorie mechanism claim");
+
+  // 28. Invented member backstory — injuries, crises, life events attached to a
+  //     person. Common in milestone posts where the model fabricates a struggle.
+  //     "came back after a bad knee", "trained through a health scare", "after a
+  //     family crisis", "after years away".
+  if (/\b(?:came? back (?:after|from)|bounced back (?:after|from)|recovered from|trained through|pushed through|after)\s+(?:a\s+)?(?:bad|dodgy|injured|torn|broken|gammy)\s+(?:knee|back|shoulder|hip|ankle|wrist|elbow)\b/i.test(body) ||
+      /\b(?:a\s+)?(?:health scare|family crisis|family emergency|work trip|bereavement|difficult year|rough patch|dark place|surgery|operation|diagnosis)\b/i.test(body) ||
+      /\btrained through (?:a|an|the|her|his|their)\b/i.test(body) ||
+      /\bafter (?:years|months|a decade|a lifetime) (?:away|off|out|of doing nothing)\b/i.test(body))
+    warnings.push("Invented member backstory");
 
   // 27. Invented premises / competitor / travel facts. The model cannot know
   //     the car park, road access, nearby landmarks, or competitor gyms, so any
@@ -2350,7 +2370,8 @@ var BLOCKING_WARNINGS = [
   "Medical condition list",
   "Invented price detail",
   "Service overclaim",
-  "Invented premises or competitor detail"
+  "Invented premises or competitor detail",
+  "Invented member backstory"
 ];
 
 // The month a queued post publishes in, for the month check.
@@ -2370,12 +2391,17 @@ function warningSeverity(w) {
 function blockingWarnings(text, short, approved, publishMonth, postType) {
   if (approved) return [];   // you have looked at it and said it is fine
   var isLeadPost = postType === "fromleads";
+  var isMilestone = postType === "milestone";
   return validatePost(text, short, publishMonth, postType).filter(function(w) {
     if (warningSeverity(w) !== "blocking") return false;
     // Lead-question posts may acknowledge cost as a topic ("Pricing mentioned"
     // framing), because a real lead asked — but invented numbers or terms
     // ("Invented price detail") are never allowed, in any post.
     if (isLeadPost && w === "Pricing mentioned") return false;
+    // Milestone posts celebrate a real named member, so a name is allowed there
+    // and ONLY there. Everything else (invented backstory, named days, length,
+    // pivots) still applies.
+    if (isMilestone && w === "Named person") return false;
     return true;
   });
 }
@@ -2599,6 +2625,7 @@ function renderMatchedImage(postType, forceId) {
 function doGenerate() {
   var ctx = document.getElementById("extraCtx").value.trim();
   var customTopic = document.getElementById("customTopic").value.trim();
+  var _milestonePost = false;
   var sys = getSys();
   var prompt;
   if (selType === "fromleads") {
@@ -2607,15 +2634,21 @@ function doGenerate() {
     prompt = leadPrompt || getPrompt(selType, selAud, ctx);
   } else {
     if (customTopic) {
-      var isMilestone = /\b(\d+)\s*(?:sessions?|workouts?|classes)\b|\bmilestone\b|\bsession number\b|\bhit\s+\d+\b|\b\d+\s*up\b/i.test(customTopic);
+      var isMilestone = /\b\d+\s*(?:st|nd|rd|th)?\s*(?:session|workout|class|week)/i.test(customTopic) ||
+                        /\bmilestone\b|\bsession number\b|\banniversary\b/i.test(customTopic) ||
+                        /\bhit (?:her|his|their|the)?\s*\d+/i.test(customTopic) ||
+                        /\b(?:reached|passed|completed|clocked|ticked (?:off|past)|celebrat\w+)\b[^.]{0,20}\d+/i.test(customTopic) ||
+                        /\b\d+\s*(?:up|down|in|deep)\b/i.test(customTopic);
+      _milestonePost = isMilestone;
       var topicRule = isMilestone
-        ? " The specific topic is a MEMBER MILESTONE: " + customTopic + ". This is a genuine achievement being celebrated. RULES FOR MILESTONE POSTS: Celebrate the number and the consistency it represents. Keep it SHORT and warm, 50 to 90 words, a bit of fluff but do not drag it out. DO NOT invent ANY detail about this person you were not given: no injuries, no bad knee or shoulder, no back story, no how they started, no what they do for work, no age, no how they felt. You do not know any of that and making it up about a real named member is wrong. Celebrate the achievement itself: turning up that many times, the commitment it shows, what that kind of consistency says about someone. Warm, genuine, brief. No invented biography."
+        ? " The specific topic is a MEMBER MILESTONE: " + customTopic + ". This is a genuine achievement by a real member being celebrated. RULES FOR MILESTONE POSTS: You MAY use the member's name if one is given in the topic — a milestone is the one place naming a real person is correct and welcome. Celebrate the number and the consistency it represents. Keep it SHORT and warm, 50 to 90 words, a bit of fluff but do not drag it out into an essay. DO NOT invent ANY detail about this person you were not given: no injuries, no bad knee or shoulder, no work trip or health scare or family crisis, no back story, no how they started, no job, no age, no how they felt. You do not know any of that and making it up about a real member is wrong and could be seen by them. Do not name the days they train. Do not pivot to the people who hit 100 are the ones who. Just celebrate THIS person hitting THIS number: turning up that many times, the commitment it shows. Warm, genuine, brief, true."
         : " The specific topic for this post is: " + customTopic + ". Write the post about this topic specifically, keeping the correct tone and audience in mind. Do not invent specific facts about any real person, place or event you were not given.";
       prompt = getPrompt(selType, selAud, ctx) + topicRule;
     } else {
       prompt = getPrompt(selType, selAud, ctx);
     }
   }
+  var _milestoneFlag = _milestonePost;
   var card = document.getElementById("outputCard");
   var out = document.getElementById("postOutput");
   card.style.display = "block";
@@ -2630,6 +2663,7 @@ function doGenerate() {
     curPost = text;
     out.textContent = text;
     curMediaId = null;
+    window._lastWasMilestone = _milestoneFlag;
     addToPostHistory(selType, selAud, text);
     renderMatchedImage(selType);
   });
@@ -2711,7 +2745,7 @@ function doAddQueue() {
   }
   var _sMedia = null;
   for (var _si = 0; _si < imageLibrary.length; _si++) { if (String(imageLibrary[_si].id) === String(mediaIdToUse)) { _sMedia = imageLibrary[_si]; break; } }
-  queue.push(Object.assign({id: nextQueueId(), type: selType, aud: selAud, text: curPost, date: date, time: time, short: false}, mediaFieldsFor(_sMedia)));
+  queue.push(Object.assign({id: nextQueueId(), type: (window._lastWasMilestone ? "milestone" : selType), aud: selAud, text: curPost, date: date, time: time, short: false}, mediaFieldsFor(_sMedia)));
   queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
   doSchedClose();
   updateBadge();
