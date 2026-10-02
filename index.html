@@ -3311,7 +3311,7 @@ function syncDrive() {
         dataUrl: sIsVideo ? "" : "https://lh3.googleusercontent.com/d/" + file.id + "=w800",
         filename: file.name, tags: [], tagString: sIsVideo ? "already used" : "analysing...",
         analyzing: !sIsVideo,
-        hostedUrl: "https://lh3.googleusercontent.com/d/" + file.id + "=w1600",
+        hostedUrl: "https://drive.google.com/uc?export=download&id=" + file.id,
         isVideo: sIsVideo, gender: "unknown", bestFor: "any",
         usedCount: 1, exported: true, exportedAt: exportedRec[file.id]
       });
@@ -3341,7 +3341,7 @@ function syncDrive() {
     freshFiles.forEach(function(file) {
       var id = Date.now() + "_" + Math.floor(Math.random() * 100000);
       var isVideo = file.mimeType && file.mimeType.indexOf("video") !== -1;
-      var hostedUrl = isVideo ? ("https://drive.google.com/uc?export=download&id=" + file.id) : ("https://lh3.googleusercontent.com/d/" + file.id + "=w1600");
+      var hostedUrl = "https://drive.google.com/uc?export=download&id=" + file.id;
       var thumbUrl = isVideo ? "" : "https://lh3.googleusercontent.com/d/" + file.id + "=w800";
       imageLibrary.push({id: id, driveId: file.id, dataUrl: thumbUrl, filename: file.name, tags: [], tagString: "analysing...", analyzing: true, hostedUrl: hostedUrl, isVideo: isVideo, gender: "none", bestFor: "any", usedCount: 0});
       renderImgLibrary();
@@ -3821,8 +3821,12 @@ function mediaFieldsFor(img) {
 // lh3 path is the one the app already uses for its own thumbnails.
 function publicMediaUrl(url, isVideo) {
   if (!url || isVideo) return url || "";
-  var m = /[?&]id=([\w-]+)/.exec(url);
-  return m ? "https://lh3.googleusercontent.com/d/" + m[1] + "=w1600" : url;
+  // Use the DIRECT DOWNLOAD link, which serves the original full-resolution file
+  // from Drive. The lh3 googleusercontent preview link (=w1600/=w2048) serves a
+  // COMPRESSED, resized copy, which is what made published images blurry. The old
+  // working build used this uc?export=download format and images were sharp.
+  var m = /(?:[?&]id=|\/d\/|googleusercontent\.com\/d\/)([\w-]+)/.exec(url);
+  return m ? "https://drive.google.com/uc?export=download&id=" + m[1] : url;
 }
 
 // Pull the Drive file id out of any URL shape we might hold.
