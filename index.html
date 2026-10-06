@@ -1533,8 +1533,20 @@ function stripInventedNames(text) {
     return "Someone" + rest;
   });
   var fakeNames = ["Chloe","Emma","Sarah","Jackie","Rachel","Lisa","Karen","Clare","Bev","Beverly","Kat","Katie","Kate","Dave","Mark","Steve","John","Mike","Paul","Tom","James","Claire","Louise","Helen","Julie","Diane","Becky","Tracey","Sharon","Gary","Kevin","Barry","Pete","Rob","Chris","Kev","Jen","Sue","Pat","Liz","Jan","Pam","Stu","Ste","Andy","Phil","Nick","Matt","Fran","Gill","Gail","Steph","Debbie","Amanda","Mandy","Donna","Nicki","Tina","Carol","Sandra","Vicky","Carla","Gemma","Hayley","Nicola","Leanne","Charlotte"];
+  // Some "names" are also ordinary English words (mark, pat, may, bev, gill, gail,
+  // jan). Replacing those case-insensitively wrecked real text: "to mark this
+  // occasion" became "to someone this occasion". For these, only replace when the
+  // word is Capitalised AND not at the very start of a sentence (a real name used
+  // mid-sentence), so the lowercase verb/word is left alone.
+  var AMBIGUOUS = { mark: 1, pat: 1, may: 1, bev: 1, gill: 1, gail: 1, jan: 1, june: 1, rob: 1, sue: 1, ste: 1, stu: 1, jen: 1, liz: 1, pam: 1, fran: 1, carol: 1 };
   fakeNames.forEach(function(name) {
-    text = text.replace(new RegExp("\\b" + name + "\\b", "gi"), "someone");
+    if (AMBIGUOUS[name.toLowerCase()]) {
+      // Capitalised, and preceded by a lowercase word or comma (mid-sentence) —
+      // i.e. a real name acting, not the common word at a sentence start.
+      text = text.replace(new RegExp("([a-z,]\\s+)" + name + "\\b", "g"), function(m, pre) { return pre + "someone"; });
+    } else {
+      text = text.replace(new RegExp("\\b" + name + "\\b", "gi"), "someone");
+    }
   });
   return text.replace(/(^|[.!?]\s+|\n\s*)someone\b/g, function(m, pre) { return pre + "Someone"; });
 }
@@ -3372,7 +3384,7 @@ function analyseImageByUrl(id, driveFileId, cb) {
     if (String(imageLibrary[_g].id) === String(id) && imageLibrary[_g].genderLocked) { if (cb) cb(); return; }
   }
   // Fetch image as base64 via imgproxy then send to Claude for analysis
-  var proxyUrl = "https://merry-flan-9e55eb.netlify.app/.netlify/functions/imgproxy?url=" + encodeURIComponent("https://lh3.googleusercontent.com/d/" + driveFileId + "=w800");
+  var proxyUrl = "https://merry-flan-9e55eb.netlify.app/.netlify/functions/imgproxy?url=" + encodeURIComponent("https://lh3.googleusercontent.com/d/" + driveFileId + "=w1280");
   fetch(proxyUrl)
   .then(function(r) {
     if (!r.ok) throw new Error("imgproxy failed: " + r.status);
@@ -3389,7 +3401,7 @@ function analyseImageByUrl(id, driveFileId, cb) {
   .then(function(dataUrl) {
     var base64 = dataUrl.split(",")[1];
     var mimeType = dataUrl.split(";")[0].split(":")[1] || "image/jpeg";
-    var sys = "You are an image tagger for SPS Fitness gym. Analyse this photo and return ONLY a JSON object with these fields: tags (array of 3-6 lowercase descriptive tags), bestFor (one of: motivation, myth, evidence, quickwin, bodyblast, results, behindscenes, faq, seasonal, local, any), gender (one of: women, men, mixed, none). GENDER RULES — be decisive: if the main subject is clearly a man or men, tag as men even if women are visible in the background. If the main subject is clearly a woman or women, tag as women even if others are in the background. Only use mixed if the photo clearly shows both genders as equal subjects. Use none if no people are visible. The main subject is whoever is most prominent and central in the frame. Return only valid JSON, nothing else.";
+    var sys = "You are an image tagger for SPS Fitness gym. Analyse this photo and return ONLY a JSON object with these fields: tags (array of 3-6 lowercase descriptive tags), bestFor (one of: motivation, myth, evidence, quickwin, bodyblast, results, behindscenes, faq, seasonal, local, any), gender (one of: women, men, mixed, none). GENDER RULES — ACCURACY MATTERS MORE THAN BEING DECISIVE. Getting this wrong puts a man's photo on a women's post, which is a serious error. Tag as women ONLY if you are confident every clearly visible person is female. Tag as men ONLY if you are confident every clearly visible person is male. If there is ANY doubt — unclear faces, back-of-head shots, baggy gym clothing, a mix of people, or you simply cannot tell — use mixed. mixed is the safe default and gets used on general posts, so it is never wrong to choose it when unsure. Use none only if there are no people at all (equipment, the room, etc). Do NOT guess a specific gender to seem confident. When in doubt, mixed. Return only valid JSON, nothing else.";
     return fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/generate", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
@@ -3409,12 +3421,17 @@ function analyseImageByUrl(id, driveFileId, cb) {
       var clean = text.replace(/```json|```/g, "").trim();
       var parsed = JSON.parse(clean);
       for (var i = 0; i < imageLibrary.length; i++) {
-        if (imageLibrary[i].id === id) {
+        if (String(imageLibrary[i].id) === String(id)) {
           imageLibrary[i].tags = parsed.tags || [];
           imageLibrary[i].bestFor = parsed.bestFor || "any";
           imageLibrary[i].gender = parsed.gender || "none";
           imageLibrary[i].tagString = (parsed.tags || []).join(", ") + (parsed.gender && parsed.gender !== "none" ? " | " + parsed.gender : "");
           imageLibrary[i].analyzing = false;
+          // Diagnostic: log what the AI saw so a wrong gender can be traced. If a
+          // clearly-female photo logs gender:men with man/beard tags, the AI got
+          // the wrong image. If the tags describe a woman but gender says men,
+          // the model contradicted itself.
+          console.log("TAGGED", imageLibrary[i].filename || id, "=> gender:", parsed.gender, "| tags:", (parsed.tags||[]).join(", "));
           break;
         }
       }
@@ -3667,12 +3684,14 @@ function schedFromVideo() {
 }
 
 function cycleGender(id) {
-  var order = ["none","women","men","mixed"];
+  var order = ["women","men","mixed","none"];
   for (var i = 0; i < imageLibrary.length; i++) {
     if (String(imageLibrary[i].id) === String(id)) {
-      var current = imageLibrary[i].gender || "none";
-      var nextIdx = (order.indexOf(current) + 1) % order.length;
+      var current = imageLibrary[i].gender;
+      var nextIdx = order.indexOf(current) === -1 ? 0 : (order.indexOf(current) + 1) % order.length;
       imageLibrary[i].gender = order[nextIdx];
+      imageLibrary[i].genderLocked = true;   // a manual choice is final; AI won't overwrite
+      imageLibrary[i].analyzing = false;
       saveImageLibrary();
       renderImgLibrary();
       break;
