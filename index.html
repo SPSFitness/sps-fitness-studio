@@ -1322,6 +1322,10 @@ function getPrompt(type, aud, ctx, short, publishDate, structureBrief) {
     p = " STRUCTURE FOR THIS POST (follow it exactly, it determines how the post opens and moves): " + sb + " " + p;
   }
   if (short) p = " IMPORTANT: This is a SHORT post. Maximum 55 words for the body, not counting hashtags. One clear thought only. Stop the moment the point is made. No padding, no build-up, no elaboration. " + p;
+  // Only the lead-nurture and value types may raise money. Every other type is
+  // told up front not to touch cost, so the batch never carries more than the
+  // (capped) lead posts on price — and fewer posts need regenerating for it.
+  if (type !== "fromleads" && type !== "value") p = p + " Do not mention or imply cost, price, fees, or affordability. Do not ask what something is worth paying or say it costs more than an alternative. This post is not about money.";
   var histCtx = getHistoryContext(type, aud);
   if (histCtx) p = p + histCtx;
   var insightsCtx = getLeadInsightsContext();
@@ -1693,6 +1697,11 @@ function cleanPostText(text) {
   // 1b. Item 1: strip markdown heading markers ("# ", "## " ...) at the start of
   //     any line. A real "#hashtag" (no space after #) is left untouched.
   text = text.split("\n").map(function(l) { return l.replace(/^\s*#{1,6}\s+/, ""); }).join("\n");
+  // 1c. Strip a leading AI preamble line the model sometimes echoes from the
+  //     brief, e.g. "Here's a short, warm Facebook post for SPS Fitness:".
+  //     Only removes a leading meta line that both opens with a framing word
+  //     AND ends in a colon, so genuine post copy is never touched.
+  text = text.replace(/^\s*(?:sure|certainly|of course|absolutely|here(?:'s| is)|okay|ok)\b[^\n:]*\b(?:post|caption|copy|facebook|instagram|write[- ]?up)\b[^\n:]*:\s*\n?/i, "");
   // 2. dashes. Line-start bullet markers are protected first so the " - " rule
   //    does not eat them; they are restored as bullets after the strip.
   text = text.split("\n").map(function(l) { return l.replace(/^(\s*)-\s+/, "$1\u0001 "); }).join("\n");
@@ -2005,6 +2014,24 @@ function validatePost(text, short, publishMonth, postType) {
        /\bmost (?:men|women|people) who (?:join|come to) sps (?:in their|aren't|are not)\b/i.test(body)))
     warnings.push("Generic sales pivot");
   if (/\b(?:burns?|burning) calories\b|\bcalorie deficit\b|\bafterburn\b/i.test(body)) warnings.push("Calorie mechanism claim");
+  // Cost / price / affordability framing. Only the lead-nurture (fromleads) and
+  // value post types may raise money; the plan caps fromleads at 2 per batch, so
+  // barring every other type here holds cost posts to at most 2 a week. On a
+  // non-leads post this blocks and regenerates rather than shipping a stray
+  // "how much would you pay" / "can't afford this".
+  if (postType !== "fromleads" && postType !== "value" &&
+      (/\bhow much (?:would|do|will|could) you pay\b/i.test(body) ||
+       /\bthe price (?:is|of|you|was|felt|seemed)\b/i.test(body) ||
+       /\bcosts? (?:more|less|about|around|a lot|too much)\b/i.test(body) ||
+       /\bit costs?\b/i.test(body) ||
+       /\bafford(?:ing)? (?:this|it|to|the|them)\b/i.test(body) ||
+       /\bcan(?:'?t| ?not) afford\b|\bcouldn'?t afford\b/i.test(body) ||
+       /\bmore than (?:you|they|i) (?:wanted|want|expected) to pay\b/i.test(body) ||
+       /\bworth the (?:money|cost|price|investment|spend)\b/i.test(body) ||
+       /\bvalue for money\b|\bcheaper than\b|\bexpensive\b/i.test(body) ||
+       /\bwhat (?:it|this|that) costs\b|\bprice (?:tag|point)\b/i.test(body) ||
+       /\bpaying for\b|\bpay for it\b|\bworth what you (?:pay|spend)\b/i.test(body)))
+    warnings.push("Cost framing");
   // A myth stated with fewer than two correcting sentences after it (item 2).
   if (mythLacksCorrection(body)) warnings.push("Myth stated without correction");
   // "We're someone and someone." — the name filter replaced two real names and
@@ -2110,6 +2137,10 @@ function validatePost(text, short, publishMonth, postType) {
       // naming the two days as the training pattern.
       new RegExp("(?:requires?|needs?|just|means|is)\\s+" + _DAY + "\\s+and\\s+" + _DAY, "i").test(body) ||
       new RegExp("(?:booked?|books?|booking|trains?|training|comes?|coming|in)\\s+(?:in\\s+)?(?:for\\s+)?" + _DAY + "\\s+and\\s+" + _DAY, "i").test(body) ||
+      // "keeps Tuesday and Thursday apart", "keep Monday and Wednesday separate" —
+      // naming the two training days as the actual weekly structure.
+      new RegExp("keeps?\\s+" + _DAY + "\\s+and\\s+" + _DAY, "i").test(body) ||
+      new RegExp("\\b" + _DAY + "\\s+and\\s+" + _DAY + "\\s+(?:apart|separate|spaced)", "i").test(body) ||
       new RegExp("^\\s*" + _DAY + "\\s+and\\s+" + _DAY + "\\s*[..]", "im").test(body))
     warnings.push("Session schedule mentioned");
 
@@ -2466,6 +2497,7 @@ var BLOCKING_WARNINGS = [
   // meant good posts could not be exported and there was no way to argue back.
   "Wrong location corrected",
   "Pricing mentioned",
+  "Cost framing",
   "Free session claim",
   "Invented scarcity",
   "Session schedule mentioned",
@@ -5359,37 +5391,43 @@ function processOverlayPosts(cb) {
 
 function buildBatchPlan(days) {
   // Full 30-day plan — slice to needed length
+  // Rebalanced for diversity across any 7-day (≈21-post) window. The three
+  // consistency-heavy types (motivation/evidence/quickwin) used to fill ~10 of
+  // the first 21 and all draw from near-identical "two sessions a week / show
+  // up" pools, which read repetitive in a week's feed. They are now ≈5 of 21,
+  // and the richer results/behindscenes pools (concrete, varied moments) are in
+  // rotation. No type sits adjacent to itself.
   var fullPlan = [
     {type:"motivation",   aud:"women"},
-    {type:"evidence",     aud:"men"},
-    {type:"quickwin",     aud:"women"},
     {type:"myth",         aud:"everyone"},
-    {type:"bodyblast",    aud:"everyone"},
-    {type:"motivation",   aud:"men"},
-    {type:"reels",        aud:"women"},
-    {type:"evidence",     aud:"women"},
-    {type:"fromleads",    aud:"women"},
-    {type:"quickwin",     aud:"men"},
-    {type:"motivation",   aud:"everyone"},
+    {type:"results",      aud:"men"},
     {type:"local",        aud:"everyone"},
-    {type:"myth",         aud:"women"},
-    {type:"evidence",     aud:"everyone"},
-    {type:"fromleads",    aud:"everyone"},
-    {type:"motivation",   aud:"women"},
-    {type:"bodyblast",    aud:"women"},
-    {type:"quickwin",     aud:"everyone"},
-    {type:"myth",         aud:"men"},
-    {type:"faq",          aud:"men"},
-    {type:"reels",        aud:"men"},
-    {type:"fromleads",    aud:"men"},
     {type:"evidence",     aud:"women"},
-    {type:"faq",          aud:"women"},
     {type:"bodyblast",    aud:"men"},
-    {type:"motivation",   aud:"everyone"},
-    {type:"motivation",    aud:"everyone"},
-    {type:"myth",         aud:"everyone"},
+    {type:"reels",        aud:"women"},
+    {type:"faq",          aud:"women"},
+    {type:"fromleads",    aud:"women"},
+    {type:"behindscenes", aud:"men"},
+    {type:"quickwin",     aud:"everyone"},
+    {type:"myth",         aud:"women"},
+    {type:"results",      aud:"women"},
+    {type:"motivation",   aud:"men"},
+    {type:"faq",          aud:"men"},
+    {type:"local",        aud:"women"},
+    {type:"evidence",     aud:"men"},
+    {type:"reels",        aud:"men"},
+    {type:"bodyblast",    aud:"women"},
+    {type:"behindscenes", aud:"women"},
+    {type:"fromleads",    aud:"men"},
+    {type:"myth",         aud:"men"},
     {type:"quickwin",     aud:"women"},
-    {type:"evidence",     aud:"men"}
+    {type:"seasonal",     aud:"everyone"},
+    {type:"motivation",   aud:"everyone"},
+    {type:"results",      aud:"everyone"},
+    {type:"behindscenes", aud:"everyone"},
+    {type:"local",        aud:"men"},
+    {type:"evidence",     aud:"everyone"},
+    {type:"myth",         aud:"everyone"}
   ];
   // BUG9: assign angles with theme-key diversity (max 2 posts per theme across
   // the batch), tracked in memory so it holds regardless of Blobs history.
@@ -5397,6 +5435,15 @@ function buildBatchPlan(days) {
   var themeCounts = {};
   var usedAngles = {};
   var _batchStructOffset = Math.floor(Math.random() * 9);
+  // Cap anonymous third-person openers ("She'd been... / A man finished... /
+  // Someone stood...") across the batch. These shapes carried ~a third of the
+  // week's posts and blur together. Allow at most 3; past that, swap to a
+  // non-anecdote shape. A prompt line also bars the stranger opener elsewhere.
+  var ANECDOTE = { story: 1, observation: 1, scene: 1 };
+  var ANECDOTE_CAP = 3;
+  var anecdoteCount = 0;
+  var eligibleSeen = 0;   // counts overlay-eligible posts so ~1 in 3 of them (≈1 in 5 overall) becomes a graphic, independent of plan order
+  var NON_ANECDOTE_SUFFIX = " Do not open with an anonymous third person (Someone, A man, A woman, She, He, A bloke, A lady, One member, A guy). That opener is overused across the page — open directly in the voice this structure calls for.";
   return fullPlan.slice(0, days).map(function(item, idx) {
     var angle = pickAngleForBatch(item.type, item.aud, themeCounts, usedAngles);
     // Only reels are short now. Facebook posts run full length; the Instagram
@@ -5415,14 +5462,32 @@ function buildBatchPlan(days) {
         // shape is reserved for myth posts) so winners come up more often.
         var pool = STRUCTURE_ROTATION.filter(function(x){ return x.key !== "myth-bust"; });
         structure = pool[(idx + _batchStructOffset) % pool.length];
+        // Enforce the anecdote cap: past the limit, swap an anecdote shape for a
+        // non-anecdote one so the batch is not dominated by stranger openers.
+        if (ANECDOTE[structure.key]) {
+          if (anecdoteCount >= ANECDOTE_CAP) {
+            var alt = pool.filter(function(x){ return !ANECDOTE[x.key]; });
+            if (alt.length) structure = alt[(idx + _batchStructOffset) % alt.length];
+          } else {
+            anecdoteCount++;
+          }
+        }
       }
     }
+    // On non-anecdote shapes, explicitly bar the stranger opener (the type brief
+    // alone often defaults to it). Anecdote shapes are allowed it by design.
+    var structBrief = structure ? structure.brief : "";
+    if (structure && !ANECDOTE[structure.key]) structBrief += NON_ANECDOTE_SUFFIX;
     // Flag roughly 1 in 5 as overlay (text-on-photo graphic). Only shapes that
     // produce a punchy line: motivation, myth, evidence, results, local. Never
     // reels (video) or short posts. Spread across the batch via a stride of 5.
     var overlayTypes = { motivation: 1, myth: 1, evidence: 1, results: 1, local: 1, bodyblast: 1 };
-    var overlay = !short && item.type !== "reels" && overlayTypes[item.type] && (idx % 5 === 2);
-    return {type: item.type, aud: item.aud, angle: angle || "", short: short, overlay: overlay, structure: structure ? structure.key : "", structureBrief: structure ? structure.brief : ""};
+    var overlay = false;
+    if (!short && item.type !== "reels" && overlayTypes[item.type]) {
+      if (eligibleSeen % 3 === 1) overlay = true;   // every 3rd eligible post
+      eligibleSeen++;
+    }
+    return {type: item.type, aud: item.aud, angle: angle || "", short: short, overlay: overlay, structure: structure ? structure.key : "", structureBrief: structBrief};
   });
 }
 
@@ -5433,6 +5498,11 @@ function getThemeKey(type, angle) {
   if (/shopping|groceries/.test(a)) return "shopping";
   if (/unfit|struggl|only one|everyone (?:else )?(?:is )?ahead|further ahead|\bbehind\b|too late|out of place|keep up|look stupid|embarrass|left it too late|too far gone|invisible|feel like a number/.test(a)) return "objection";
   if (/returning|coming back|come back|after (?:illness|injury|years|a gap|a long gap|a break)|restart|not (?:been|trained)|lost all|start again|years away/.test(a)) return "comeback";
+  // The single most over-used message cluster: frequency / "just show up" /
+  // consistency-beats-intensity. Previously every one of these fell through to
+  // the uncapped per-type fallback, so one message could own a third of a batch.
+  // Giving it its own theme key subjects it to the 2-per-batch cap.
+  if (/two sessions|twice a week|two coached|six rushed|six days|show(?:ing)? up|stay consistent|consisten|turn(?:ing)? up|structure beats motivation|session in the diary|booking the session|removes the (?:daily )?(?:decision|thinking)|removes the thinking|missing a week|through the door|hardest part|written for you|plan in your head|first three weeks|bad week still|compound effect|showing up imperfectly/.test(a)) return "consistency";
   if (/cost|£|expensive|value|less than|waiting list|available now|no waiting|pay for|never use|\bprice\b|takeaway/.test(a)) return "value";
   if (/protein|breakfast|lunch|snack|\beat\b|water|hydrat|\bkit\b|\bmeal\b|takeaway|\bwalk|screens|mobility|stretch/.test(a)) return "habit";
   if (/bulky|cardio|toning|spot reduc|carbs|scales|no pain|stretching|muscle turns|\bmyth\b|high intensity|six days|volume/.test(a)) return "myth";
