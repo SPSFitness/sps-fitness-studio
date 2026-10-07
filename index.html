@@ -2896,6 +2896,8 @@ function copyQ(id) {
 }
 
 var GDRIVE_FOLDER = "1611vCEdMo-ikeYBzhjv0LqYtTqo3ewnG";
+// Overlay/text-on-photo graphics are uploaded here, kept apart from source photos.
+var GDRIVE_INFOGRAPHIC_FOLDER = "1tQ30BkNy51ZvSpwJ-WoAlumGVf7p_r4Q";
 var GDRIVE_KEY = "AIzaSyDZQK_0tzhKKoNMMvjlmMs_LnfBxCM9v1I";
 
 // ── GOOGLE OAUTH ──────────────────────────────────────────────────────────
@@ -4488,7 +4490,7 @@ function doDay() {
       queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
       renderQueue(); updateBadge();
       releaseWakeLock();
-      showStatus("queueStatus", total + " post" + (total !== 1 ? "s" : "") + " ready for today!", "success"); flushHistoryToStore();
+      showStatus("queueStatus", total + " post" + (total !== 1 ? "s" : "") + " ready for today!", "success"); flushHistoryToStore(); processOverlayPosts();
       return;
     }
     var slotTime = slots[i % slots.length];
@@ -4504,7 +4506,7 @@ function doDay() {
         text = cleanPostText(text);
         var wMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (wMedia) markImageUsed(wMedia.id);
-        queue.push(Object.assign({id: nextQueueId(), type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short}, mediaFieldsFor(wMedia)));
+        queue.push(Object.assign({id: nextQueueId(), type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short, overlay: p.overlay}, mediaFieldsFor(wMedia)));
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         addToPostHistory(p.type, p.aud, text);
         renderQueue(); updateBadge();
@@ -4539,7 +4541,7 @@ function doWeek() {
       queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
       renderQueue(); updateBadge();
       releaseWakeLock();
-      showStatus("queueStatus", total + " posts ready across 7 days!", "success"); flushHistoryToStore();
+      showStatus("queueStatus", total + " posts ready across 7 days!", "success"); flushHistoryToStore(); processOverlayPosts();
       return;
     }
     var dayIndex = Math.floor(i / slots.length);
@@ -4558,7 +4560,7 @@ function doWeek() {
         text = cleanPostText(text);
         var wMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (wMedia) markImageUsed(wMedia.id);
-        queue.push(Object.assign({id: nextQueueId(), type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short}, mediaFieldsFor(wMedia)));
+        queue.push(Object.assign({id: nextQueueId(), type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short, overlay: p.overlay}, mediaFieldsFor(wMedia)));
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         addToPostHistory(p.type, p.aud, text);
         renderQueue(); updateBadge();
@@ -5104,6 +5106,236 @@ function monthFromDate(ds) {
   return isNaN(d.getTime()) ? "" : MONTH_NAMES[d.getMonth()];
 }
 
+// ── TEXT-OVERLAY GRAPHICS ("infographic posts") ─────────────────────────────
+// For ~1 in 5 posts, the chosen photo gets a bold headline drawn over it in the
+// approved SPS style (heavy white caps, one line highlighted in blue, bottom,
+// SPS tag). The finished image is uploaded to the Infographics Drive folder and
+// its URL goes in the CSV. FAILSAFE: if anything in this chain fails — no photo,
+// headline won't fit, AI error, upload error — the post silently keeps its plain
+// photo and exports as a normal post. It can never break or blank a post.
+
+var _overlayFontReady = false;
+(function loadOverlayFont() {
+  try {
+    var l = document.createElement("link");
+    l.rel = "stylesheet";
+    l.href = "https://fonts.googleapis.com/css2?family=Anton&display=swap";
+    document.head.appendChild(l);
+    if (document.fonts && document.fonts.load) {
+      document.fonts.load("72px Anton").then(function(){ _overlayFontReady = true; }).catch(function(){});
+    }
+  } catch (e) {}
+})();
+
+// Ask the AI for a short punchy headline matching a post. Returns a string with
+// / for line breaks and *word* for the highlighted part, or null on any failure.
+function generateOverlayHeadline(postText, aud, cb) {
+  var sys = "You write very short, punchy headline overlays for SPS Fitness social media graphics. Given a full post, return ONE headline of 3 to 8 words that captures its core message, in the gym's blunt, warm, no-hype voice. RULES: Use / to mark where a new line starts (2 or 3 short lines total). Put *asterisks* around the ONE word or short phrase to highlight in colour. NO hashtags, NO quotes, NO emoji, NO full sentences, NO price, NO times, NO names. British English. Examples of the exact format: 'Not too late. /Not too *old*' or 'People will always /find an *excuse*' or 'Strongest you've /*ever* felt'. Return ONLY the headline in that format, nothing else.";
+  var prompt = "Write a headline overlay for this post:\n\n" + String(postText || "").slice(0, 600);
+  try {
+    callAPI(sys, prompt, function(err, text) {
+      if (err || !text) { cb(null); return; }
+      var h = String(text).replace(/["'`]/g, "").replace(/#\w+/g, "").trim();
+      h = h.split("\n")[0].trim();           // first line only
+      if (!h || h.replace(/[/*]/g, "").trim().split(/\s+/).length > 10) { cb(null); return; }
+      if (h.indexOf("*") === -1) {           // ensure something is highlighted
+        var parts = h.split("/");
+        parts[parts.length - 1] = "*" + parts[parts.length - 1].trim() + "*";
+        h = parts.join("/");
+      }
+      cb(h);
+    });
+  } catch (e) { cb(null); }
+}
+
+// Draw the overlay on a 1080x1080 canvas. Returns a canvas, or null if the image
+// could not be drawn. Style matches the approved test: bold white caps, bottom,
+// highlighted line in SPS blue, gradient scrim, SPS tag bottom-right.
+function renderOverlayCanvas(imgEl, headline) {
+  try {
+    if (!imgEl || !imgEl.width) return null;
+    var W = 1080, H = 1080;
+    var c = document.createElement("canvas"); c.width = W; c.height = H;
+    var ctx = c.getContext("2d");
+
+    // cover-fit the photo
+    var ir = imgEl.width / imgEl.height, cr = W / H, dw, dh, dx, dy;
+    if (ir > cr) { dh = H; dw = H * ir; dx = (W - dw) / 2; dy = 0; }
+    else { dw = W; dh = W / ir; dx = 0; dy = (H - dh) / 2; }
+    ctx.drawImage(imgEl, dx, dy, dw, dh);
+
+    // parse headline into lines of {text, hl}
+    var lines = String(headline || "").split("/").map(function(line) {
+      var parts = [];
+      line.split(/(\*[^*]+\*)/).forEach(function(seg) {
+        if (!seg) return;
+        if (seg[0] === "*" && seg[seg.length - 1] === "*") parts.push({ text: seg.slice(1, -1).trim(), hl: true });
+        else if (seg.trim()) parts.push({ text: seg.trim(), hl: false });
+      });
+      return parts;
+    }).filter(function(l) { return l.length; });
+    if (!lines.length) return null;
+
+    var font = _overlayFontReady ? "Anton" : "Impact";
+    var hlColor = "#1a9fff", margin = 70, maxW = W - margin * 2;
+    function lineText(l) { return l.map(function(p) { return p.text; }).join(" "); }
+
+    // fit the font so the widest line fits
+    var fontSize = 118;
+    for (var fs = 118; fs >= 44; fs -= 2) {
+      ctx.font = "900 " + fs + "px '" + font + "', Impact, sans-serif";
+      var widest = 0;
+      lines.forEach(function(l) { var w = ctx.measureText(lineText(l).toUpperCase()).width; if (w > widest) widest = w; });
+      if (widest <= maxW) { fontSize = fs; break; }
+    }
+    ctx.font = "900 " + fontSize + "px '" + font + "', Impact, sans-serif";
+    var lineH = fontSize * 1.04, blockH = lines.length * lineH;
+    var startY = H - margin - blockH;   // bottom position
+
+    // gradient scrim bottom
+    var g = ctx.createLinearGradient(0, startY - 150, 0, H);
+    g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,0.8)");
+    ctx.fillStyle = g; ctx.fillRect(0, startY - 150, W, H - (startY - 150));
+
+    // draw lines (left aligned, with real word spacing)
+    ctx.textAlign = "left"; ctx.textBaseline = "top";
+    lines.forEach(function(l, li) {
+      var y = startY + li * lineH, cx = margin;
+      l.forEach(function(part, pi) {
+        var t = part.text.toUpperCase() + (pi < l.length - 1 ? "  " : "");
+        ctx.fillStyle = part.hl ? hlColor : "#ffffff";
+        ctx.shadowColor = "rgba(0,0,0,0.55)"; ctx.shadowBlur = 14; ctx.shadowOffsetY = 2;
+        ctx.fillText(t, cx, y);
+        ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+        cx += ctx.measureText(t).width;
+      });
+      if (li === 0) {   // blue accent line under first line
+        var fw = ctx.measureText(lineText(l).toUpperCase()).width;
+        ctx.fillStyle = hlColor; ctx.fillRect(margin, y + lineH * 0.92, Math.min(110, fw * 0.4), 10);
+      }
+    });
+
+    // SPS tag bottom-right
+    ctx.font = "700 26px '" + font + "', sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.textAlign = "right"; ctx.textBaseline = "bottom";
+    ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 8;
+    ctx.fillText("SPS FITNESS", W - 40, H - 34);
+    ctx.shadowColor = "transparent";
+
+    return c;
+  } catch (e) { return null; }
+}
+
+// Upload a canvas PNG to the Infographics Drive folder. cb(url) on success, cb(null) on failure.
+function uploadOverlayToDrive(canvas, cb) {
+  try {
+    if (!canvas || !isGoogleConnected()) { cb(null); return; }
+    getValidAccessToken(function(err, token) {
+      if (err || !token) { cb(null); return; }
+      var dataUrl;
+      try { dataUrl = canvas.toDataURL("image/png"); } catch (e) { cb(null); return; }
+      var base64 = dataUrl.split(",")[1];
+      if (!base64) { cb(null); return; }
+      fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/drive-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accessToken: token,
+          folderId: GDRIVE_INFOGRAPHIC_FOLDER,
+          filename: "sps-overlay-" + Date.now() + ".png",
+          imageBase64: base64
+        })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { cb(d && d.ok && d.url ? d.url : null); })
+      .catch(function() { cb(null); });
+    });
+  } catch (e) { cb(null); }
+}
+
+// Load an image element from a URL (via imgproxy for Drive URLs to avoid CORS).
+function loadImageForOverlay(url, cb) {
+  try {
+    var src = url;
+    if (src.indexOf("googleusercontent") > -1 || src.indexOf("drive.google.com") > -1) {
+      src = "https://merry-flan-9e55eb.netlify.app/.netlify/functions/imgproxy?url=" + encodeURIComponent(url);
+    }
+    var im = new Image();
+    im.crossOrigin = "anonymous";
+    im.onload = function() { cb(im); };
+    im.onerror = function() { cb(null); };
+    im.src = src;
+  } catch (e) { cb(null); }
+}
+
+// Orchestrator: given a finished post, try to produce an overlay graphic for it.
+// cb(overlayUrl) on full success, cb(null) on any failure (failsafe → plain post).
+function tryBuildOverlayPost(postText, aud, photoUrl, cb) {
+  if (!photoUrl) { cb(null); return; }                       // no photo → plain post
+  generateOverlayHeadline(postText, aud, function(headline) {
+    if (!headline) { cb(null); return; }                     // no headline → plain post
+    loadImageForOverlay(photoUrl, function(imgEl) {
+      if (!imgEl) { cb(null); return; }                      // image failed → plain post
+      var canvas = renderOverlayCanvas(imgEl, headline);
+      if (!canvas) { cb(null); return; }                     // render failed → plain post
+      uploadOverlayToDrive(canvas, function(url) {
+        cb(url || null);                                     // upload failed → plain post
+      });
+    });
+  });
+}
+
+
+
+// Post-batch pass: for every queued post flagged `overlay`, build the text-on-
+// photo graphic and swap its image to the uploaded overlay. Runs one at a time
+// (sequential) to avoid hammering the API/Drive. Each post is independent and
+// failsafe: any failure leaves that post with its plain photo. Updates the queue
+// live so you see graphics appear. cb() when done.
+function processOverlayPosts(cb) {
+  var targets = queue.filter(function(q) { return q.overlay && !q._overlayDone && (q.mediaUrl || q.mediaId); });
+  if (!targets.length) { if (cb) cb(0); return; }
+  showStatus("queueStatus", "Creating " + targets.length + " text-overlay graphic" + (targets.length !== 1 ? "s" : "") + "...", "info");
+  var i = 0, made = 0;
+  function next() {
+    if (i >= targets.length) {
+      saveQueueToSheets(); renderQueue();
+      showStatus("queueStatus", made + " of " + targets.length + " overlay graphic" + (targets.length !== 1 ? "s" : "") + " created. The rest kept their normal photo.", made ? "success" : "info");
+      if (cb) cb(made);
+      return;
+    }
+    var q = targets[i];
+    // Resolve the plain photo URL for this post.
+    var photoUrl = q.mediaUrl || "";
+    if (!photoUrl && q.mediaId) {
+      for (var k = 0; k < imageLibrary.length; k++) {
+        if (String(imageLibrary[k].id) === String(q.mediaId)) { photoUrl = imageLibrary[k].hostedUrl || ""; break; }
+      }
+    }
+    // Never overlay a video.
+    if (q.mediaIsVideo || !photoUrl) { q._overlayDone = true; i++; next(); return; }
+
+    tryBuildOverlayPost(q.text, q.aud, photoUrl, function(overlayUrl) {
+      if (overlayUrl) {
+        // Keep the original marked used; point the post at the new graphic.
+        if (q.mediaId) markImageUsed(q.mediaId);
+        q.mediaUrl = overlayUrl;
+        q.mediaDriveId = driveIdOf(overlayUrl);
+        q.mediaIsVideo = false;
+        q.mediaIsOverlay = true;   // so export/preview knows it is already a finished graphic
+        made++;
+        renderQueue();
+      }
+      // On failure: leave q exactly as it was (plain photo). Failsafe.
+      q._overlayDone = true;
+      i++;
+      setTimeout(next, 150);       // small gap between posts
+    });
+  }
+  next();
+}
+
 function buildBatchPlan(days) {
   // Full 30-day plan — slice to needed length
   var fullPlan = [
@@ -5164,7 +5396,12 @@ function buildBatchPlan(days) {
         structure = pool[(idx + _batchStructOffset) % pool.length];
       }
     }
-    return {type: item.type, aud: item.aud, angle: angle || "", short: short, structure: structure ? structure.key : "", structureBrief: structure ? structure.brief : ""};
+    // Flag roughly 1 in 5 as overlay (text-on-photo graphic). Only shapes that
+    // produce a punchy line: motivation, myth, evidence, results, local. Never
+    // reels (video) or short posts. Spread across the batch via a stride of 5.
+    var overlayTypes = { motivation: 1, myth: 1, evidence: 1, results: 1, local: 1, bodyblast: 1 };
+    var overlay = !short && item.type !== "reels" && overlayTypes[item.type] && (idx % 5 === 2);
+    return {type: item.type, aud: item.aud, angle: angle || "", short: short, overlay: overlay, structure: structure ? structure.key : "", structureBrief: structure ? structure.brief : ""};
   });
 }
 
@@ -5241,7 +5478,7 @@ function do10Days() {
       queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
       renderQueue(); updateBadge();
       releaseWakeLock();
-      showStatus("queueStatus", total + " posts ready across 10 days!", "success"); flushHistoryToStore();
+      showStatus("queueStatus", total + " posts ready across 10 days!", "success"); flushHistoryToStore(); processOverlayPosts();
       return;
     }
     var dayIndex = Math.floor(i / slots.length);
@@ -5260,7 +5497,7 @@ function do10Days() {
         text = cleanPostText(text);
         var pMedia = imageLibrary.length ? findBestImage(p.type, p.aud) : null;
         if (pMedia) markImageUsed(pMedia.id);
-        queue.push(Object.assign({id: nextQueueId(), type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short}, mediaFieldsFor(pMedia)));
+        queue.push(Object.assign({id: nextQueueId(), type: p.type, aud: p.aud, text: text, date: ds, time: slotTime, short: p.short, overlay: p.overlay}, mediaFieldsFor(pMedia)));
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         addToPostHistory(p.type, p.aud, text);
         renderQueue(); updateBadge();
@@ -5299,7 +5536,7 @@ function do30Days() {
       queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
       renderQueue(); updateBadge();
       releaseWakeLock();
-      showStatus("queueStatus", total + " posts generated across 30 days! Export CSV to upload to High Level.", "success"); flushHistoryToStore();
+      showStatus("queueStatus", total + " posts generated across 30 days! Export CSV to upload to High Level.", "success"); flushHistoryToStore(); processOverlayPosts();
       return;
     }
     var dayIndex = Math.floor(i / slots.length);
@@ -5317,7 +5554,7 @@ function do30Days() {
       if (!err && text) {
         var pMedia = imageLibrary.length ? findBestImage(plan.type, plan.aud) : null;
         if (pMedia) markImageUsed(pMedia.id);
-        queue.push(Object.assign({id: nextQueueId(), type: plan.type, aud: plan.aud, text: text, date: ds, time: slotTime, short: plan.short}, mediaFieldsFor(pMedia)));
+        queue.push(Object.assign({id: nextQueueId(), type: plan.type, aud: plan.aud, text: text, date: ds, time: slotTime, short: plan.short, overlay: plan.overlay}, mediaFieldsFor(pMedia)));
         queue.sort(function(a,b) { return (a.date+a.time).localeCompare(b.date+b.time); });
         // Add to history so next post avoids this angle
         addToPostHistory(plan.type, plan.aud, text);
