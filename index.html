@@ -3857,6 +3857,18 @@ function driveIdOf(url) {
   return m ? m[1] : "";
 }
 
+// Turn any Drive URL into something an <img> can actually render.
+// The uc?export=download shape returns Drive's download page, not image
+// bytes, so it must be converted to the lh3 preview format first; then
+// routed through imgproxy to avoid CORS. Non-Drive URLs pass through.
+function displayableSrc(url, size) {
+  if (!url) return "";
+  if (url.indexOf("googleusercontent") === -1 && url.indexOf("drive.google.com") === -1) return url;
+  var id = driveIdOf(url);
+  var real = id ? ("https://lh3.googleusercontent.com/d/" + id + "=w" + (size || 1280)) : url;
+  return "/.netlify/functions/imgproxy?url=" + encodeURIComponent(real);
+}
+
 // High Level accepts a Drive video, but not the uc?export=download shape — it
 // wants the standard share link. Convert, and give it a thumbnail poster.
 function publicVideoUrl(url, driveId) {
@@ -4452,10 +4464,9 @@ function renderQueue() {
     // Fall back to the URL stored on the post. A CSV-rebuilt post has no
     // mediaId, so the library lookup alone showed no thumbnail at all.
     var qThumb = qMedia ? qMedia.dataUrl : (q.mediaUrl || "");
-    // Overlay graphics and other Drive URLs must go through imgproxy to display.
-    if (qThumb && (qThumb.indexOf("googleusercontent") > -1 || qThumb.indexOf("drive.google.com") > -1)) {
-      qThumb = "/.netlify/functions/imgproxy?url=" + encodeURIComponent(qThumb);
-    }
+    // Overlay graphics and other Drive URLs must be converted to a loadable
+    // format and routed through imgproxy to display (uc?export=download won't render).
+    qThumb = displayableSrc(qThumb, 800);
     var qIsVid = qMedia ? qMedia.isVideo : !!q.mediaIsVideo;
     var mediaHtml = "";
     if (qThumb || qIsVid) {
@@ -5773,8 +5784,7 @@ function expandQueueItem(id) {
     if (q.mediaIsVideo) {
       imgEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:160px;background:var(--surface2);font-size:48px;border-radius:8px">&#x1F3A5; Video</div>';
     } else {
-      var u = q.mediaUrl;
-      if (u.indexOf("googleusercontent") > -1 || u.indexOf("drive.google.com") > -1) u = "/.netlify/functions/imgproxy?url=" + encodeURIComponent(u);
+      var u = displayableSrc(q.mediaUrl, 1280);
       imgEl.innerHTML = '<img src="' + u + '" style="width:100%;border-radius:8px;display:block" />';
     }
   } else if (q.mediaId) {
@@ -5786,8 +5796,7 @@ function expandQueueItem(id) {
       if (media.isVideo) {
         imgEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:160px;background:var(--surface2);font-size:48px;border-radius:8px">&#x1F3A5; ' + media.filename + '</div>';
       } else {
-        var src = media.dataUrl || "";
-        if (src.indexOf("googleusercontent") > -1) src = "/.netlify/functions/imgproxy?url=" + encodeURIComponent(src);
+        var src = displayableSrc(media.dataUrl || "", 1280);
         imgEl.innerHTML = '<img src="' + src + '" style="width:100%;border-radius:8px;display:block" />';
       }
     } else {
