@@ -5261,13 +5261,16 @@ function uploadOverlayToDrive(canvas, cb) {
 // Load an image element from a URL (via imgproxy for Drive URLs to avoid CORS).
 function loadImageForOverlay(url, cb) {
   try {
-    var src = url;
-    if (src.indexOf("googleusercontent") > -1 || src.indexOf("drive.google.com") > -1) {
-      src = "https://merry-flan-9e55eb.netlify.app/.netlify/functions/imgproxy?url=" + encodeURIComponent(url);
-    }
+    // Normalise any Drive URL to the lh3 image-bytes format first. A
+    // uc?export=download link returns a download, not loadable image bytes, which
+    // is why the overlay render could not load it. Pull the id and rebuild as the
+    // high-res lh3 URL, then proxy that to avoid CORS.
+    var id = driveIdOf(url);
+    var realUrl = id ? ("https://lh3.googleusercontent.com/d/" + id + "=w1280") : url;
+    var src = "https://merry-flan-9e55eb.netlify.app/.netlify/functions/imgproxy?url=" + encodeURIComponent(realUrl);
     var im = new Image();
     im.crossOrigin = "anonymous";
-    im.onload = function() { cb(im); };
+    im.onload = function() { if (im.width && im.height) cb(im); else cb(null); };
     im.onerror = function() { cb(null); };
     im.src = src;
   } catch (e) { cb(null); }
