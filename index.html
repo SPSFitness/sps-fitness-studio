@@ -4452,6 +4452,10 @@ function renderQueue() {
     // Fall back to the URL stored on the post. A CSV-rebuilt post has no
     // mediaId, so the library lookup alone showed no thumbnail at all.
     var qThumb = qMedia ? qMedia.dataUrl : (q.mediaUrl || "");
+    // Overlay graphics and other Drive URLs must go through imgproxy to display.
+    if (qThumb && (qThumb.indexOf("googleusercontent") > -1 || qThumb.indexOf("drive.google.com") > -1)) {
+      qThumb = "/.netlify/functions/imgproxy?url=" + encodeURIComponent(qThumb);
+    }
     var qIsVid = qMedia ? qMedia.isVideo : !!q.mediaIsVideo;
     var mediaHtml = "";
     if (qThumb || qIsVid) {
@@ -5272,15 +5276,18 @@ function loadImageForOverlay(url, cb) {
 // Orchestrator: given a finished post, try to produce an overlay graphic for it.
 // cb(overlayUrl) on full success, cb(null) on any failure (failsafe → plain post).
 function tryBuildOverlayPost(postText, aud, photoUrl, cb) {
-  if (!photoUrl) { cb(null); return; }                       // no photo → plain post
+  if (!photoUrl) { console.log("OVERLAY skip: no photo"); cb(null); return; }
   generateOverlayHeadline(postText, aud, function(headline) {
-    if (!headline) { cb(null); return; }                     // no headline → plain post
+    if (!headline) { console.log("OVERLAY fail: no headline"); cb(null); return; }
+    console.log("OVERLAY headline:", headline);
     loadImageForOverlay(photoUrl, function(imgEl) {
-      if (!imgEl) { cb(null); return; }                      // image failed → plain post
+      if (!imgEl) { console.log("OVERLAY fail: image did not load", photoUrl); cb(null); return; }
       var canvas = renderOverlayCanvas(imgEl, headline);
-      if (!canvas) { cb(null); return; }                     // render failed → plain post
+      if (!canvas) { console.log("OVERLAY fail: render returned null"); cb(null); return; }
       uploadOverlayToDrive(canvas, function(url) {
-        cb(url || null);                                     // upload failed → plain post
+        if (!url) console.log("OVERLAY fail: upload returned no url");
+        else console.log("OVERLAY ok:", url);
+        cb(url || null);
       });
     });
   });
@@ -5330,7 +5337,7 @@ function processOverlayPosts(cb) {
       // On failure: leave q exactly as it was (plain photo). Failsafe.
       q._overlayDone = true;
       i++;
-      setTimeout(next, 150);       // small gap between posts
+      setTimeout(next, 600);       // gap between posts so uploads do not collide
     });
   }
   next();
@@ -5764,7 +5771,7 @@ function expandQueueItem(id) {
       imgEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:160px;background:var(--surface2);font-size:48px;border-radius:8px">&#x1F3A5; Video</div>';
     } else {
       var u = q.mediaUrl;
-      if (u.indexOf("googleusercontent") > -1) u = "/.netlify/functions/imgproxy?url=" + encodeURIComponent(u);
+      if (u.indexOf("googleusercontent") > -1 || u.indexOf("drive.google.com") > -1) u = "/.netlify/functions/imgproxy?url=" + encodeURIComponent(u);
       imgEl.innerHTML = '<img src="' + u + '" style="width:100%;border-radius:8px;display:block" />';
     }
   } else if (q.mediaId) {
