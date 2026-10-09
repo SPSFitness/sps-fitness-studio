@@ -3763,35 +3763,39 @@ function _pickBestImage(postType, aud) {
   var ready = imageLibrary.filter(function(img) { return !img.analyzing; });
   if (!ready.length) return null;
 
-  // Gender is a HARD constraint and must be applied FIRST. It used to run last,
-  // after the pool had been narrowed to unused photos, and fell back to the full
-  // pool when nothing survived — which is how men's photos reached women's posts.
-  // Reusing a correct-gender photo is always better than using a wrong one.
-  function genderOk(img) {
+  // Gender fit as a TIERED preference, not a flat allow-list, and applied FIRST.
+  // The old code let a men's post use any photo tagged men, mixed OR none equally
+  // — and "mixed" is the tagger's safe default for back-of-head and baggy-clothing
+  // shots. Since the member base skews female, the mixed pool is mostly women, so
+  // women's photos kept landing on men's posts. Now: the OPPOSITE gender and
+  // untagged ("unknown") photos are NEVER eligible on a gendered post; exact
+  // gender is strongly preferred; a people-free shot comes next; and an ambiguous
+  // "mixed" photo is used on a gendered post only as a last resort when nothing
+  // better is free. A general ("everyone") post still prefers mixed/no-people but
+  // may use a clearly men or women photo.
+  function genderTier(img) {
     var g = img.gender || "none";
-    // "unknown" means not yet tagged, so it is not safe for a gendered post.
-    if (aud === "women") return g !== "men" && g !== "unknown";
-    if (aud === "men") return g !== "women" && g !== "unknown";
-    return g !== "unknown";
+    if (aud === "men")   { if (g === "men")   return 0; if (g === "none") return 1; if (g === "mixed") return 2; return 9; }
+    if (aud === "women") { if (g === "women") return 0; if (g === "none") return 1; if (g === "mixed") return 2; return 9; }
+    if (g === "unknown") return 9;                         // everyone: anything tagged is fine
+    if (g === "mixed" || g === "none") return 0;
+    return 1;
   }
-  var eligible = ready.filter(genderOk);
-  if (!eligible.length) {
-    // Nothing of the right gender exists at all. Prefer a neutral photo over a
-    // wrong-gender one; only as a last resort return nothing.
-    eligible = ready.filter(function(img) { var g = img.gender || "none"; return g === "none" || g === "mixed"; });
-    if (!eligible.length) return null;  // no photo beats the wrong photo
-  }
-
-  // A general post PREFERS a mixed or people-free shot but is not restricted to
-  // one: a women's or men's photo is perfectly fine on a post for everyone.
-  // Hard-narrowing meant 12 general posts fought over 7 mixed photos while 38
-  // gendered ones went unused, which is why images repeated inside a batch.
-  var preferNeutral = (aud !== "women" && aud !== "men");
-  if (preferNeutral) {
-    var neutral = eligible.filter(function(img) { var g = img.gender || "none"; return g === "mixed" || g === "none"; });
-    var fresh = neutral.filter(function(img) { return !_sessionUsedIds.has(String(img.id)); });
-    if (fresh.length) eligible = neutral;   // only narrow while unused ones remain
-  }
+  var eligibleAll = ready.filter(function(img) { return genderTier(img) < 9; });
+  if (!eligibleAll.length) return null;   // no safe photo beats a wrong-gender one
+  // Choose the best gender tier that still has a photo unused THIS session, so a
+  // men's post drops to the risky "mixed" pool only when no men/no-people photos
+  // are left to use fresh. This is what stops women's photos reaching men's posts.
+  var freshTiers = {}, anyTiers = {};
+  eligibleAll.forEach(function(img) {
+    var t = genderTier(img);
+    anyTiers[t] = true;
+    if (!_sessionUsedIds.has(String(img.id))) freshTiers[t] = true;
+  });
+  var pickTier = null;
+  [0, 1, 2].forEach(function(t) { if (pickTier === null && freshTiers[t]) pickTier = t; });
+  if (pickTier === null) [0, 1, 2].forEach(function(t) { if (pickTier === null && anyTiers[t]) pickTier = t; });
+  var eligible = eligibleAll.filter(function(img) { return genderTier(img) === pickTier; });
 
   // Now apply the reuse preferences WITHIN the gender-correct set.
   var notUsedThisSession = eligible.filter(function(img) { return !_sessionUsedIds.has(String(img.id)); });
@@ -3829,7 +3833,7 @@ function _pickBestImage(postType, aud) {
     // Search the whole gender-eligible set, not the narrowed band. Videos are
     // scarce, so a ranking filter would usually leave none and fall back to a
     // still — which is how a reels slot ended up with a photo.
-    var vidPool = eligible.filter(function(img) { return img.isVideo; });
+    var vidPool = eligibleAll.filter(function(img) { return img.isVideo; });
     if (vidPool.length) {
       var freshVid = vidPool.filter(function(img) { return !_sessionUsedIds.has(String(img.id)); });
       var vp = freshVid.length ? freshVid : vidPool;
