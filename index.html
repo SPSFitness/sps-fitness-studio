@@ -1517,15 +1517,6 @@ function stripInventedNames(text) {
            /^(?:\s*)(?:this is|meet|say hello to)\s+someone\b/i.test(sen.trim());
   }).join("");
 
-  // "Someone came in / asked / turned up" AFTER a specific person was already
-  // introduced is stripped-name residue that reads as broken. Drop that sentence.
-  var hasSpecificPerson = /\b(?:he|she|his|her|the man|the woman|the bloke|the lad)\b/i.test(text);
-  if (hasSpecificPerson) {
-    text = splitSentences(text).filter(function(sen) {
-      return !/^\s*Someone\s+(?:came|asked|turned|walked|said|expecting|expected|started|stood|finished|kept|thought)\b/i.test(sen.trim());
-    }).join("");
-  }
-
   // Any remaining mid-post occurrence still gets the name swapped for "someone".
   text = text.replace(/\b(this is|meet|say hello to)\s+([A-Za-z][a-z]{1,11})\b/gi, function(m, intro, name) {
     if (whitelist.indexOf(name.toLowerCase()) > -1) return m;
@@ -1552,6 +1543,19 @@ function stripInventedNames(text) {
       text = text.replace(new RegExp("\\b" + name + "\\b", "gi"), "someone");
     }
   });
+  // Residue deletion runs HERE, after the name→"Someone" swaps above, not before
+  // them: a real name like "Dave came in and asked..." only becomes "Someone
+  // came in..." at this point, so an earlier pass could never catch it. When a
+  // specific person (he/she/the man) appears elsewhere in the post, a separate
+  // sentence starting "Someone came/asked/..." is a stripped name that now reads
+  // as a different person — drop that sentence. Guarded so it never empties the
+  // whole post. This is what used to leave "Name filter residue" held back at export.
+  if (/\b(?:he|she|his|her|the man|the woman|the bloke|the lad)\b/i.test(text)) {
+    var kept2 = splitSentences(text).filter(function(sen) {
+      return !/^\s*Someone\s+(?:came|asked|turned|walked|said|expecting|expected|started|stood|finished|kept|thought)\b/i.test(sen.trim());
+    });
+    if (kept2.length) text = kept2.join("");
+  }
   return text.replace(/(^|[.!?]\s+|\n\s*)someone\b/g, function(m, pre) { return pre + "Someone"; });
 }
 
@@ -1947,7 +1951,10 @@ function validatePost(text, short, publishMonth, postType) {
   if (/\b(?:four|five|six|seven|4|5|6|7)\s+(?:days?|times?|sessions?)\s+a\s+week\b/i.test(body) && !/\b(?:not|isn't|is not|don't|do not|instead of|rather than|myth|wrong|rubbish|six days a week sounds)\b/i.test(body)) warnings.push("Session frequency too high");
   if (/\bburpees?\b/i.test(body)) warnings.push("Banned term: burpees");
   if (/\b\d{1,3}\s?-?\s?\d{0,3}\s?g\s+of\s+protein\b|\b\d{1,3}g\s+protein\b|\bmeal prep\b|\bcalorie (?:surplus|deficit)\b|\bcook your protein\b/i.test(body)) warnings.push("Nutrition prescription");
-  if (/\b(?:first|taster|trial|intro)\s+(?:session|class|week)\s+(?:is\s+)?free\b|\bfree\s+(?:first\s+)?(?:session|class|trial|taster)\b/i.test(body)) warnings.push("Free session claim");
+  if (/\b(?:first|1st|taster|trial|intro)\s+(?:session|class|week|group|visit|go|time)\s+(?:is\s+)?free\b/i.test(body) ||
+      /\bfree\s+(?:first\s+)?(?:session|class|trial|taster|group|visit)\b/i.test(body) ||
+      /\bfirst (?:one|group|session|visit|go) (?:is\s+)?(?:free|on us|on the house)\b/i.test(body) ||
+      /\b(?:try|come)\s+(?:your\s+)?first\s+(?:one|group|session)\s+(?:for\s+)?free\b/i.test(body)) warnings.push("Free session claim");
   // Any prescriptive routine the reader is meant to perform alone. The kettle
   // wording was only ever one example; hold times and rep counts are the tell.
   if (/\b(?:before the kettle|while the kettle|kettle boils|kitchen counter|against the counter|while the coffee|while you wait for)\b/i.test(body) ||
@@ -2055,7 +2062,15 @@ function validatePost(text, short, publishMonth, postType) {
       // mornings. Monday and Wednesday evenings." Two day-plus-time-of-day
       // phrases in one post is a schedule however it is punctuated.
       (body.match(new RegExp(DAY + "(?:\\s+and\\s+" + DAY + ")?\\s+(?:mornings?|afternoons?|evenings?|nights?)", "gi")) || []).length >= 2 ||
-      new RegExp("^\\s*" + DAY + "\\s+and\\s+" + DAY + "\\s+(?:mornings?|afternoons?|evenings?)\\s*[.!]", "im").test(body))
+      new RegExp("^\\s*" + DAY + "\\s+and\\s+" + DAY + "\\s+(?:mornings?|afternoons?|evenings?)\\s*[.!]", "im").test(body) ||
+      // A SINGLE named day tied to a session/group/class is still naming when
+      // sessions run: "Tuesday's session", "Tuesday morning group", "the Monday
+      // class". Previously only day-pairs were caught, so these leaked.
+      new RegExp(DAY + "(?:'s)?(?:\\s+(?:morning|afternoon|evening|lunchtime))?\\s+(?:session|sessions|group|class|workout|slot)\\b", "i").test(body) ||
+      // Stating how many times a week the gym opens/runs is an operational claim
+      // ("the door opens three times a week") and understates how many run.
+      /\b(?:door opens?|we (?:run|open|are open)|sessions? run|classes run|open)\s+(?:two|three|four|five|six|2|3|4|5|6)\s+times?\s+a\s+week\b/i.test(body) ||
+      /\b(?:two|three|four|five|six)\s+times?\s+a\s+week[^.!?]{0,20}\b(?:door|sessions?|classes|we (?:run|open))\b/i.test(body))
     warnings.push("Session schedule mentioned");
   // Four or more sessions a week stated as something members do, not debunked.
   if (/\b(?:some|others?|people|members)\s+train\s+(?:four|five|six|4|5|6)\s+times?\b/i.test(body) ||
@@ -5182,7 +5197,12 @@ function generateOverlayHeadline(postText, aud, cb) {
   try {
     callAPI(sys, prompt, function(err, text) {
       if (err || !text) { cb(null); return; }
-      var h = String(text).replace(/["'`]/g, "").replace(/#\w+/g, "").trim();
+      // Strip wrapping quotes and any hashtags, but KEEP apostrophes inside words
+      // (You're, you've, scales aren't) — the old blanket quote-strip turned
+      // "You're" into "Youre" on the finished graphic.
+      var h = String(text).replace(/#\w+/g, "").replace(/[\"`“”]/g, "").trim();
+      h = h.replace(/^['’]+/, "").replace(/['’]+$/, "").trim();  // wrapping single quotes only
+      h = h.replace(/’/g, "'");                                   // normalise smart apostrophe
       h = h.split("\n")[0].trim();           // first line only
       if (!h || h.replace(/[/*]/g, "").trim().split(/\s+/).length > 10) { cb(null); return; }
       if (h.indexOf("*") === -1) {           // ensure something is highlighted
@@ -5202,8 +5222,16 @@ function renderOverlayCanvas(imgEl, headline) {
   try {
     if (!imgEl || !imgEl.width) return null;
     var W = 1080, H = 1080;
-    var c = document.createElement("canvas"); c.width = W; c.height = H;
+    // Render at 2x (2160px output) while keeping all drawing maths in 1080 space:
+    // the context is scaled, so every coordinate below is unchanged but the file
+    // comes out at double resolution. Combined with the 2048px source load, this
+    // is what makes the finished graphic sharp instead of soft.
+    var S = 2;
+    var c = document.createElement("canvas"); c.width = W * S; c.height = H * S;
     var ctx = c.getContext("2d");
+    ctx.scale(S, S);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";   // crisp downscale of the 2048px source
 
     // cover-fit the photo
     var ir = imgEl.width / imgEl.height, cr = W / H, dw, dh, dx, dy;
@@ -5309,7 +5337,10 @@ function loadImageForOverlay(url, cb) {
     // is why the overlay render could not load it. Pull the id and rebuild as the
     // high-res lh3 URL, then proxy that to avoid CORS.
     var id = driveIdOf(url);
-    var realUrl = id ? ("https://lh3.googleusercontent.com/d/" + id + "=w1280") : url;
+    // Load at 2048px, not 1280 — the canvas is 1080 and the photo is cover-fitted
+    // (often cropped/zoomed), so a 1280 source left the finished graphic soft.
+    // 2048 gives the downscale real detail to work with and renders crisp.
+    var realUrl = id ? ("https://lh3.googleusercontent.com/d/" + id + "=w2048") : url;
     var src = "https://merry-flan-9e55eb.netlify.app/.netlify/functions/imgproxy?url=" + encodeURIComponent(realUrl);
     var im = new Image();
     im.crossOrigin = "anonymous";
@@ -6222,7 +6253,74 @@ function toInstaCaption(fullText, aud) {
 var _igEngageRot = 0;
 var _igTagRot = 0;
 
-function exportInstagramCSV() { exportCSV("instagram"); }
+function exportInstagramCSV() {
+  if (!queue.length) { alert("No posts in queue to export. Generate some posts first!"); return; }
+  autoFixBlocked(function() { exportCSV("instagram", true); });
+}
+
+// Regenerate every currently-blocked post BEFORE export, instead of silently
+// leaving them in the queue for you to fix by hand. Each blocked post gets a
+// fresh generation cycle (generateCleanPost already does 6 internal attempts +
+// a safe fallback); after the first failure it switches angle, since a subject
+// that cannot pass rarely recovers by rewording. Runs sequentially so the API
+// calls do not collide. Only posts that STILL fail after this fall back to being
+// held back — so in practice nothing is left behind.
+function autoFixBlocked(cb) {
+  var blocked = queue.filter(function(q) {
+    return blockingWarnings(q.text, q.short, q.approved, monthOfQueueItem(q), q.type).length > 0;
+  });
+  if (!blocked.length) { cb(); return; }
+  showStatus("queueStatus", "Fixing " + blocked.length + " flagged post" + (blocked.length !== 1 ? "s" : "") + " before export...", "info");
+  requestWakeLock();
+  var i = 0;
+  function nextPost() {
+    if (i >= blocked.length) {
+      releaseWakeLock();
+      renderQueue();
+      if (typeof saveQueueToSheets === "function") saveQueueToSheets();
+      if (typeof flushHistoryToStore === "function") flushHistoryToStore();
+      var stillBad = queue.filter(function(q) {
+        return blockingWarnings(q.text, q.short, q.approved, monthOfQueueItem(q), q.type).length > 0;
+      });
+      if (stillBad.length) {
+        showStatus("queueStatus", stillBad.length + " post" + (stillBad.length !== 1 ? "s" : "") + " could not be auto-fixed — held back. Open to edit or Approve anyway.", "error");
+      } else {
+        showStatus("queueStatus", "All flagged posts fixed. Exporting...", "success");
+      }
+      cb();
+      return;
+    }
+    fixOneBlockedPost(blocked[i], 3, function() { i++; nextPost(); });
+  }
+  nextPost();
+}
+
+// Regenerate one blocked post, retrying up to maxRounds times (each round is a
+// full generateCleanPost cycle), switching angle after the first failure. Calls
+// done() once it passes or rounds run out — never throws, never blocks forever.
+function fixOneBlockedPost(q, maxRounds, done) {
+  var bad = blockingWarnings(q.text, q.short, q.approved, monthOfQueueItem(q), q.type);
+  if (!bad.length || maxRounds <= 0) { done(); return; }
+  var sys = q.aud === "women" ? SYS_WOMEN : (q.aud === "men" ? SYS_MEN : SYS_ALL);
+  q.regenCount = (q.regenCount || 0) + 1;
+  var useAngle = q.angle || "", switched = false;
+  if (q.regenCount >= 2) {
+    var alt = alternativeAngle(q.type, q.aud, q.angle);
+    if (alt) { useAngle = alt; q.angle = alt; switched = true; }
+  }
+  var basePrompt = (q.type === "fromleads")
+    ? (getLeadInsightsPrompt(q.type, q.aud) || getPrompt(q.type, q.aud, useAngle, q.short, q.date))
+    : getPrompt(q.type, q.aud, useAngle, q.short, q.date);
+  var note = "\n\nThe previous version was rejected for: " + bad.join("; ") + ". Avoid those completely this time.";
+  var oldOpening = String(q.text || "").split(/\n/)[0];
+  if (oldOpening) note += "\n\nDo not reuse this opening line: " + oldOpening.slice(0, 120);
+  if (switched) note += "\n\nWrite about something different this time. The previous subject could not be written about without breaking a rule, so change the subject entirely rather than rephrasing.";
+  generateCleanPost(sys, basePrompt + note, q.short, function(err, text) {
+    if (!err && text) { q.text = text; renderQueue(); }
+    // Recurse: if still blocked and rounds remain, try again (angle switches in).
+    fixOneBlockedPost(q, maxRounds - 1, done);
+  }, 1, { type: q.type, aud: q.aud, angle: useAngle, month: MONTH_NAMES[new Date((q.date || "") + "T12:00:00").getMonth()] });
+}
 
 // Export both platforms in one action. Instagram runs first because it does not
 // consume the queue; Facebook runs second and finalises the batch (marks photos
@@ -6230,16 +6328,25 @@ function exportInstagramCSV() { exportCSV("instagram"); }
 // from the same queue and can never get out of sync.
 function exportBothCSV() {
   if (!queue.length) { alert("No posts in queue to export. Generate some posts first!"); return; }
-  exportCSV("instagram");
-  // Small gap so the two downloads do not collide in the browser.
-  setTimeout(function() { exportCSV("facebook"); }, 800);
+  // Fix flagged posts ONCE, then run both exports off the same cleaned queue.
+  autoFixBlocked(function() {
+    exportCSV("instagram", true);
+    // Small gap so the two downloads do not collide in the browser.
+    setTimeout(function() { exportCSV("facebook", true); }, 800);
+  });
 }
 
-function exportCSV(platform) {
+function exportCSV(platform, skipAutoFix) {
   platform = platform || "facebook";
   var isInsta = platform === "instagram";
   if (!queue.length) {
     alert("No posts in queue to export. Generate some posts first!");
+    return;
+  }
+  // Entry from a button (skipAutoFix falsy): regenerate any blocked post first,
+  // then re-enter with skipAutoFix=true to build the CSV off the cleaned queue.
+  if (!skipAutoFix) {
+    autoFixBlocked(function() { exportCSV(platform, true); });
     return;
   }
 
