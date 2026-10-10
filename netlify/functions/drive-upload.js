@@ -11,8 +11,9 @@ exports.handler = async function (event) {
     var body = JSON.parse(event.body || "{}");
     var accessToken = body.accessToken;
     var folderId = body.folderId;
-    var filename = body.filename || ("sps-overlay-" + Date.now() + ".png");
-    var base64 = body.imageBase64;   // PNG data, no data: prefix
+    var filename = body.filename || ("sps-overlay-" + Date.now() + ".jpg");
+    var base64 = body.imageBase64;   // image data, no data: prefix
+    var mimeType = body.mimeType || "image/png";   // JPEG for overlay graphics (far smaller than PNG)
 
     if (!accessToken) return { statusCode: 400, body: JSON.stringify({ error: "Missing accessToken" }) };
     if (!folderId)    return { statusCode: 400, body: JSON.stringify({ error: "Missing folderId" }) };
@@ -27,7 +28,7 @@ exports.handler = async function (event) {
       "Content-Type: application/json; charset=UTF-8\r\n\r\n" +
       JSON.stringify(metadata) + "\r\n" +
       "--" + boundary + "\r\n" +
-      "Content-Type: image/png\r\n" +
+      "Content-Type: " + mimeType + "\r\n" +
       "Content-Transfer-Encoding: base64\r\n\r\n" +
       base64 + "\r\n" +
       "--" + boundary + "--";
