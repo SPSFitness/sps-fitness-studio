@@ -1919,7 +1919,10 @@ function validatePost(text, short, publishMonth, postType) {
   if (/(^|\n)\s*["'”’]\s*(\n|$)/.test(body)) warnings.push("Orphaned quote mark");
   if (/(^|\n)\s*#{1,6}\s+\S/.test(body)) warnings.push("Markdown heading");
   if (/\b[A-Z]{3,}\b/.test(body.replace(/\bSPS\b|\bNHS\b|\bCOVID\b/g, ""))) warnings.push("Block capitals");
-  if (/\b(?:carry|carrying|lift|lifting|bring|bringing|haul|hauling)\s+(?:the\s+|all\s+the\s+)?(?:shopping|groceries)\b/i.test(body)) warnings.push("Shopping cliche");
+  if (/\b(?:carry|carrying|lift|lifting|bring|bringing|haul|hauling|pick(?:ing)?\s+up|grab(?:bing)?|get(?:ting)?)\s+(?:the\s+|all\s+the\s+|your\s+|their\s+)?(?:shopping|groceries)\b/i.test(body) ||
+      /\bshopping bags?\b/i.test(body) ||            // the explicit banned cliche, any verb or none
+      /\b(?:carrying|lifting|hauling)\s+(?:the\s+)?(?:grandkids|grandchildren)\b/i.test(body) ||
+      /\b(?:getting (?:up|off) (?:the|your) )?(?:sofa|settee|couch)\b/i.test(body) && /\b(?:get(?:ting)? (?:up|off)|rise|rising|stand(?:ing)?)\b/i.test(body)) warnings.push("Shopping cliche");
   // A month is only wrong if it is not the month this post publishes in. The
   // publish month is passed in so seasonal posts can be written correctly rather
   // than banned outright.
@@ -2437,8 +2440,12 @@ function validatePost(text, short, publishMonth, postType) {
   // 12. Medical condition checklist — naming specific conditions as a list.
   //     "Bad back. Dodgy knee. Diabetes. Heart condition." Rules forbid symptom/
   //     condition checklists and naming specific medical conditions.
-  var conditions = (body.match(/\b(?:diabetes|diabetic|heart condition|heart disease|high blood pressure|hypertension|arthritis|osteoporosis|fibromyalgia|sciatica|hernia|angina|copd|asthma|cancer|stroke)\b/gi) || []);
-  if (conditions.length >= 2 ||
+  // Naming even ONE specific clinical condition is a medical reference the brand
+  // does not make ("Arthritis is common here"). Previously this needed two named
+  // conditions, so a single one leaked. "bad back"/"dodgy knee"/"shoulder" stay
+  // allowed — they are everyday aches, not clinical diagnoses.
+  var conditions = (body.match(/\b(?:diabetes|diabetic|heart condition|heart disease|high blood pressure|hypertension|arthritis|arthritic|osteoporosis|fibromyalgia|sciatica|hernia|angina|copd|asthma|cancer|stroke|parkinson|ms\b|multiple sclerosis)\b/gi) || []);
+  if (conditions.length >= 1 ||
       /\b(?:bad back|dodgy knee)\b[^.!?]{0,40}\b(?:diabetes|heart|surgery|arthritis)\b/i.test(body))
     warnings.push("Medical condition list");
 
@@ -3893,12 +3900,18 @@ function mediaFieldsFor(img) {
 // lh3 path is the one the app already uses for its own thumbnails.
 function publicMediaUrl(url, isVideo) {
   if (!url || isVideo) return url || "";
-  // Use the DIRECT DOWNLOAD link, which serves the original full-resolution file
-  // from Drive. The lh3 googleusercontent preview link (=w1600/=w2048) serves a
-  // COMPRESSED, resized copy, which is what made published images blurry. The old
-  // working build used this uc?export=download format and images were sharp.
+  // Serve the image through the lh3 googleusercontent CDN at ORIGINAL resolution
+  // (=s0, no downscaling). This is the fix for "loads of images not pulling across":
+  // Google now returns an HTML interstitial for many uc?export=download links,
+  // which High Level cannot render, so the photo silently fails to import even
+  // though the URL is in the CSV. The lh3 path reliably serves raw image bytes
+  // (it is the same host the app uses for every preview), and =s0 keeps it at
+  // full resolution so it is sharp, not the compressed =w1600 copy that looked
+  // blurry before. 2048px is the largest size this app already proves the lh3
+  // CDN serves reliably (the overlay engine loads its source at =w2048), so it
+  // is both guaranteed to render in GHL and sharp for a feed image.
   var m = /(?:[?&]id=|\/d\/|googleusercontent\.com\/d\/)([\w-]+)/.exec(url);
-  return m ? "https://drive.google.com/uc?export=download&id=" + m[1] : url;
+  return m ? "https://lh3.googleusercontent.com/d/" + m[1] + "=w2048" : url;
 }
 
 // Pull the Drive file id out of any URL shape we might hold.
