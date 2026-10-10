@@ -5312,9 +5312,23 @@ function uploadOverlayToDrive(canvas, cb) {
     if (!canvas || !isGoogleConnected()) { cb(null); return; }
     getValidAccessToken(function(err, token) {
       if (err || !token) { cb(null); return; }
-      var dataUrl;
-      try { dataUrl = canvas.toDataURL("image/png"); } catch (e) { cb(null); return; }
-      var base64 = dataUrl.split(",")[1];
+      // JPEG, not PNG. The canvas is now 2160x2160, and a PNG of a photo at that
+      // size is ~15MB — base64 of that far exceeds Netlify's ~6MB function request
+      // limit, so the upload silently failed and only tiny ones got through (that
+      // is why 4 of 5 "kept their normal photo"). A JPEG of the same canvas is
+      // ~0.3-1MB and visually identical at this resolution. Step the quality down
+      // if an unusually detailed photo still comes out heavy, so it can never
+      // breach the limit regardless of the source.
+      var base64 = null;
+      var qualities = [0.9, 0.8, 0.7];
+      for (var qi = 0; qi < qualities.length; qi++) {
+        try {
+          var du = canvas.toDataURL("image/jpeg", qualities[qi]);
+          var b = du.split(",")[1];
+          if (b && b.length < 5200000) { base64 = b; break; }   // ~5.2MB base64 ceiling, under Netlify's ~6MB
+          base64 = b;   // keep the smallest we have, even if the last one
+        } catch (e) { cb(null); return; }
+      }
       if (!base64) { cb(null); return; }
       fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/drive-upload", {
         method: "POST",
@@ -5322,7 +5336,8 @@ function uploadOverlayToDrive(canvas, cb) {
         body: JSON.stringify({
           accessToken: token,
           folderId: GDRIVE_INFOGRAPHIC_FOLDER,
-          filename: "sps-overlay-" + Date.now() + ".png",
+          filename: "sps-overlay-" + Date.now() + ".jpg",
+          mimeType: "image/jpeg",
           imageBase64: base64
         })
       })
