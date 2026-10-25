@@ -1733,6 +1733,11 @@ function cleanPostText(text) {
   text = text.replace(/\([^)]*\)/g, "");
   // Strip inline hashtags from the body; the standard set is forced at the end.
   text = text.replace(/#[A-Za-z0-9_]+/g, " ").replace(/ {2,}/g, " ").trim();
+  // Strip emoji and pictographs (e.g. a stray 📍). The brand voice carries no
+  // emoji; one slipping in reads off. Covers the main emoji/symbol blocks plus
+  // variation selectors and zero-width joiners, then tidies the leftover space.
+  text = text.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{1F1E6}-\u{1F1FF}\u{FE00}-\u{FE0F}\u{200D}]/gu, "");
+  text = text.split("\n").map(function(l){ return l.replace(/[ \t]{2,}/g, " ").replace(/^[ \t]+/, ""); }).join("\n").replace(/ +\n/g, "\n");
   // 6. BUG1: session times
   text = stripSessionTimes(text);
   // 7. BUG2: invented names, before any case conversion
@@ -1957,7 +1962,11 @@ function validatePost(text, short, publishMonth, postType) {
   if (/\b(?:first|1st|taster|trial|intro)\s+(?:session|class|week|group|visit|go|time)\s+(?:is\s+)?free\b/i.test(body) ||
       /\bfree\s+(?:first\s+)?(?:session|class|trial|taster|group|visit)\b/i.test(body) ||
       /\bfirst (?:one|group|session|visit|go) (?:is\s+)?(?:free|on us|on the house)\b/i.test(body) ||
-      /\b(?:try|come)\s+(?:your\s+)?first\s+(?:one|group|session)\s+(?:for\s+)?free\b/i.test(body)) warnings.push("Free session claim");
+      /\b(?:try|come)\s+(?:your\s+)?first\s+(?:one|group|session)\s+(?:for\s+)?free\b/i.test(body) ||
+      // A trial/taster session is an operational offer the rules say not to state
+      // ("the trial session exists so men can see..."). Flag the noun itself.
+      /\b(?:a |the |our )?(?:trial|taster)\s+session\b/i.test(body) ||
+      /\bfree\s+trial\b/i.test(body)) warnings.push("Free session claim");
   // Any prescriptive routine the reader is meant to perform alone. The kettle
   // wording was only ever one example; hold times and rep counts are the tell.
   if (/\b(?:before the kettle|while the kettle|kettle boils|kitchen counter|against the counter|while the coffee|while you wait for)\b/i.test(body) ||
@@ -2204,13 +2213,25 @@ function validatePost(text, short, publishMonth, postType) {
   var openVignette = /^\s*["'“”]?\s*(?:she|he|a (?:man|woman|bloke|lady|guy|member|lad)|one of (?:the|our) (?:members|women|men|lads|blokes|guys)|someone)\b/i;
   var vignetteOpen = body.slice(0, 190);
   if (/\bto no ?one in particular\b|\bto nobody in particular\b|\bsaid to no ?one\b|\bannounced to the (?:room|group|whole room)\b|\bto the whole room\b/i.test(body) ||
-      (openVignette.test(body) && /\b(?:said|says|announced|muttered|whispered|declared|piped up|called out)\b/i.test(vignetteOpen)))
+      (openVignette.test(body) && /\b(?:said|says|announced|muttered|whispered|declared|piped up|called out)\b/i.test(vignetteOpen)) ||
+      // Physical-staging markers: a member performing a line inside a scene.
+      // These catch the shapes that do not open with the subject ("Mid-round
+      // yesterday and a man said between breaths") or use a different verb ("a
+      // bloke by the kettlebells was explaining to the lad"). Quote-open posts
+      // that just lead with a real question ("'I saw three places' that's what
+      // she said") have none of these, so they are left alone.
+      /\b(?:said|says|muttered|whispered|gasped|puffed|announced)\b[^.!?]{0,30}\bbetween (?:breaths|rounds|sets|reps)\b/i.test(body) ||
+      /\bbetween (?:breaths|rounds|sets|reps)[^.!?]{0,25}\b(?:said|says|muttered|whispered|gasped|puffed|announced)\b/i.test(body) ||
+      /\b(?:was )?(?:explaining|telling|chatting) to (?:the|his|her|a|another|some|his mate|the lad|the bloke)\b/i.test(body) ||
+      /\b(?:stood|standing|stands)\b[^.!?]{0,70}\b(?:said|says|muttered|whispered|announced)\b[^.!?]{0,25}["'“]/i.test(body) ||
+      /\bcatching (?:her|his|their) breath\b[^.!?]{0,45}\b(?:said|says|muttered|whispered)\b/i.test(body) ||
+      /\b(?:by the|at the|over by the|over at the) (?:kettlebells?|wall|rig|rack|bench|weights?|dumbbells?|bar|squat rack)\b[^.!?]{0,55}\b(?:said|says|explaining|telling|muttered|whispered)\b/i.test(body))
     warnings.push("Staged quote vignette");
 
   // 6. Availability / "always space" — the opposite of scarcity but equally an
   //    operational claim we do not make. "there's always space", "join any week",
   //    "always room", "spaces available".
-  if (/\b(?:always (?:space|room|spaces|availability)|join any (?:week|time)|spaces? (?:are )?available|room for (?:you|everyone|more)|never full)\b/i.test(body))
+  if (/\b(?:always (?:space|room|spaces|availability|a spot|a place|spots|places)|(?:there'?s|there is) always (?:a )?(?:spot|place|space|room)|join any (?:week|time)|spaces? (?:are )?available|room for (?:you|everyone|more)|never full)\b/i.test(body))
     warnings.push("Invented scarcity");
 
   // 7. Calorie / energy-balance mechanism. "eat less energy than you burn",
@@ -5327,10 +5348,6 @@ function renderOverlayCanvas(imgEl, headline) {
         ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
         cx += ctx.measureText(t).width;
       });
-      if (li === 0) {   // blue accent line under first line
-        var fw = ctx.measureText(lineText(l).toUpperCase()).width;
-        ctx.fillStyle = hlColor; ctx.fillRect(margin, y + lineH * 0.92, Math.min(110, fw * 0.4), 10);
-      }
     });
 
     // SPS tag bottom-right
