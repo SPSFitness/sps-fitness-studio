@@ -1923,9 +1923,18 @@ function validatePost(text, short, publishMonth, postType) {
   if (/\[[^\]]*\]|\{[^}]*\}/.test(body)) warnings.push("Bracketed placeholder");
   if (/(^|\n)\s*["'”’]\s*(\n|$)/.test(body)) warnings.push("Orphaned quote mark");
   if (/(^|\n)\s*#{1,6}\s+\S/.test(body)) warnings.push("Markdown heading");
+  // Stray or fabricated address / postcode. The rules say never describe the
+  // premises, and the model has invented wrong ones ("father's day lane, b63 3rl"
+  // — not the real street or postcode). Any UK postcode, or a street line with a
+  // road-type word, is blocked so it can never publish a wrong address.
+  if (/\b[A-Za-z]{1,2}\d{1,2}[A-Za-z]?\s*\d[A-Za-z]{2}\b/.test(body) ||
+      /\b\d{1,4}[a-z]?\s+[A-Za-z][A-Za-z' ]{2,30}\s+(?:lane|road|street|avenue|close|way|drive|court|place|crescent|grove|row|terrace)\b/i.test(body) ||
+      /\b[A-Za-z][A-Za-z' ]{2,25}\s+(?:lane|road|street|avenue|close|crescent|grove|terrace)\b\s*,/i.test(body))
+    warnings.push("Address or postcode");
   if (/\b[A-Z]{3,}\b/.test(body.replace(/\bSPS\b|\bNHS\b|\bCOVID\b/g, ""))) warnings.push("Block capitals");
   if (/\b(?:carry|carrying|lift|lifting|bring|bringing|haul|hauling|pick(?:ing)?\s+up|grab(?:bing)?|get(?:ting)?)\s+(?:the\s+|all\s+the\s+|your\s+|their\s+)?(?:shopping|groceries)\b/i.test(body) ||
       /\bshopping bags?\b/i.test(body) ||            // the explicit banned cliche, any verb or none
+      /\b(?:bags?|carrier bags?) of shopping\b/i.test(body) ||   // "three bags of shopping"
       /\b(?:carrying|lifting|hauling)\s+(?:the\s+)?(?:grandkids|grandchildren)\b/i.test(body) ||
       /\b(?:getting (?:up|off) (?:the|your) )?(?:sofa|settee|couch)\b/i.test(body) && /\b(?:get(?:ting)? (?:up|off)|rise|rising|stand(?:ing)?)\b/i.test(body)) warnings.push("Shopping cliche");
   // A month is only wrong if it is not the month this post publishes in. The
@@ -2557,6 +2566,7 @@ var BLOCKING_WARNINGS = [
   // Everything else is a note you can read and ignore. A long blocking list
   // meant good posts could not be exported and there was no way to argue back.
   "Wrong location corrected",
+  "Address or postcode",
   "Pricing mentioned",
   "Cost framing",
   "Free session claim",
