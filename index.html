@@ -2243,7 +2243,12 @@ function validatePost(text, short, publishMonth, postType) {
       // Anonymous member "put it better than I could: '...'" / "summed it up: '...'"
       // — a quote attributed to a nameless person, introduced with a colon.
       /\b(?:a|the|one|another) (?:bloke|man|woman|lady|guy|lad|member|chap|fella)\b[^.!?\n]{0,80}\b(?:put it|said it|summed it up|described it|puts it)\b[^.!?\n]{0,25}:/i.test(body) ||
-      /\bput it better than i could\b/i.test(body))
+      /\bput it better than i could\b/i.test(body) ||
+      // Narration then a fabricated spoken line: "She just said: '...'", "He said:
+      // '...'", "someone goes: '...'" — the subject and speech verb come BEFORE the
+      // quote (unlike a quote-open post, where the quote leads). A colon or a
+      // quote mark follows the verb directly.
+      /\b(?:she|he|someone|a (?:man|woman|bloke|lady|guy|lad|member))\s+(?:just |then |simply )?(?:said|says|goes|went|replied|answered)\s*:?\s*["'“]/i.test(body))
     warnings.push("Staged quote vignette");
 
   // 6. Availability / "always space" — the opposite of scarcity but equally an
@@ -4010,7 +4015,11 @@ function displayableSrc(url, size) {
 // wants the standard share link. Convert, and give it a thumbnail poster.
 function publicVideoUrl(url, driveId) {
   var id = driveId || driveIdOf(url);
-  return id ? "https://drive.google.com/file/d/" + id + "/view?usp=sharing" : (url || "");
+  // Direct-download link, not the /file/d/{id}/view page. GHL imports the video
+  // file from the CSV, and a "view" link is an HTML page it cannot pull a file
+  // from — which is why videos stopped uploading. confirm=t bypasses Google's
+  // "can't scan for viruses" interstitial that large video files otherwise hit.
+  return id ? "https://drive.google.com/uc?export=download&id=" + id + "&confirm=t" : (url || "");
 }
 function videoThumbUrl(url, driveId) {
   var id = driveId || driveIdOf(url);
