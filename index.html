@@ -2069,7 +2069,16 @@ function validatePost(text, short, publishMonth, postType) {
   if (mythLacksCorrection(body)) warnings.push("Myth stated without correction");
   // "We're someone and someone." — the name filter replaced two real names and
   // left nonsense behind. Always a hard error, never publishable.
-  if (/\bsomeone\s+(?:and|&|,)\s+someone\b/i.test(body) || /\bsomeone\b[^.!?]{0,30}\bsomeone\b/i.test(body.split(/[.!?]/)[0] || "")) warnings.push("Doubled name placeholder");
+  if (/\bsomeone\s+(?:and|&|,)\s+someone\b/i.test(body) ||
+      /\bsomeone\b[^.!?]{0,30}\bsomeone\b/i.test(body.split(/[.!?]/)[0] || "") ||
+      // "someone turned up ... someone" — two or more "someone" acting as a
+      // sentence subject across the post is a stripped named-person anecdote that
+      // now reads as different nameless people. One anonymous "someone came in" is
+      // fine; two or more acting subjects is residue.
+      (body.match(/(?:^|[.!?]\s+|,\s+|\band\s+|\bthen\s+)someone\s+(?:turned|came|walked|asked|said|says|started|joined|told|stood|finished|got|did|felt|mentioned|wondered|realised|realized|put|loaded|hit|nailed|reached|made|kept|stopped|used to|was)\b/gi) || []).length >= 2 ||
+      // "someone turned up someone" / "someone ... to someone" inside one sentence
+      /\bsomeone\s+\w+(?:\s+\w+){0,3}\s+(?:to |with |and )?someone\b/i.test(body))
+    warnings.push("Doubled name placeholder");
   if (_lastLocationFixes.length) warnings.push("Wrong location corrected: " + _lastLocationFixes.join(", "));
   var oddNouns = unexpectedProperNouns(body);
   if (oddNouns.length) warnings.push("Check proper noun: " + oddNouns.join(", "));
