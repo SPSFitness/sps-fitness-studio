@@ -1934,8 +1934,36 @@ function validatePost(text, short, publishMonth, postType) {
   if (/\b(?:carry|carrying|lift|lifting|bring|bringing|haul|hauling|pick(?:ing)?\s+up|grab(?:bing)?|get(?:ting)?)\s+(?:the\s+|all\s+the\s+|your\s+|their\s+)?(?:shopping|groceries)\b/i.test(body) ||
       /\bshopping bags?\b/i.test(body) ||            // the explicit banned cliche, any verb or none
       /\b(?:bags?|carrier bags?) of shopping\b/i.test(body) ||   // "three bags of shopping"
+      /\bbags?\s+(?:from|in|out of|to)\s+the\s+car\b/i.test(body) ||   // "bags from the car"
+      /\b(?:two|three|four|five|several|a couple of)\s+bags\b/i.test(body) ||   // "two bags instead of four trips"
+      /\b(?:two|three|four|five|several|multiple)\s+trips\b/i.test(body) ||     // "four trips to the car"
       /\b(?:carrying|lifting|lift|carry|pick(?:ing)? up|playing with|down (?:on )?the floor with|on the floor with|keep up with)\s+(?:the\s+|my\s+|your\s+|his\s+|her\s+|their\s+)?(?:grandkids?|grandchildren|grandson|granddaughter|grandchild)\b/i.test(body) ||
       /\b(?:getting (?:up|off) (?:the|your) )?(?:sofa|settee|couch)\b/i.test(body) && /\b(?:get(?:ting)? (?:up|off)|rise|rising|stand(?:ing)?)\b/i.test(body)) warnings.push("Shopping cliche");
+  // Generic SPS sales boilerplate — the interchangeable reassurance filler that
+  // pads a post instead of saying anything ("coaching that meets you where you
+  // are", "a group that gets it", "week after week... that's where the shift
+  // happens", "not willpower"). This cluster slipped through screening as valid
+  // prose. The "hard" phrases are always filler and block on sight; the softer
+  // ones are allowed once but block when two or more pile up in one post.
+  var _bpHard = [
+    /\bmeets? you where you are\b/i,
+    /\bcoaching that meets\b/i,
+    /\bgroup that gets it\b/i,
+    /\b(?:a )?(?:space|somewhere|place)\b[^.!?]{0,20}\byou belong\b/i,
+    /\bfigure it out alone\b/i,
+    /\bthe room makes it easier\b/i,
+    /\bwithout having to (?:figure|think|work) it out\b/i
+  ];
+  var _bpSoft = [
+    /\bweek after week\b/i,
+    /\b(?:it'?s |that'?s )?not willpower\b/i,
+    /\bthat'?s where the (?:shift|magic) (?:happens|is)\b/i,
+    /\bwhen life is chaos\b/i,
+    /\bthat'?s what keeps (?:people|you|them) going\b/i,
+    /\bsomething you (?:don'?t dread|chose to show up for)\b/i
+  ];
+  if (_bpHard.some(function(r){ return r.test(body); }) ||
+      _bpSoft.filter(function(r){ return r.test(body); }).length >= 2) warnings.push("Boilerplate filler");
   // A month is only wrong if it is not the month this post publishes in. The
   // publish month is passed in so seasonal posts can be written correctly rather
   // than banned outright.
@@ -2615,6 +2643,7 @@ var BLOCKING_WARNINGS = [
   "Wrong month",
   "Transformation claim",
   "Shopping cliche",
+  "Boilerplate filler",
   "Session frequency too high",
   "Stray mid-sentence capital",
   "Group size claim",
@@ -4026,9 +4055,12 @@ function publicVideoUrl(url, driveId) {
   var id = driveId || driveIdOf(url);
   // Direct-download link, not the /file/d/{id}/view page. GHL imports the video
   // file from the CSV, and a "view" link is an HTML page it cannot pull a file
-  // from — which is why videos stopped uploading. confirm=t bypasses Google's
-  // "can't scan for viruses" interstitial that large video files otherwise hit.
-  return id ? "https://drive.google.com/uc?export=download&id=" + id + "&confirm=t" : (url || "");
+  // from. The old drive.google.com/uc?export=download host now serves an HTML
+  // "can't scan for viruses" interstitial for large files instead of the bytes,
+  // and confirm=t is no longer a valid bypass — same failure that broke images.
+  // drive.usercontent.google.com/download is Google's current download host and
+  // returns the real video bytes with the file's own content-type.
+  return id ? "https://drive.usercontent.google.com/download?id=" + id + "&export=download&confirm=t" : (url || "");
 }
 function videoThumbUrl(url, driveId) {
   var id = driveId || driveIdOf(url);
@@ -5646,25 +5678,32 @@ function buildBatchPlan(days) {
 function getThemeKey(type, angle) {
   var a = (angle || "").toLowerCase();
   if (/shopping|groceries/.test(a)) return "shopping";
-  if (/unfit|struggl|only one|everyone (?:else )?(?:is )?ahead|further ahead|\bbehind\b|too late|out of place|keep up|look stupid|embarrass|left it too late|too far gone|invisible|feel like a number/.test(a)) return "objection";
-  if (/returning|coming back|come back|after (?:illness|injury|years|a gap|a long gap|a break)|restart|not (?:been|trained)|lost all|start again|years away/.test(a)) return "comeback";
-  // The single most over-used message cluster: frequency / "just show up" /
-  // consistency-beats-intensity. Previously every one of these fell through to
-  // the uncapped per-type fallback, so one message could own a third of a batch.
-  // Giving it its own theme key subjects it to the 2-per-batch cap.
-  if (/two sessions|twice a week|two coached|six rushed|six days|show(?:ing)? up|stay consistent|consisten|turn(?:ing)? up|structure beats motivation|session in the diary|booking the session|removes the (?:daily )?(?:decision|thinking)|removes the thinking|missing a week|through the door|hardest part|written for you|plan in your head|first three weeks|bad week still|compound effect|showing up imperfectly/.test(a)) return "consistency";
+  // Injury / aches / training around a niggle — back, shoulder, knee, hip, joints,
+  // all in ONE key. Previously only "back" was capped, so the injury theme simply
+  // migrated to the shoulder (three shoulder posts in a batch). Checked first
+  // because these angles also carry move/feel words that fall into capability.
+  if (/\b(?:back pain|bad back|stiff back|lower back|sore back|aching back|dodgy back|creaky back|back (?:that )?(?:feels|hurts?|aches?|stiffens?|stiff|pain|niggl\w*|flares?|grumbl\w*|seizes?)|back after (?:sitting|a desk)|desk(?:[ -])?(?:job )?back|back (?:from|after) (?:a |the )?desk|shoulders?|knees?|\bhips?\b|elbow|joints?|arthrit\w*|niggl\w*|dodgy (?:shoulder|knee|hip|back)|old injury|injured|\binjury\b|flare[- ]?ups?|something playing up|train(?:ing)? around (?:an? |your |a )?(?:injur|niggl|shoulder|knee|back|problem)|work(?:ing)? around (?:an? |your |a )?(?:injur|niggl|shoulder|knee|back|problem)|aches and pains)\b/.test(a)) return "injury";
+  // Waiting for the perfect week / no time / too busy / fit it in / start when
+  // ready. Previously split across consistency, comeback, quickwin and myth, so
+  // four "stop waiting" posts each cleared a separate cap. One key now.
+  if (/waiting (?:for|until|to)|wait for (?:a|the|things|life|it)|quieter week|right week|perfect (?:week|time|moment)|never slows down|life that never|too busy|no time|find the time|fit(?:ting)? (?:it |training )?(?:in|around)|around (?:everything|shift work|childcare|a life)|protect(?:ing)? (?:two hours|the time|an hour)|thing you protect|stops being effort|gap in (?:your |the )?schedule|schedule (?:conflict|never)|before you (?:feel )?ready|until you feel ready|start(?:ing)? where you are|need to be fit to start|fit(?:ter)? (?:to|before) (?:you )?start/.test(a)) return "notime";
+  // Owner-run / local / independent / known by name / "someone notices if you're
+  // not there" / not just a number. Checked before the first-step anxiety key so
+  // "feel invisible / like a number" routes here, keeping owner+local as one key.
+  if (/someone notices|notices if you|know(?:s)? your name|the owner|run by|owner (?:coaches|runs)|coaches? (?:most|half|you three|you)|independent|\blocal\b|halesowen|chain|franchise|know each other|recognise faces|drive past|mixed age|50 percent|over 50 train|from here|lives (?:ten )?minutes|\binvisible\b|not (?:just )?a number|feel like a number/.test(a)) return "community";
+  // Beginner anxiety / the first step — the door, out of place, too late,
+  // everyone ahead, first-session nerves. Merges the old "objection" key with the
+  // first-step half that used to hide inside "consistency".
+  if (/through the door|getting through the door|hardest part|first session|out of place|look(?:ing)? (?:stupid|daft|lost)|embarrass|taking up space|where(?:'s| is)? the entrance|left it too late|too late to start|too far (?:gone|behind)|everyone (?:else )?(?:is )?ahead|further ahead|keep up|unfit|struggl|only one|never been (?:to|in) a gym|first time in a gym|walking in(?:to)?|intimidat/.test(a)) return "firststep";
+  if (/returning|coming back|come back|after (?:illness|years|a gap|a long gap|a break)|restart|not (?:been|trained)|lost all|start again|years away/.test(a)) return "comeback";
+  // Frequency / "just show up" / consistency-beats-intensity.
+  if (/two sessions|twice a week|two coached|six rushed|six days|show(?:ing)? up|stay consistent|consisten|turn(?:ing)? up|structure beats motivation|session in the diary|booking the session|removes the (?:daily )?(?:decision|thinking)|removes the thinking|missing a week|written for you|plan in your head|first three weeks|bad week still|compound effect|showing up imperfectly/.test(a)) return "consistency";
   if (/cost|£|expensive|value|less than|waiting list|available now|no waiting|pay for|never use|\bprice\b|takeaway/.test(a)) return "value";
   if (/protein|breakfast|lunch|snack|\beat\b|water|hydrat|\bkit\b|\bmeal\b|takeaway|\bwalk|screens|mobility|stretch/.test(a)) return "habit";
   if (/bulky|cardio|toning|spot reduc|carbs|scales|no pain|stretching|muscle turns|\bmyth\b|high intensity|six days|volume/.test(a)) return "myth";
-  if (/session (?:looks|is|actually)|behind the scenes|typical .*session|programm|progressive overload|coaching|warmup|first session|what the coach/.test(a)) return "inside";
-  if (/community|local|halesowen|independent|chain|mixed age|50 percent|over 50 train|drive past/.test(a)) return "community";
+  if (/session (?:looks|is|actually)|behind the scenes|typical .*session|programm|progressive overload|coaching|warmup|warm-up|what the coach/.test(a)) return "inside";
   if (/season|diet culture|hibernate|new year|momentum/.test(a)) return "seasonal";
-  // Back pain / stiff desk-job back — the most over-reached-for capability
-  // example, especially in the men's posts. Capped to 2 per batch like the other
-  // dominant clusters. Checked before "capability" because these angles also
-  // contain move/feel words that would otherwise fall into capability.
-  if (/\b(?:back pain|bad back|stiff back|lower back|sore back|aching back|dodgy back|creaky back|back (?:that )?(?:feels|hurts?|aches?|stiffens?|stiff|pain|niggl\w*|flares?|grumbl\w*|seizes?)|back after (?:sitting|a desk)|desk(?:[ -])?(?:job )?back|back (?:from|after) (?:a |the )?desk|sitting (?:at a|all day)[^.!?]{0,20}back)\b/.test(a)) return "backpain";
-  if (/stronger|capable|energy|\bmove\b|independen|confidence|\bfeel\b|fittest|day to day|younger not older/.test(a)) return "capability";
+  if (/stronger|capable|energy|\bmove\b|independen|confidence|\bfeel\b|fittest|day to day|younger not older|sleep/.test(a)) return "capability";
   return type;
 }
 
