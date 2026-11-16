@@ -1930,7 +1930,13 @@ function validatePost(text, short, publishMonth, postType) {
   // road-type word, is blocked so it can never publish a wrong address.
   if (/\b[A-Za-z]{1,2}\d{1,2}[A-Za-z]?\s*\d[A-Za-z]{2}\b/.test(body) ||
       /\b\d{1,4}[a-z]?\s+[A-Za-z][A-Za-z' ]{2,30}\s+(?:lane|road|street|avenue|close|way|drive|court|place|crescent|grove|row|terrace)\b/i.test(body) ||
-      /\b[A-Za-z][A-Za-z' ]{2,25}\s+(?:lane|road|street|avenue|close|crescent|grove|terrace)\b\s*,/i.test(body))
+      /\b[A-Za-z][A-Za-z' ]{2,25}\s+(?:lane|road|street|avenue|close|crescent|grove|terrace)\b\s*,/i.test(body) ||
+      // A capitalised word immediately before a street-type ("Manor Lane", "Albert
+      // Road") is a named street, invented or not — the rules say never name the
+      // street, only Halesowen. Case-sensitive so "the main road" (lowercase) and
+      // ordinary prose are left alone. "Lyde Green" is not caught (Green is not a
+      // street-type word); a street with a number/comma is caught by the clauses above.
+      /\b[A-Z][a-z]{2,}\s+(?:Lane|Road|Street|Avenue|Close|Way|Drive|Court|Place|Crescent|Grove|Row|Terrace)\b/.test(body))
     warnings.push("Address or postcode");
   if (/\b[A-Z]{3,}\b/.test(body.replace(/\bSPS\b|\bNHS\b|\bCOVID\b/g, ""))) warnings.push("Block capitals");
   if (/\b(?:carry|carrying|lift|lifting|bring|bringing|haul|hauling|pick(?:ing)?\s+up|grab(?:bing)?|get(?:ting)?)\s+(?:the\s+|all\s+the\s+|your\s+|their\s+)?(?:shopping|groceries)\b/i.test(body) ||
@@ -1948,6 +1954,7 @@ function validatePost(text, short, publishMonth, postType) {
   // prose. The "hard" phrases are always filler and block on sight; the softer
   // ones are allowed once but block when two or more pile up in one post.
   var _bpHard = [
+    /\bweek after week\b/i,
     /\bmeets? you where you are\b/i,
     /\bcoaching that meets\b/i,
     /\bgroup that gets it\b/i,
@@ -1959,7 +1966,6 @@ function validatePost(text, short, publishMonth, postType) {
     /\bwithout having to (?:figure|think|work) it out\b/i
   ];
   var _bpSoft = [
-    /\bweek after week\b/i,
     /\b(?:it'?s |that'?s )?not willpower\b/i,
     /\bthat'?s where the (?:shift|magic) (?:happens|is)\b/i,
     /\bwhen life (?:is|gets) chaos|when life gets chaotic|life is chaotic enough/i,
@@ -2299,7 +2305,7 @@ function validatePost(text, short, publishMonth, postType) {
       // '...'", "someone goes: '...'" — the subject and speech verb come BEFORE the
       // quote (unlike a quote-open post, where the quote leads). A colon or a
       // quote mark follows the verb directly.
-      /\b(?:she|he|someone|a (?:man|woman|bloke|lady|guy|lad|member))\s+(?:just |then |simply )?(?:said|says|goes|went|replied|answered)\s*:?\s*["'“]/i.test(body))
+      /\b(?:she|he|someone|a (?:man|woman|bloke|lady|guy|lad|member))\s+(?:just |then |simply )?(?:said|says|goes|went|replied|answered)(?:\s+(?:later|after|once|then|again|quietly|afterwards|that day|the next week))?\s*:?\s*["'“]/i.test(body))
     warnings.push("Staged quote vignette");
 
   // Naming specific weekdays implies a session timetable, which the rules forbid
@@ -2772,6 +2778,47 @@ function recordOpening(text) {
   if (key && key.length >= 10) _batchOpenings.push(key);
 }
 
+// ---------------------------------------------------------------------------
+// EDITOR PASS. The keyword detectors and theme caps catch specific banned shapes,
+// but they cannot see a post that drifts off its brief into the same tired message,
+// pads itself with fresh filler, invents a street or a quote, or simply reads badly.
+// This is a second AI read of each finished post (after the mechanical checks pass)
+// that judges those things and sends a concrete critique back for a rewrite. It
+// knows what is already in the batch, so it can reject a fifth "just show up" post.
+// Toggle with _editorEnabled. It adds one API call per post (more on a reject), so
+// generation is slower and costs more — that is the trade for catching drift.
+var _editorEnabled = true;
+var _editorBatchContext = [];   // opening lines of posts already accepted this batch
+
+function _acceptCleanPost(text, blocked, cb) {
+  recordOpening(text);
+  _editorBatchContext.push(text);
+  if (_editorBatchContext.length > 40) _editorBatchContext.shift();
+  cb(null, text, blocked);
+}
+
+function editorPass(text, meta, cb) {
+  if (!_editorEnabled) { cb({ ok: true, reason: "" }); return; }
+  var already = _editorBatchContext.slice(-14).map(function(t, i) {
+    return (i + 1) + ". " + String(t).replace(/\s+/g, " ").slice(0, 150);
+  }).join("\n");
+  var esys = "You are a tough copy editor for SPS Fitness, a group personal training gym in Halesowen. You review ONE finished social post and decide if it is good enough to publish or must be rewritten. Reply ONLY with JSON: {\"verdict\":\"pass\"|\"fail\",\"reason\":\"<short, concrete>\"}. Fail the post if ANY of these are true:\n"
+    + "(1) FILLER — it leans on interchangeable reassurance instead of saying something specific: 'people who get it', 'something powerful about', 'builds quietly', 'just showing up', 'that's what keeps people going', 'real results', a vague 'you've got this', or a generic pitch tacked on the end.\n"
+    + "(2) DRIFT / SAMENESS — its core message is one of the gym's over-used themes rehashed with nothing fresh: keep showing up / consistency, a missed week won't undo it, stop waiting for the perfect time / protect your time, train around your injury, you don't need to be fit to start. These are allowed occasionally, but FAIL any post that is a bland restatement with no specific, concrete, non-obvious point.\n"
+    + "(3) FABRICATION — it invents a specific that could be untrue or off-brand: a named street or address other than 'Halesowen' (the gym is on Lyde Green, but posts must say only Halesowen — any other street name such as 'Manor Lane' is invented), a member's name, a made-up quote or overheard conversation, a statistic or study, session times or days, or prices.\n"
+    + "(4) REPETITION — it repeats a message or angle already used by a post earlier in this same batch (listed below).\n"
+    + "(5) WEAK WRITING — run-on sentences, a limp ending that trails off, or a clumsy line that reads as machine-generated rather than written.\n"
+    + "PASS a post that makes ONE clear, specific, true point in a natural SPS voice and trips none of the above. Be strict: when in doubt, FAIL, and name the exact problem phrase or theme in the reason.";
+  var euser = "POSTS ALREADY IN THIS BATCH (do not repeat their message):\n" + (already || "(none yet)") + "\n\nPOST TO REVIEW:\n" + text + "\n\nReturn only the JSON verdict.";
+  callAPI(esys, euser, function(err, out) {
+    if (err || !out) { cb({ ok: true, reason: "" }); return; }   // editor unreachable -> never block generation
+    var parsed = null;
+    try { parsed = JSON.parse(String(out).replace(/```json|```/g, "").trim()); } catch(e) {}
+    if (!parsed || !parsed.verdict) { cb({ ok: true, reason: "" }); return; }
+    cb({ ok: parsed.verdict === "pass", reason: parsed.reason || "" });
+  });
+}
+
 function generateCleanPost(sys, prompt, short, cb, attempt, meta) {
   attempt = attempt || 1;
   meta = meta || {};
@@ -2811,13 +2858,27 @@ function generateCleanPost(sys, prompt, short, cb, attempt, meta) {
     // Raised to 6 attempts, and after a FINAL failure the slot is rewritten as a
     // plain, safe motivation post rather than queued broken — so the held-back
     // count at export drops to near zero.
-    if (!blocked.length) { recordOpening(text); cb(null, text, blocked); return; }
+    if (!blocked.length) {
+      // Mechanical checks passed. Now the editor pass judges quality — filler,
+      // drift, fabrication, batch repetition, weak writing — and sends a critique
+      // back for a rewrite. Skipped on the final attempt so a post is always produced.
+      if (_editorEnabled && attempt < 6) {
+        editorPass(text, meta, function(ev) {
+          if (ev.ok) { _acceptCleanPost(text, blocked, cb); return; }
+          var edNote = "\n\nAn editor rejected the previous attempt. Reason: " + ev.reason +
+            "\nRewrite it completely to fix that. Make ONE specific, concrete, non-obvious point in a natural voice. No filler or generic reassurance, no invented names, streets, quotes or stats, say only Halesowen for location, and do not repeat a message already used elsewhere in this batch.";
+          generateCleanPost(sys, prompt + edNote, short, cb, attempt + 1, meta);
+        });
+        return;
+      }
+      _acceptCleanPost(text, blocked, cb); return;
+    }
     if (attempt >= 6) {
       // Last resort: one clean rewrite on the safest possible brief, ignoring the
       // original type/angle. If even this is blocked, queue it flagged.
       var safeBrief = "Write a short, warm Facebook post for SPS Fitness, a small group gym in Halesowen. Talk about how showing up consistently to coached sessions builds strength and capability over time, and how the group keeps people going. No prices, no schedules, no session counts, no locations other than Halesowen, no nutrition, no physiological mechanisms, no aesthetics, no names, no numbers. Under 120 words. End with: message us to find out more.";
       if (attempt === 6) { generateCleanPost(sys, safeBrief, short, cb, 7, { type: "motivation", aud: meta.aud, month: meta.month }); return; }
-      recordOpening(text); cb(null, text, blocked); return;   // attempt 7 blocked too — give up
+      _acceptCleanPost(text, blocked, cb); return;   // attempt 7 blocked too — give up
     }
 
     var fixNote = "\n\nThe previous attempt was rejected for: " + blocked.join("; ") +
@@ -4808,6 +4869,7 @@ function doDay() {
   var total = slots.length;
   var plan = buildBatchPlan(total);
   _sessionUsedIds = new Set();
+  _editorBatchContext = [];
   _batchOpenings = [];
   document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x2726;</div><p>Generating ' + total + ' post' + (total !== 1 ? "s" : "") + ' for today... <span id="prog1">0</span> of ' + total + ' done.</p></div>';
   var done = 0;
@@ -4861,6 +4923,7 @@ function doWeek() {
   var plan = buildBatchPlan(total);
   requestWakeLock();
   _sessionUsedIds = new Set(); // reset for new batch
+  _editorBatchContext = [];
   document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x2726;</div><p>Generating ' + total + ' posts across 7 days... <span id="prog7">0</span> of ' + total + ' done.</p></div>';
   var done = 0, _slotErr = 0;
   var i = 0;
@@ -5880,6 +5943,7 @@ function do10Days() {
   var days = 10;
   var total = days * slots.length;
   _sessionUsedIds = new Set();
+  _editorBatchContext = [];
   var plan = buildBatchPlan(total);
   document.getElementById("queueList").innerHTML = '<div class="empty"><div style="font-size:42px">&#x1F4C5;</div><p>Generating ' + total + ' posts... <span id="prog10">0</span> of ' + total + ' done.</p></div>';
   var done = 0, _slotErr = 0;
@@ -5935,6 +5999,7 @@ function do30Days() {
   showPanel("queue");
 
   _sessionUsedIds = new Set();
+  _editorBatchContext = [];
   var PLAN = buildBatchPlan(totalPosts);
 
   var total = PLAN.length;
