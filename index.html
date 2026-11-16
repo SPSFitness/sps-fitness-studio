@@ -1950,6 +1950,8 @@ function validatePost(text, short, publishMonth, postType) {
     /\bmeets? you where you are\b/i,
     /\bcoaching that meets\b/i,
     /\bgroup that gets it\b/i,
+    /\b(?:people|women|men|others|busy women|busy men) who (?:get|got) it\b/i,
+    /\bsomething powerful about\b/i,
     /\b(?:a )?(?:space|somewhere|place)\b[^.!?]{0,20}\byou belong\b/i,
     /\bfigure it out alone\b/i,
     /\bthe room makes it easier\b/i,
@@ -1959,9 +1961,13 @@ function validatePost(text, short, publishMonth, postType) {
     /\bweek after week\b/i,
     /\b(?:it'?s |that'?s )?not willpower\b/i,
     /\bthat'?s where the (?:shift|magic) (?:happens|is)\b/i,
-    /\bwhen life is chaos\b/i,
+    /\bwhen life (?:is|gets) chaos|when life gets chaotic|life is chaotic enough/i,
     /\bthat'?s what keeps (?:people|you|them) going\b/i,
-    /\bsomething you (?:don'?t dread|chose to show up for)\b/i
+    /\bsomething you (?:don'?t dread|chose to show up for)\b/i,
+    /\bjust turning up\b/i,
+    /\bbuilds? quietly\b/i,
+    /\bsession by session\b/i,
+    /\bthey (?:notice|celebrate) when\b/i
   ];
   if (_bpHard.some(function(r){ return r.test(body); }) ||
       _bpSoft.filter(function(r){ return r.test(body); }).length >= 2) warnings.push("Boilerplate filler");
@@ -2274,7 +2280,13 @@ function validatePost(text, short, publishMonth, postType) {
       // she said") have none of these, so they are left alone.
       /\b(?:said|says|muttered|whispered|gasped|puffed|announced)\b[^.!?]{0,30}\bbetween (?:breaths|rounds|sets|reps)\b/i.test(body) ||
       /\bbetween (?:breaths|rounds|sets|reps)[^.!?]{0,25}\b(?:said|says|muttered|whispered|gasped|puffed|announced)\b/i.test(body) ||
-      /\b(?:was )?(?:explaining|telling|chatting) to (?:the|his|her|a|another|some|his mate|the lad|the bloke)\b/i.test(body) ||
+      /\b(?:was )?(?:explaining|telling|chatting|talking) to (?:the|his|her|a|another|some|his mate|the lad|the bloke|the man|the woman|the guy)\b/i.test(body) ||
+      // "I overheard two members talking near the rig... 'quote'" — the eavesdrop
+      // framing plus a quote is a staged vignette however it is dressed up.
+      /\boverheard\b[\s\S]{0,180}["'“]/i.test(body) ||
+      // "...the man/woman next to him/her: 'quote'" — a quote handed to a nameless
+      // person standing nearby.
+      /\bnext to (?:him|her|them)\b[\s\S]{0,45}[:"'“]/i.test(body) ||
       /\b(?:stood|standing|stands)\b[^.!?]{0,70}\b(?:said|says|muttered|whispered|announced)\b[^.!?]{0,25}["'“]/i.test(body) ||
       /\bcatching (?:her|his|their) breath\b[^.!?]{0,45}\b(?:said|says|muttered|whispered)\b/i.test(body) ||
       /\b(?:by the|at the|over by the|over at the) (?:kettlebells?|wall|rig|rack|bench|weights?|dumbbells?|bar|squat rack)\b[^.!?]{0,55}\b(?:said|says|explaining|telling|muttered|whispered)\b/i.test(body) ||
@@ -2288,6 +2300,15 @@ function validatePost(text, short, publishMonth, postType) {
       // quote mark follows the verb directly.
       /\b(?:she|he|someone|a (?:man|woman|bloke|lady|guy|lad|member))\s+(?:just |then |simply )?(?:said|says|goes|went|replied|answered)\s*:?\s*["'“]/i.test(body))
     warnings.push("Staged quote vignette");
+
+  // Naming specific weekdays implies a session timetable, which the rules forbid
+  // ("Monday might be carries, Wednesday kettlebells, Friday something else"). A
+  // single rhetorical day is fine; two or more distinct weekdays reads as a
+  // schedule and blocks so it regenerates without them.
+  var _dayHits = (body.match(/\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/gi) || []);
+  var _uniqDays = {};
+  _dayHits.forEach(function(d) { _uniqDays[d.toLowerCase()] = 1; });
+  if (Object.keys(_uniqDays).length >= 2) warnings.push("Weekday timetable");
 
   // 6. Availability / "always space" — the opposite of scarcity but equally an
   //    operational claim we do not make. "there's always space", "join any week",
@@ -2651,6 +2672,7 @@ var BLOCKING_WARNINGS = [
   "Aesthetic framing",
   "Named person",
   "Staged quote vignette",
+  "Weekday timetable",
   "Calorie mechanism claim",
   "Nutrition prescription",
   "Medical condition list",
@@ -3715,11 +3737,11 @@ function renderImgLibrary() {
       var videoBadge = img.isVideo ? '<span style="position:absolute;top:4px;left:4px;background:var(--blue);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px">VIDEO</span>' : '';
       var genderColor = img.gender === "women" ? "#f472b6" : img.gender === "men" ? "#60a5fa" : img.gender === "mixed" ? "#34d399" : "rgba(255,255,255,0.3)";
       var genderLabel = img.gender && img.gender !== "none" ? img.gender : "?";
-      var genderBtn = '<button onclick="cycleGender(' + JSON.stringify(String(img.id)) + ')" style="position:absolute;top:4px;right:26px;background:' + genderColor + ';border:none;color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;cursor:pointer">' + genderLabel + '</button>';
+      var genderBtn = '<button onclick="cycleGender(' + "'" + String(img.id) + "'" + ')" style="position:absolute;top:4px;right:26px;background:' + genderColor + ';border:none;color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;cursor:pointer">' + genderLabel + '</button>';
       return '<div class="img-card' + (img.analyzing ? " analyzing" : "") + '" id="imgcard-' + img.id + '">' +
       mediaEl + videoBadge + genderBtn +
       '<div class="img-overlay">' + (img.analyzing ? "analysing..." : (img.bestFor || "any") + (img.usedCount ? " | " + img.usedCount + "x" : "")) + '</div>' +
-      '<button class="img-del" onclick="removeImg(' + img.id + ')" title="Remove">&times;</button>' +
+      '<button class="img-del" onclick="removeImg(' + "'" + String(img.id) + "'" + ')" title="Remove">&times;</button>' +
       '</div>';
   }).join("");
 }
@@ -5758,7 +5780,7 @@ function getThemeKey(type, angle) {
   if (/through the door|getting through the door|hardest part|first session|out of place|look(?:ing)? (?:stupid|daft|lost)|embarrass|taking up space|where(?:'s| is)? the entrance|left it too late|too late to start|too far (?:gone|behind)|everyone (?:else )?(?:is )?ahead|further ahead|keep up|unfit|struggl|only one|never been (?:to|in) a gym|first time in a gym|walking in(?:to)?|intimidat/.test(a)) return "firststep";
   if (/returning|coming back|come back|after (?:illness|years|a gap|a long gap|a break)|restart|not (?:been|trained)|lost all|start again|years away/.test(a)) return "comeback";
   // Frequency / "just show up" / consistency-beats-intensity.
-  if (/two sessions|twice a week|two coached|six rushed|six days|show(?:ing)? up|stay consistent|consisten|turn(?:ing)? up|structure beats motivation|session in the diary|booking the session|removes the (?:daily )?(?:decision|thinking)|removes the thinking|missing a week|written for you|plan in your head|first three weeks|bad week still|compound effect|showing up imperfectly/.test(a)) return "consistency";
+  if (/two sessions|twice a week|two coached|six rushed|six days|show(?:ing)? up|stay consistent|consisten|turn(?:ing)? up|structure beats motivation|session in the diary|booking the session|removes the (?:daily )?(?:decision|thinking)|removes the thinking|missing a week|written for you|plan in your head|first three weeks|bad week still|compound effect|showing up imperfectly|week off|pause not a stop|handle the gap|picks? up where you left off|does ?n'?o?t undo|doesn'?t undo|it stacks|keeps you going|showing up becomes easier|a gap won'?t|gap won'?t undo|week off like/.test(a)) return "consistency";
   if (/cost|£|expensive|value|less than|waiting list|available now|no waiting|pay for|never use|\bprice\b|takeaway/.test(a)) return "value";
   if (/protein|breakfast|lunch|snack|\beat\b|water|hydrat|\bkit\b|\bmeal\b|takeaway|\bwalk|screens|mobility|stretch/.test(a)) return "habit";
   if (/bulky|cardio|toning|spot reduc|carbs|scales|no pain|stretching|muscle turns|\bmyth\b|high intensity|six days|volume/.test(a)) return "myth";
