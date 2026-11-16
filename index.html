@@ -351,6 +351,7 @@ textarea{min-height:120px;resize:vertical;line-height:1.75;}
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
           <button class="btn bp" style="width:auto;font-size:13px;padding:9px 16px" onclick="importUsedFromPaste()">Mark as used</button>
           <button class="btn bg" style="width:auto;font-size:13px;padding:9px 16px" onclick="photoCoverage()">Photo coverage</button>
+          <button class="btn bp" style="width:auto;font-size:13px;padding:9px 16px" onclick="reanalyseAllPhotos()">Re-analyse all</button>
           <button class="btn bg" style="width:auto;font-size:13px;padding:9px 16px" onclick="checkStore()">Check cloud sync</button>
           <button class="btn bc" style="width:auto;font-size:13px;padding:9px 16px" onclick="moveUsedToDriveFolder()">Move used into Used folder</button>
           <label class="btn bp" style="width:auto;font-size:13px;padding:9px 16px;cursor:pointer;margin:0">
@@ -3589,7 +3590,7 @@ function analyseImageByUrl(id, driveFileId, cb) {
   .then(function(dataUrl) {
     var base64 = dataUrl.split(",")[1];
     var mimeType = dataUrl.split(";")[0].split(":")[1] || "image/jpeg";
-    var sys = "You are an image tagger for SPS Fitness gym. Analyse this photo and return ONLY a JSON object with these fields: tags (array of 3-6 lowercase descriptive tags), bestFor (one of: motivation, myth, evidence, quickwin, bodyblast, results, behindscenes, faq, seasonal, local, any), gender (one of: women, men, mixed, none), exercise (the main movement or equipment shown, as 1-3 lowercase words such as \"kettlebell swing\", \"deadlift\", \"battle rope\" or \"dumbbell press\"; use \"none\" if no exercise is being performed), personDesc (a short plain physical description of the single most prominent person so they can be told apart from other members — e.g. \"older man, grey beard\" or \"younger woman, blonde ponytail\"; use \"none\" if no one person stands out or there are no people). exercise and personDesc are used to stop the same movement or the same member appearing on two posts in a row, so be consistent: describe the same kind of person the same way each time. GENDER RULES — ACCURACY MATTERS MORE THAN BEING DECISIVE. Getting this wrong puts a man's photo on a women's post, which is a serious error. Tag as women ONLY if you are confident every clearly visible person is female. Tag as men ONLY if you are confident every clearly visible person is male. If there is ANY doubt — unclear faces, back-of-head shots, baggy gym clothing, a mix of people, or you simply cannot tell — use mixed. mixed is the safe default and gets used on general posts, so it is never wrong to choose it when unsure. Use none only if there are no people at all (equipment, the room, etc). Do NOT guess a specific gender to seem confident. When in doubt, mixed. Return only valid JSON, nothing else.";
+    var sys = "You are an image tagger for SPS Fitness gym. Look carefully at the photo, then return ONLY a JSON object with these fields, and fill observation FIRST: observation (one short sentence describing the single most prominent person — their build, shoulders, hair, clothing and the camera angle — this is the evidence for your gender call), tags (array of 3-6 lowercase descriptive tags), bestFor (one of: motivation, myth, evidence, quickwin, bodyblast, results, behindscenes, faq, seasonal, local, any), gender (one of: women, men, mixed, none), exercise (the main movement or equipment shown, as 1-3 lowercase words such as \"kettlebell swing\", \"deadlift\", \"battle rope\" or \"dumbbell press\"; use \"none\" if no exercise is being performed), personDesc (a short plain physical description of the single most prominent person so they can be told apart from other members — e.g. \"older man, grey beard\" or \"younger woman, blonde ponytail\"; use \"none\" if no one person stands out or there are no people). exercise and personDesc stop the same movement or member appearing on two posts in a row, so describe the same kind of person the same way each time. GENDER — BE DECISIVE. Most photos show one clearly identifiable person, so commit to men or women for those. Judge from the whole picture together — build, shoulders, hips, hair, face, hands, overall presentation — not one cue alone and not the face only; a turned head, a hood or baggy gym kit is NOT a reason to give up, because the body still tells you. Tag women if the main person is a woman, men if the main person is a man. Use mixed ONLY when the shot genuinely shows more than one person of different sexes, or when the single subject is truly impossible to call even from the whole body. Do NOT fall back to mixed out of caution: over-using it makes good photos unusable on gendered posts, which is as bad as a wrong tag. A clearly male or clearly female solo subject must never be tagged mixed. Use none only when there are no people at all (equipment, the room). Return only valid JSON, nothing else.";
     return fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/generate", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
@@ -3615,13 +3616,14 @@ function analyseImageByUrl(id, driveFileId, cb) {
           imageLibrary[i].gender = parsed.gender || "none";
           imageLibrary[i].exercise = parsed.exercise || "none";
           imageLibrary[i].personDesc = parsed.personDesc || "none";
+          imageLibrary[i].observation = parsed.observation || "";
           imageLibrary[i].tagString = (parsed.tags || []).join(", ") + (parsed.exercise && parsed.exercise !== "none" ? " | " + parsed.exercise : "") + (parsed.gender && parsed.gender !== "none" ? " | " + parsed.gender : "");
           imageLibrary[i].analyzing = false;
           // Diagnostic: log what the AI saw so a wrong gender can be traced. If a
           // clearly-female photo logs gender:men with man/beard tags, the AI got
           // the wrong image. If the tags describe a woman but gender says men,
           // the model contradicted itself.
-          console.log("TAGGED", imageLibrary[i].filename || id, "=> gender:", parsed.gender, "| tags:", (parsed.tags||[]).join(", "));
+          console.log("TAGGED", imageLibrary[i].filename || id, "=> gender:", parsed.gender, "| saw:", parsed.observation || "", "| tags:", (parsed.tags||[]).join(", "));
           break;
         }
       }
@@ -3717,6 +3719,47 @@ function photoCoverage() {
     "\nUsable on an everyone post: " + (c.mixed + c.none);
   if (c.unknown) msg += "\n\n" + c.unknown + " photos are not tagged and will not be used on any post until they are. Click a photo's tag to set it.";
   alert(msg);
+}
+
+// Re-run the tagger across the whole library in one go — for applying an improved
+// tagger prompt without deleting and re-adding photos. Skips videos and anything
+// the user has locked by hand (genderLocked), so manual corrections always win.
+// Runs a few at a time so the tagging function is not hammered.
+function reanalyseAllPhotos() {
+  var targets = imageLibrary.filter(function(img) {
+    return !img.isVideo && img.driveId && !img.genderLocked;
+  });
+  if (!targets.length) {
+    showStatus("imgStatus", "Nothing to re-analyse — every photo is a video or has a tag you locked by hand.", "info");
+    setTimeout(function(){ hideStatus("imgStatus"); }, 4000);
+    return;
+  }
+  var locked = imageLibrary.filter(function(img){ return img.genderLocked; }).length;
+  if (!confirm("Re-analyse " + targets.length + " photo" + (targets.length !== 1 ? "s" : "") + " with the tagger?" +
+      (locked ? "\n\n" + locked + " photo" + (locked !== 1 ? "s" : "") + " you tagged by hand will be left untouched." : "") +
+      "\n\nThis re-runs the AI on each one and takes a minute or two.")) return;
+  targets.forEach(function(img){ img.analyzing = true; });
+  renderImgLibrary();
+  var done = 0, inFlight = 0, idx = 0, CONC = 3;
+  function pump() {
+    while (inFlight < CONC && idx < targets.length) {
+      var img = targets[idx++];
+      inFlight++;
+      analyseImageByUrl(img.id, img.driveId, function() {
+        done++; inFlight--;
+        showStatus("imgStatus", "Re-analysing photos... " + done + " of " + targets.length, "info");
+        renderImgLibrary();
+        if (done === targets.length) {
+          saveImageLibrary();
+          showStatus("imgStatus", "Re-analysed " + targets.length + " photos. Check Photo coverage to see the new split.", "success");
+          setTimeout(function(){ hideStatus("imgStatus"); }, 6000);
+        } else {
+          pump();
+        }
+      });
+    }
+  }
+  pump();
 }
 
 function renderImgLibrary() {
