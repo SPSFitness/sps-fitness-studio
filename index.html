@@ -2892,9 +2892,10 @@ function generateCleanPost(sys, prompt, short, cb, attempt, meta) {
       // Mechanical checks passed. Now the editor pass judges quality — filler,
       // drift, fabrication, batch repetition, weak writing — and sends a critique
       // back for a rewrite. Skipped on the final attempt so a post is always produced.
-      if (_editorEnabled && attempt < 6) {
+      if (_editorEnabled && attempt < 6 && (meta._edTries || 0) < 1) {
         editorPass(text, meta, function(ev) {
           if (ev.ok) { _acceptCleanPost(text, blocked, cb); return; }
+          meta._edTries = (meta._edTries || 0) + 1;   // editor forces at most ONE rewrite per post, to bound cost/time
           var edNote = "\n\nAn editor rejected the previous attempt. Reason: " + ev.reason +
             "\nRewrite it completely to fix that. Make ONE specific, concrete, non-obvious point in a natural voice. No filler or generic reassurance, no invented names, streets, quotes or stats, say only Halesowen for location, and do not repeat a message already used elsewhere in this batch.";
           generateCleanPost(sys, prompt + edNote, short, cb, attempt + 1, meta);
@@ -6614,10 +6615,15 @@ function autoFixBlocked(cb) {
   if (!blocked.length) { cb(); return; }
   showStatus("queueStatus", "Fixing " + blocked.length + " flagged post" + (blocked.length !== 1 ? "s" : "") + " before export...", "info");
   requestWakeLock();
+  // Auto-fix only needs to clear mechanical flags fast; the editor already judged
+  // quality at generation. Running it inside this retry loop multiplied the API
+  // calls and made export take tens of minutes — keep it off for the fix phase.
+  var _edWas = _editorEnabled; _editorEnabled = false;
   var i = 0;
   function nextPost() {
     if (i >= blocked.length) {
       releaseWakeLock();
+      _editorEnabled = _edWas;
       renderQueue();
       if (typeof saveQueueToSheets === "function") saveQueueToSheets();
       if (typeof flushHistoryToStore === "function") flushHistoryToStore();
@@ -6632,7 +6638,7 @@ function autoFixBlocked(cb) {
       cb();
       return;
     }
-    fixOneBlockedPost(blocked[i], 3, function() { i++; nextPost(); });
+    fixOneBlockedPost(blocked[i], 2, function() { i++; nextPost(); });
   }
   nextPost();
 }
