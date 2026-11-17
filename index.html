@@ -2100,6 +2100,20 @@ function validatePost(text, short, publishMonth, postType) {
        /\bmost (?:men|women|people) who (?:join|come to) sps (?:in their|aren't|are not)\b/i.test(body)))
     warnings.push("Generic sales pivot");
   if (/\b(?:burns?|burning) calories\b|\bcalorie deficit\b|\bafterburn\b/i.test(body)) warnings.push("Calorie mechanism claim");
+  // Explicit price / cost conversation is banned in EVERY post type, fromleads and
+  // value included. Those types may frame worth ("people call it expensive until
+  // they join") but must never state or discuss actual cost. These phrases shipped
+  // through the type exemption below: "what it costs", "we're not cheap", "go
+  // cheaper", "the budget route", "out of reach", "the price question".
+  if (/\bwhat (?:it|this|that|they|group personal training) (?:costs?|will cost|would cost)\b/i.test(body) ||
+      /\bhear what it costs\b|\bthe price question\b/i.test(body) ||
+      /\b(?:we(?:'?re| are)|it(?:'?s| is)) not cheap\b|\bnot the cheapest\b/i.test(body) ||
+      /\b(?:go|going|train|look|found it) (?:somewhere )?cheaper\b|\bcheaper (?:elsewhere|option|options|gym|gyms)\b/i.test(body) ||
+      /\bbudget (?:route|option|gym|end)\b/i.test(body) ||
+      /\b(?:out of|beyond) (?:your |their )?reach\b/i.test(body) ||
+      /\bthe number (?:is|'?s|feels|seems|genuinely)\b/i.test(body) ||
+      /\bwhat (?:it|this) involves and what it costs\b/i.test(body))
+    warnings.push("Cost framing");
   // Cost / price / affordability framing. Only the lead-nurture (fromleads) and
   // value post types may raise money; the plan caps fromleads at 2 per batch, so
   // barring every other type here holds cost posts to at most 2 a week. On a
@@ -2256,7 +2270,11 @@ function validatePost(text, short, publishMonth, postType) {
   //    aesthetics). "weight loss and toning", "tone up", "slim down", "shift the belly".
   var _debunk = /\b(?:myth|wrong|won'?t|will not|does ?n'?t|cannot|can'?t|not how|stop chasing|there is no|isn'?t how|no such thing)\b/i.test(body);
   if (/\b(?:weight loss and toning|toning (?:up|and)|tone up|see more tone|more toned|slim(?:ming)? down|drop a dress size|beach body|bikini body|lose weight and (?:see|get|tone))\b/i.test(body) ||
-      (/\bshift (?:the |your )?(?:belly|fat|weight)\b/i.test(body) && !_debunk))
+      /\b(?:flat(?:ter)? stomach|bingo wings|leaner thighs|toned (?:arms|legs|thighs|tummy)|love handles|muffin top|belly fat)\b/i.test(body) ||
+      /\bfit(?:ting)? back into (?:your |the )?(?:jeans|clothes|dress)\b|\binto your old (?:jeans|clothes)\b/i.test(body) ||
+      /\bmake (?:yourself|your body) smaller\b|\btaking up less space\b/i.test(body) ||
+      /\bnumber on (?:the|a) scales?\b|\bbingo wings\b/i.test(body) ||
+      ((/\blose weight\b|\bweight loss\b|\bshift (?:a|half a) stone\b|\bdrop a stone\b|\bcarrying (?:extra|the) weight\b|\bmanage(?:s|d)? (?:your |their )?weight\b|\bshift (?:the |your )?(?:belly|fat|weight)\b/i.test(body)) && !_debunk))
     warnings.push("Aesthetic framing");
 
   // 5. Named person — the absolute rule. A capitalised first name used as a
