@@ -1738,6 +1738,17 @@ function cleanPostText(text) {
   // emoji; one slipping in reads off. Covers the main emoji/symbol blocks plus
   // variation selectors and zero-width joiners, then tidies the leftover space.
   text = text.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{1F1E6}-\u{1F1FF}\u{FE00}-\u{FE0F}\u{200D}]/gu, "");
+  // Arrows and guillemets slip past the emoji strip above (which starts at U+2600):
+  // the arrows block is U+2190-21FF. Catch "→ sps-fitness.co.uk" and similar.
+  text = text.replace(/[←-⇿«»▶◀]\s*/g, "");
+  // House style: no em or en dashes (the model keeps reintroducing them). Turn a
+  // dash used as a pause into a comma, then tidy any doubled punctuation it creates.
+  // Real hyphens in compounds ("warm-up", "sps-fitness.co.uk", "40-year-old") use
+  // U+002D and are untouched.
+  text = text.replace(/\s*[—–]\s*/g, ", ")
+             .replace(/,\s*([.!?;:,])/g, "$1")   // ", ." -> "."
+             .replace(/\s+,/g, ",")              // " ," -> ","
+             .replace(/(^|\n)\s*,\s*/g, "$1");   // drop a comma left at a line start
   text = text.split("\n").map(function(l){ return l.replace(/[ \t]{2,}/g, " ").replace(/^[ \t]+/, ""); }).join("\n").replace(/ +\n/g, "\n");
   // 6. BUG1: session times
   text = stripSessionTimes(text);
@@ -2317,6 +2328,16 @@ function validatePost(text, short, publishMonth, postType) {
   _dayHits.forEach(function(d) { _uniqDays[d.toLowerCase()] = 1; });
   if (Object.keys(_uniqDays).length >= 2) warnings.push("Weekday timetable");
 
+  // Cadence stated as a schedule — "three mornings a week", "same time, same
+  // people", "fixed session times". Deliberately narrow: it does NOT catch plain
+  // training frequency like "twice a week beats six rushed", which is a legitimate
+  // coaching point. A time-of-day plus a weekly count, a "same time" cadence, or a
+  // fixed-times claim is what reads as a timetable the rules forbid.
+  if (/\b(?:one|two|three|four|five|six|a|a few|several)\s+(?:mornings?|evenings?|afternoons?|nights?)\s+(?:a|per|each)\s+week\b/i.test(body) ||
+      /\bsame time,\s*same\b/i.test(body) ||
+      /\b(?:fixed|set)\s+session times?\b/i.test(body))
+    warnings.push("Session schedule mentioned");
+
   // 6. Availability / "always space" — the opposite of scarcity but equally an
   //    operational claim we do not make. "there's always space", "join any week",
   //    "always room", "spaces available".
@@ -2799,23 +2820,32 @@ function _acceptCleanPost(text, blocked, cb) {
 
 function editorPass(text, meta, cb) {
   if (!_editorEnabled) { cb({ ok: true, reason: "" }); return; }
-  var already = _editorBatchContext.slice(-14).map(function(t, i) {
+  var already = _editorBatchContext.slice(-30).map(function(t, i) {
     return (i + 1) + ". " + String(t).replace(/\s+/g, " ").slice(0, 150);
   }).join("\n");
   var esys = "You are a tough copy editor for SPS Fitness, a group personal training gym in Halesowen. You review ONE finished social post and decide if it is good enough to publish or must be rewritten. Reply ONLY with JSON: {\"verdict\":\"pass\"|\"fail\",\"reason\":\"<short, concrete>\"}. Fail the post if ANY of these are true:\n"
     + "(1) FILLER — it leans on interchangeable reassurance instead of saying something specific: 'people who get it', 'something powerful about', 'builds quietly', 'just showing up', 'that's what keeps people going', 'real results', a vague 'you've got this', or a generic pitch tacked on the end.\n"
     + "(2) DRIFT / SAMENESS — its core message is one of the gym's over-used themes rehashed with nothing fresh: keep showing up / consistency, a missed week won't undo it, stop waiting for the perfect time / protect your time, train around your injury, you don't need to be fit to start. These are allowed occasionally, but FAIL any post that is a bland restatement with no specific, concrete, non-obvious point.\n"
-    + "(3) FABRICATION — it invents a specific that could be untrue or off-brand: a named street or address other than 'Halesowen' (the gym is on Lyde Green, but posts must say only Halesowen — any other street name such as 'Manor Lane' is invented), a member's name, a made-up quote or overheard conversation, a statistic or study, session times or days, or prices.\n"
+    + "(3) FABRICATION — it invents a specific that could be untrue or off-brand: a named street or address other than 'Halesowen' (the gym is on Lyde Green, but posts must say only Halesowen — any other street name such as 'Manor Lane' is invented), a member's name, a made-up quote or overheard conversation, a statistic or study, how often or when sessions run (a cadence like 'three mornings a week' or 'three sessions a week with a day between', 'same time', fixed session times or days), or prices.\n"
     + "(4) REPETITION — it repeats a message or angle already used by a post earlier in this same batch (listed below).\n"
     + "(5) WEAK WRITING — run-on sentences, a limp ending that trails off, or a clumsy line that reads as machine-generated rather than written.\n"
     + "PASS a post that makes ONE clear, specific, true point in a natural SPS voice and trips none of the above. Be strict: when in doubt, FAIL, and name the exact problem phrase or theme in the reason.";
   var euser = "POSTS ALREADY IN THIS BATCH (do not repeat their message):\n" + (already || "(none yet)") + "\n\nPOST TO REVIEW:\n" + text + "\n\nReturn only the JSON verdict.";
   callAPI(esys, euser, function(err, out) {
-    if (err || !out) { cb({ ok: true, reason: "" }); return; }   // editor unreachable -> never block generation
+    if (err || !out) { console.warn("EDITOR unreachable — post passed through:", err); cb({ ok: true, reason: "" }); return; }
     var parsed = null;
-    try { parsed = JSON.parse(String(out).replace(/```json|```/g, "").trim()); } catch(e) {}
-    if (!parsed || !parsed.verdict) { cb({ ok: true, reason: "" }); return; }
-    cb({ ok: parsed.verdict === "pass", reason: parsed.reason || "" });
+    // Pull the first {...} out of the reply in case the model wrapped it in prose,
+    // so a chatty response no longer silently passes everything through.
+    var raw = String(out).replace(/```json|```/g, "");
+    var m = raw.match(/\{[\s\S]*\}/);
+    try { parsed = JSON.parse(m ? m[0] : raw.trim()); } catch(e) {}
+    if (!parsed || !parsed.verdict) {
+      console.warn("EDITOR reply unparseable — post passed through:", String(out).slice(0, 200));
+      cb({ ok: true, reason: "" }); return;
+    }
+    var ok = String(parsed.verdict).toLowerCase() === "pass";
+    console.log("EDITOR " + (ok ? "PASS " : "FAIL ") + String(text).replace(/\s+/g, " ").slice(0, 60) + (ok ? "" : "  <= " + (parsed.reason || "")));
+    cb({ ok: ok, reason: parsed.reason || "" });
   });
 }
 
@@ -6627,6 +6657,10 @@ function fixOneBlockedPost(q, maxRounds, done) {
   var oldOpening = String(q.text || "").split(/\n/)[0];
   if (oldOpening) note += "\n\nDo not reuse this opening line: " + oldOpening.slice(0, 120);
   if (switched) note += "\n\nWrite about something different this time. The previous subject could not be written about without breaking a rule, so change the subject entirely rather than rephrasing.";
+  // Give the editor pass the rest of the batch to compare against, so a fix can't
+  // reintroduce a message another post in this batch already uses (the export-fix
+  // path otherwise runs with no batch context and cannot catch repetition).
+  _editorBatchContext = queue.filter(function(x) { return x !== q; }).map(function(x) { return x.text || ""; });
   generateCleanPost(sys, basePrompt + note, q.short, function(err, text) {
     if (!err && text) { q.text = text; renderQueue(); }
     // Recurse: if still blocked and rounds remain, try again (angle switches in).
