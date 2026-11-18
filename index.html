@@ -578,7 +578,7 @@ var PROMPTS = {
     everyone: "Write a post answering one question people are too embarrassed to ask before joining SPS Fitness. Pick from: Am I too unfit? Do I need experience? Will I be the only one struggling? What if I cannot keep up? Answer it honestly and reassuringly from someone who hears this all the time."
   },
   seasonal: {
-    women: "Write a seasonal or timely motivation post for women over 30. Make it relevant to what is actually happening in life right now — school holidays, January reset, summer approaching, dark evenings in winter, back to routine in September. Be specific about the season and what that means for a busy woman trying to stay consistent. Real and grounding not cheesy.",
+    women: "Write a seasonal or timely motivation post for women over 30. Make it relevant to what is actually happening in life right now — school holidays, January reset, summer approaching, dark evenings in winter, back to routine in September. Be specific about the season and what that means for a busy woman right now. Real and grounding not cheesy.",
     men: "Write a seasonal or timely motivation post for men in their 40s and 50s. Tie it to what is actually happening — new year, summer, back to school routines freeing up time, Christmas approaching. Be specific and practical about how the season affects training motivation and routine.",
     everyone: "Write a seasonal motivation post for the SPS Fitness community. Make it relevant to the current time of year and what that means for fitting training into real life. Specific, grounded, not generic."
   },
@@ -1755,7 +1755,9 @@ function cleanPostText(text) {
   // dash used as a pause into a comma, then tidy any doubled punctuation it creates.
   // Real hyphens in compounds ("warm-up", "sps-fitness.co.uk", "40-year-old") use
   // U+002D and are untouched.
-  text = text.replace(/\s*[—–]\s*/g, ", ")
+  text = text.replace(/\s*[—–]\s*(?=[A-Z])/g, ". ")  // dash before a capital -> full stop (no stray mid-sentence capital)
+             .replace(/\s*[—–]\s*(?=[a-z0-9])/g, ", ") // dash before lowercase/number -> comma
+             .replace(/\s*[—–]\s*/g, ", ")             // any remaining (before punctuation/end)
              .replace(/,\s*([.!?;:,])/g, "$1")   // ", ." -> "."
              .replace(/\s+,/g, ",")              // " ," -> ","
              .replace(/(^|\n)\s*,\s*/g, "$1");   // drop a comma left at a line start
@@ -1974,6 +1976,19 @@ function validatePost(text, short, publishMonth, postType) {
   // happens", "not willpower"). This cluster slipped through screening as valid
   // prose. The "hard" phrases are always filler and block on sight; the softer
   // ones are allowed once but block when two or more pile up in one post.
+  // Model refusal / meta-commentary — the model replying ABOUT the task instead of
+  // writing the post (happens when a prompt conflicts with a rule). This must never
+  // be queued as a post, so it blocks and regenerates on any tell.
+  if (/\bI (?:need to|have to|must|cannot|can'?t|won'?t|am unable to) (?:refuse|decline|write about|write this|write that|create|produce|do this)\b/i.test(body) ||
+      /\bwould you like me to\b/i.test(body) ||
+      /\bthe (?:instructions?|brief|angle|prompt|rules?|request|guidelines?) (?:state|says?|clearly|above|asks?|wants?|is asking|explicitly)\b/i.test(body) ||
+      /\bthis (?:request|brief|angle|prompt|topic) (?:is|asks|explicitly|would|conflicts|goes)\b/i.test(body) ||
+      /\bI can (?:instead )?write (?:a|you a) (?:different )?post\b/i.test(body) ||
+      /\b(?:goes against|conflicts with|contradicts)\b/i.test(body) ||
+      /\bI'?m being asked\b|\bI am being asked\b/i.test(body) ||
+      /\bhard-capped\b|\bmost overused message\b|\bbanned topic\b|\bcore message\b/i.test(body) ||
+      /\bI'?m sorry,? but\b/i.test(body))
+    warnings.push("Model refusal");
   var _bpHard = [
     /\bweek after week\b/i,
     /\bmeets? you where you are\b/i,
@@ -2003,7 +2018,12 @@ function validatePost(text, short, publishMonth, postType) {
   // publish month is passed in so seasonal posts can be written correctly rather
   // than banned outright.
   var monthsUsed = body.match(/\b(January|February|March|April|June|July|August|September|October|November|December)\b/g) || [];
-  if (/\bMay\b/.test(body) && !/\bMay\s+(?:be|not|have|find|feel|want|need|well|still|even|also)\b/.test(body)) monthsUsed.push("May");
+  // "May" is also a verb, so only treat it as the month in a real date context
+  // ("in May", "by May", "this May", "May and June", "1 May", "May 1"). Bare "May
+  // centre" / "May help" / "May surprise you" is the verb and is left alone.
+  if (/\b(?:in|by|since|until|through|this|next|early|mid|late|of|during)\s+May\b/.test(body) ||
+      /\bMay\s+(?:and|or)\s+(?:April|June|July)\b/.test(body) ||
+      /\b\d{1,2}(?:st|nd|rd|th)?\s+May\b|\bMay\s+\d{1,2}\b/.test(body)) monthsUsed.push("May");
   if (monthsUsed.length) {
     var okMonth = publishMonth || "";
     var wrong = monthsUsed.filter(function(m) { return m !== okMonth; });
@@ -2722,6 +2742,7 @@ var BLOCKING_WARNINGS = [
   "Transformation claim",
   "Shopping cliche",
   "Boilerplate filler",
+  "Model refusal",
   "Session frequency too high",
   "Stray mid-sentence capital",
   "Group size claim",
@@ -2935,7 +2956,7 @@ function generateCleanPost(sys, prompt, short, cb, attempt, meta) {
     if (attempt >= 6) {
       // Last resort: one clean rewrite on the safest possible brief, ignoring the
       // original type/angle. If even this is blocked, queue it flagged.
-      var safeBrief = "Write a short, warm Facebook post for SPS Fitness, a small group gym in Halesowen. Talk about how showing up consistently to coached sessions builds strength and capability over time, and how the group keeps people going. No prices, no schedules, no session counts, no locations other than Halesowen, no nutrition, no physiological mechanisms, no aesthetics, no names, no numbers. Under 120 words. End with: message us to find out more.";
+      var safeBrief = "Write a short, warm Facebook post for SPS Fitness, a group personal training gym in Halesowen. Make ONE specific, concrete point about how coached strength training shows up in everyday life. Pick exactly one of these and stay with it: sleeping better, steadier energy through the afternoon, getting up off the floor without a struggle, carrying something awkward without bracing, or moving through the day without having to think about it. Pay that one change off plainly. Do NOT write about showing up, staying consistent, the group keeping you going, or turning up week after week. No prices, no schedules, no session counts, no locations other than Halesowen, no nutrition, no physiological mechanisms, no aesthetics, no names, no numbers, no dashes. Under 120 words. End with: message us to find out more.";
       if (attempt === 6) { generateCleanPost(sys, safeBrief, short, cb, 7, { type: "motivation", aud: meta.aud, month: meta.month }); return; }
       _acceptCleanPost(text, blocked, cb); return;   // attempt 7 blocked too — give up
     }
@@ -5074,16 +5095,16 @@ var TOPIC_ANGLES = {
     ],
     everyone: [
       "the gap between knowing what you should do and actually doing it",
-      "why the people who stay consistent are not more motivated, they built different habits",
+      "why the thing that finally works is usually the one you kept putting off",
       "what six months of two sessions a week looks like physically and mentally",
       "the difference between training to change how you look and training to change how you feel",
       "why the hardest part of any session is getting through the door",
       "what happens when you stop treating exercise as punishment",
-      "the role of community in whether people stay consistent or quit",
-      "why intensity is overrated and consistency is underrated",
+      "what it is like being coached by someone who remembers your last session",
+      "why the unglamorous, repeatable work is what actually changes your body",
       "what actually changes in your life when you start getting stronger",
-      "the compound effect of showing up imperfectly over twelve months",
-      "why people who train in groups are more likely to still be going a year later",
+      "what a year of proper coaching changes that a year of guessing never does",
+      "what surprises people most about being coached instead of left to figure it out",
       "what members say surprises them most after three months at SPS",
       "why people who have tried and failed at fitness before often thrive in group personal training",
       "not being able to put a number on feeling strong and capable",
@@ -5146,41 +5167,41 @@ var TOPIC_ANGLES = {
       "why the men who stick longest at SPS are the ones who stopped comparing themselves to 25"
     ],
     everyone: [
-      "why people who train in a coached group are significantly more likely to still be going after a year",
+      "what coached training changes about how you move that you feel before you see",
       "what consistent training does to your energy, mood and sleep over three months",
-      "why showing up twice a week beats training hard for three weeks then stopping",
+      "what changes in how you move within the first six weeks of coached training",
       "what members notice first after starting at SPS, and it is not usually what they expected",
-      "why the community around you is one of the strongest predictors of whether training sticks",
+      "what people notice in their energy and sleep within the first month",
       "what six months of consistent training looks like in real life, not on paper"
     ]
   },
   quickwin: {
     women: [
-      "why booking the session removes the daily decision to train",
-      "why turning up tired still counts and still works",
+      "why the first proper deadlift changes how a woman sees herself",
+      "why the weight that felt impossible in week one feels ordinary by week eight",
       "why two coached sessions beat six rushed ones on your own",
       "why starting where you are beats waiting until you feel ready",
-      "why the coach knowing your name changes whether you keep going",
+      "what a coach notices about your movement that you cannot feel yourself",
       "why the first three weeks feel harder than everything after",
-      "why missing a week does not undo what you have built",
-      "why training with other people makes you turn up when you would not alone"
+      "why the scales miss most of what strength training actually changes",
+      "why a coach spotting one thing in your setup changes the whole lift"
     ],
     men: [
       "why recovery between sessions matters more than volume after 40",
       "why twice a week done properly beats daily half effort",
       "why having the session written for you removes the thinking",
       "why intensity is overrated once you are past 40",
-      "why turning up on a bad week still moves things forward",
+      "why the strongest men in the room have lifted the same weight for months",
       "why the weight being adjusted for you is the point, not a compromise",
       "why progress shows up in how you move before it shows on the scales"
     ],
     everyone: [
-      "why structure beats motivation every time",
-      "why a session in the diary is easier to keep than a plan in your head",
+      "why the warm-up tells the coach more than the main lift does",
+      "why the weight the coach picks is usually heavier than the one you would",
       "why a different session every time stops training becoming a chore",
-      "why the people in the room decide whether you come back",
+      "why soreness is a poor guide to whether a session worked",
       "why being coached beats guessing, however long you have trained",
-      "why consistency looks unremarkable while it is happening",
+      "why good form under fatigue is where the progress actually happens",
       "why the hardest part is the walk through the door, not the session"
     ]
 
