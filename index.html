@@ -6247,6 +6247,19 @@ function updateQModalWarnings(text, short, approved, publishMonth) {
 // Open by position in the rendered list. The list is drawn straight from the
 // queue array, so the index always points at the post that was clicked, even if
 // an id is somehow duplicated.
+// Reset the Instagram caption back to the auto-generated version, discarding any
+// manual edit so it tracks the Facebook text again.
+function resetQModalInsta() {
+  if (!currentQModalId) return;
+  var q = null;
+  for (var i = 0; i < queue.length; i++) { if (String(queue[i].id) === String(currentQModalId)) { q = queue[i]; break; } }
+  if (!q) return;
+  delete q.instaText;
+  var igBox = document.getElementById("qModalInstaText");
+  if (igBox) { try { igBox.value = toInstaCaption(q.text, q.aud); } catch (e) { igBox.value = ""; } }
+  saveQueueToSheets();
+}
+
 function expandQueueItemAt(index) {
   var q = queue[index];
   if (!q) return;
@@ -6278,12 +6291,11 @@ function expandQueueItem(id) {
   document.getElementById("qModalText").value = q.text;
   updateQModalWarnings(q.text, q.short, q.approved, monthOfQueueItem(q));
   // Instagram preview — show what the IG export will produce for this post.
-  var igEl = document.getElementById("qModalInstaPreview");
+  var igEl = document.getElementById("qModalInstaText");
   if (igEl) {
     try {
-      var igCap = toInstaCaption(q.text, q.aud);
-      igEl.textContent = igCap;
-    } catch (e) { igEl.textContent = "(unable to preview)"; }
+      igEl.value = q.instaText || toInstaCaption(q.text, q.aud);
+    } catch (e) { igEl.value = q.instaText || ""; }
   }
   var apBtn = document.getElementById("qModalApproveBtn");
   if (apBtn) apBtn.innerHTML = q.approved ? "&#x2713; Approved, will export" : "&#x2713; Approve anyway";
@@ -6366,6 +6378,19 @@ function saveQModalEdit() {
     }
   }
   document.getElementById("qModalText").value = newText;
+  // Save the Instagram caption too. Light-clean only (dashes, not the full pipeline)
+  // so the hashtags survive. If it still matches the auto caption, leave instaText
+  // unset so it stays dynamic; if it has been changed, store the manual version.
+  var igBox = document.getElementById("qModalInstaText");
+  if (igBox && q) {
+    var igVal = igBox.value.trim()
+      .replace(/\s*[—–]\s*(?=[A-Z])/g, ". ")
+      .replace(/\s*[—–]\s*/g, ", ");
+    var autoIg = "";
+    try { autoIg = toInstaCaption(q.text, q.aud); } catch (e) {}
+    if (igVal && igVal !== autoIg) q.instaText = igVal; else delete q.instaText;
+    igBox.value = q.instaText || autoIg;
+  }
   updateQModalWarnings(newText, q ? q.short : false, q ? q.approved : false);
   saveQueueToSheets();
   renderQueue();
@@ -6807,7 +6832,7 @@ function exportCSV(platform, skipAutoFix) {
     // Combine post text and hashtags into one content field. For Instagram the
     // caption is shortened to an IG-native hook so the same calendar produces a
     // format-tuned variant rather than the long Facebook body.
-    var outText = isInsta ? toInstaCaption(q.text, q.aud) : q.text;
+    var outText = isInsta ? (q.instaText || toInstaCaption(q.text, q.aud)) : q.text;
     // The IG caption is a short hook with no room for a value payoff, so it is
     // held to STRICT rules (not the relaxed fromleads pricing allowance). If the
     // shortened caption itself breaks a rule, skip it from the IG export — the
@@ -7080,8 +7105,8 @@ renderImgLibrary();
       <div id="qModalWarnings" style="display:none;padding:10px 12px;border-radius:var(--rs);font-size:13px;margin-bottom:10px;line-height:1.5"></div>
       <textarea id="qModalText" style="width:100%;min-height:200px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);padding:14px;font-size:14px;line-height:1.7;resize:vertical;box-sizing:border-box;font-family:inherit"></textarea>
       <div style="margin-top:14px">
-        <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:6px">&#x1F4F8; INSTAGRAM VERSION <span style="font-weight:400">(what the Instagram export will use)</span></div>
-        <div id="qModalInstaPreview" style="width:100%;background:var(--surface2);border:1px dashed var(--border);border-radius:var(--rs);color:var(--text);padding:14px;font-size:13px;line-height:1.6;white-space:pre-wrap;opacity:0.9"></div>
+        <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:6px">&#x1F4F8; INSTAGRAM VERSION <span style="font-weight:400">(edit directly, or</span> <a href="#" onclick="resetQModalInsta();return false" style="color:var(--accent);font-weight:400">reset to auto</a><span style="font-weight:400">)</span></div>
+        <textarea id="qModalInstaText" style="width:100%;min-height:150px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);padding:14px;font-size:13px;line-height:1.6;resize:vertical;box-sizing:border-box;font-family:inherit"></textarea>
       </div>
     </div>
     <div style="padding:16px;border-top:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap">
