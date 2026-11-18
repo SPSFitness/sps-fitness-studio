@@ -1150,16 +1150,42 @@ var ICONS = {motivation:"&#x1F525;",myth:"&#x1F4A1;",evidence:"&#x1F52C;",quickw
 var IBGS = {motivation:"rgba(26,111,255,0.15)",myth:"rgba(0,229,255,0.12)",evidence:"rgba(57,217,138,0.1)",quickwin:"rgba(255,184,0,0.12)",bodyblast:"rgba(255,60,120,0.12)",results:"rgba(255,184,0,0.12)",behindscenes:"rgba(139,92,246,0.12)",faq:"rgba(16,185,129,0.12)",seasonal:"rgba(249,115,22,0.12)",local:"rgba(236,72,153,0.12)",education:"rgba(99,102,241,0.12)",fromleads:"rgba(251,191,36,0.12)",value:"rgba(34,197,94,0.12)",reels:"rgba(239,68,68,0.12)"};
 
 function syncLeadInsights() {
-  showStatus("insightsStatus", "Analysing lead conversations... this takes 20-30 seconds.", "info");
+  showStatus("insightsStatus", "Analysing lead conversations... this can take up to a minute.", "info");
+  // Guard against the server hanging forever: abort after 55s and show a clear
+  // message rather than leaving the button spinning.
+  var _laCtrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+  var _laTimer = setTimeout(function() { if (_laCtrl) _laCtrl.abort(); }, 55000);
+  var _status = 0;
   fetch("https://merry-flan-9e55eb.netlify.app/.netlify/functions/ghl-insights", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({})
+    body: JSON.stringify({}),
+    signal: _laCtrl ? _laCtrl.signal : undefined
   })
-  .then(function(r) { return r.json(); })
-  .then(function(d) {
+  // Read the body as text first so a non-JSON reply (a server timeout or crash
+  // returns an HTML error page) gives a useful message instead of a raw
+  // "Unexpected token '<'" parse error.
+  .then(function(r) { _status = r.status; return r.text(); })
+  .then(function(raw) {
+    clearTimeout(_laTimer);
+    var d;
+    try { d = JSON.parse(raw); }
+    catch (e) {
+      if (_status === 502 || _status === 504 || /timeout|timed out/i.test(raw)) {
+        showStatus("insightsStatus", "The lead analysis took too long and the server timed out (it can only run for about 10 seconds). Nothing was changed. This is a server-side limit on the lead-insights function, not the app — content generation still works from the last synced insights.", "error");
+      } else if (_status >= 500) {
+        showStatus("insightsStatus", "The lead-insights server hit an error (HTTP " + _status + "). Nothing was changed. Content generation still works from the last synced insights.", "error");
+      } else {
+        showStatus("insightsStatus", "The lead checker got an unexpected reply from the server (HTTP " + (_status || "?") + "). Nothing was changed. Content generation still works from the last synced insights.", "error");
+      }
+      return;
+    }
     if (d.error) {
-      showStatus("insightsStatus", "Error: " + d.error, "error");
+      showStatus("insightsStatus", "Lead checker error: " + d.error + ". Nothing was changed; the last synced insights are still in use.", "error");
+      return;
+    }
+    if (!d.themes || !d.themes.length) {
+      showStatus("insightsStatus", "The server replied but found no lead conversations to analyse. Check the GoHighLevel connection. The last synced insights are still in use.", "error");
       return;
     }
     leadInsights = d;
@@ -1168,7 +1194,12 @@ function syncLeadInsights() {
     showStatus("insightsStatus", "Synced! Analysed " + (d.contactsAnalysed || 0) + " leads and " + (d.messagesAnalysed || 0) + " messages. Content generation now uses these insights.", "success");
   })
   .catch(function(e) {
-    showStatus("insightsStatus", "Sync failed: " + e.message, "error");
+    clearTimeout(_laTimer);
+    if (e && e.name === "AbortError") {
+      showStatus("insightsStatus", "The lead analysis took too long and was stopped after a minute. Nothing was changed; the last synced insights are still in use. If this keeps happening the lead-insights server function needs to run as a background job.", "error");
+    } else {
+      showStatus("insightsStatus", "Could not reach the lead-insights server (" + (e && e.message ? e.message : "connection failed") + "). Nothing was changed; the last synced insights are still in use.", "error");
+    }
   });
 }
 
@@ -1970,6 +2001,19 @@ function validatePost(text, short, publishMonth, postType) {
       /\b(?:two|three|four|five|several|multiple)\s+trips\b/i.test(body) ||     // "four trips to the car"
       /\b(?:carrying|lifting|lift|carry|pick(?:ing)? up|playing with|down (?:on )?the floor with|on the floor with|keep up with)\s+(?:the\s+|my\s+|your\s+|his\s+|her\s+|their\s+)?(?:grandkids?|grandchildren|grandson|granddaughter|grandchild)\b/i.test(body) ||
       /\b(?:getting (?:up|off) (?:the|your) )?(?:sofa|settee|couch)\b/i.test(body) && /\b(?:get(?:ting)? (?:up|off)|rise|rising|stand(?:ing)?)\b/i.test(body)) warnings.push("Shopping cliche");
+  // Garbled / broken text — the model occasionally produces a mangled sentence or
+  // word-salad ("That is what This is someone.") that no detector caught. Flag a
+  // doubled word, a known garble pattern, or a post that ends mid-thought.
+  (function() {
+    var garbled = false;
+    var dblOk = { had: 1, that: 1, no: 1 };
+    var dbl = body.match(/\b([a-z]{2,})\s+\1\b/gi) || [];
+    if (dbl.some(function(d) { return !dblOk[d.split(/\s+/)[0].toLowerCase()]; })) garbled = true;
+    if (/\bis what (?:this|that|it) is\b/i.test(body)) garbled = true;
+    if (/\b(?:this|that|it) is (?:someone|something)\s*[.!?]?\s*$/i.test(body.trim())) garbled = true;
+    if (/(?:^|[.!?]\s)(?:and|but|or|the|an?|to|of|with|for|from|into|because|which|that is what)\s*[.!?]?\s*$/i.test(body.trim())) garbled = true;
+    if (garbled) warnings.push("Garbled text");
+  })();
   // Generic SPS sales boilerplate — the interchangeable reassurance filler that
   // pads a post instead of saying anything ("coaching that meets you where you
   // are", "a group that gets it", "week after week... that's where the shift
@@ -2743,6 +2787,7 @@ var BLOCKING_WARNINGS = [
   "Shopping cliche",
   "Boilerplate filler",
   "Model refusal",
+  "Garbled text",
   "Session frequency too high",
   "Stray mid-sentence capital",
   "Group size claim",
@@ -6682,6 +6727,34 @@ function exportInstagramCSV() {
 // that cannot pass rarely recovers by rewording. Runs sequentially so the API
 // calls do not collide. Only posts that STILL fail after this fall back to being
 // held back — so in practice nothing is left behind.
+// Pre-vetted, rule-compliant posts used as a hard floor: if a slot cannot be
+// cleaned after every regeneration attempt, it is filled with one of these so the
+// batch never exports a gap or a broken post. Rare once the angles are fixed.
+var SAFE_FILL = {
+  women: [
+    "The first few weeks of lifting feel clumsy. You are thinking about your feet, your grip, your breathing all at once, and none of it flows.\n\nThen one session it clicks. The movement that felt awkward suddenly feels like yours.\n\nStrength is a skill, not something you are born with or without. You practise it, you get coached on it, and it comes.\n\nThe weight on the bar is just the proof it is working.\n\nMessage us to find out more.",
+    "You turn up after a day that has chewed you up. Head full, shoulders round your ears.\n\nThen the session starts and for that stretch of time there is no room for any of it. The noise goes quiet because there is nowhere for it to go.\n\nYou leave lighter. Not because anything got solved, but because you put it down for a while.\n\nMost women here started training for the strength. The clearer head is the bit they would miss most if they stopped.\n\nGroup personal training in Halesowen. Message us to find out more.",
+    "The fear that lifting will make you bulky will not die, so here is the truth. It will not.\n\nBuilding that kind of size takes years of dedicated eating and training aimed squarely at it. It does not happen by accident because you picked up a barbell.\n\nWhat actually happens is you get stronger. You feel solid rather than fragile.\n\nLifting gives you a body that does more. That is the opposite of what you were worried about.\n\nMessage us to find out more."
+  ],
+  men: [
+    "Ask the men who have been training a while what changed first, and a lot of them land on the same thing. They sleep.\n\nNot half-sleep, waking at three with the day already running through their head. Proper sleep.\n\nA desk job wears out your head, not your body, so your body never asks to rest. Put it under real physical work and it does.\n\nBetter sleep, a clearer head, less of that wrung-out feeling by the end of the day.\n\nMessage us to find out more.",
+    "The blokes who are still strong and steady in their seventies did not get lucky. They kept training when it would have been easier to stop.\n\nStrength is the quiet thing that decides how the next thirty years go. Whether you get out of a low chair without planning it. Whether you are the one carrying things or the one asking for help.\n\nNone of that is settled at seventy. It is settled now, in your forties and fifties.\n\nGroup personal training in Halesowen. Message us to find out more.",
+    "The dread before a first session is almost always worse than the session itself. People build it up for weeks.\n\nThen they turn up, and none of it happens.\n\nYou tell the coach what is going on with you, you are shown each movement and watched while you do it, and nobody is paying you the slightest attention.\n\nYou will not be the fittest in the room, and you are not meant to be.\n\nMessage us to find out more."
+  ],
+  all: [
+    "The bloke in the corner shifts his weight mid-set and his jaw tightens. Your coach sees all of it.\n\nThe side you favour. The breath that catches when you brace.\n\nThey do not announce it. They adjust the angle, change the implement, swap the movement if needed.\n\nYou think you are just following the programme. You are. But the programme is following you too.\n\nMessage us to find out more.",
+    "You are told soreness means you worked hard. It does not.\n\nSoreness just means you did something unfamiliar. A properly coached session that challenges you will not necessarily leave you hobbling the next day.\n\nProgress comes from load you can recover from, done with someone watching your form when fatigue starts to change it.\n\nNot from how wrecked you felt afterwards.\n\nMessage us to find out more."
+  ]
+};
+var _safeFillIdx = { women: 0, men: 0, all: 0 };
+function safeFillPost(aud) {
+  var key = (aud === "women") ? "women" : (aud === "men") ? "men" : "all";
+  var list = SAFE_FILL[key] || SAFE_FILL.all;
+  var post = list[_safeFillIdx[key] % list.length];
+  _safeFillIdx[key]++;
+  return post;
+}
+
 function autoFixBlocked(cb) {
   var blocked = queue.filter(function(q) {
     return blockingWarnings(q.text, q.short, q.approved, monthOfQueueItem(q), q.type).length > 0;
@@ -6701,14 +6774,22 @@ function autoFixBlocked(cb) {
   function finish() {
     releaseWakeLock();
     _editorEnabled = _edWas;
+    // Hard floor: any post STILL blocked after every regeneration attempt gets its
+    // slot filled with a pre-vetted clean post, so the batch never exports a gap or
+    // a broken post. The fill is flagged so it is easy to spot and improve later.
+    var filled = 0;
+    queue.forEach(function(q) {
+      if (blockingWarnings(q.text, q.short, q.approved, monthOfQueueItem(q), q.type).length > 0) {
+        q.text = safeFillPost(q.aud);
+        q.safeFilled = true;
+        filled++;
+      }
+    });
     renderQueue();
     if (typeof saveQueueToSheets === "function") saveQueueToSheets();
     if (typeof flushHistoryToStore === "function") flushHistoryToStore();
-    var stillBad = queue.filter(function(q) {
-      return blockingWarnings(q.text, q.short, q.approved, monthOfQueueItem(q), q.type).length > 0;
-    });
-    if (stillBad.length) {
-      showStatus("queueStatus", stillBad.length + " post" + (stillBad.length !== 1 ? "s" : "") + " could not be auto-fixed — held back. Open to edit or Approve anyway.", "error");
+    if (filled) {
+      showStatus("queueStatus", "All flagged posts cleared. " + filled + " that could not be rewritten were filled with a safe post (marked, edit if you want). Exporting...", "success");
     } else {
       showStatus("queueStatus", "All flagged posts fixed. Exporting...", "success");
     }
