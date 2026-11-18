@@ -23,27 +23,66 @@ exports.handler = async function(event) {
     "Accept": "application/json"
   };
 
+  // --- Time budget --------------------------------------------------------
+  // Netlify kills a synchronous function at ~10 seconds. If that happens
+  // mid-run it returns an HTML error page, which the app cannot parse as JSON
+  // ("Unexpected token '<'"). To stay bomb-proof we cap the GoHighLevel
+  // fetching at a few seconds, leaving headroom for the Claude call, and we
+  // ALWAYS return valid JSON — even on failure — so the app never sees HTML.
+  var START = Date.now();
+  var GHL_BUDGET_MS = 5000;   // stop pulling GHL data after 5s
+  var MAX_LEADS = 40;         // sample up to this many leads
+  var MAX_MSGS = 80;          // stop once we have this many messages
+  var CONVOS_PER_LEAD = 2;    // most recent couple of conversations per lead
+  var CONCURRENCY = 6;        // parallel GHL requests
+
+  function budgetLeft() { return (Date.now() - START) < GHL_BUDGET_MS; }
+
+  function fetchJson(url, ms) {
+    // Per-request timeout so one slow upstream call can't stall the whole run.
+    var ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function() { ctrl.abort(); }, ms || 3000) : null;
+    return fetch(url, { headers: ghlHeaders, signal: ctrl ? ctrl.signal : undefined })
+      .then(function(r) {
+        if (timer) clearTimeout(timer);
+        if (!r.ok) return { __notOk: r.status };
+        return r.json();
+      })
+      .catch(function() { if (timer) clearTimeout(timer); return { __err: true }; });
+  }
+
+  function extractMessages(msgData) {
+    var messages = [];
+    if (!msgData || msgData.__err || msgData.__notOk) return messages;
+    if (Array.isArray(msgData)) messages = msgData;
+    else if (Array.isArray(msgData.messages)) messages = msgData.messages;
+    else if (msgData.messages && Array.isArray(msgData.messages.messages)) messages = msgData.messages.messages;
+    else if (Array.isArray(msgData.data)) messages = msgData.data;
+    return messages;
+  }
+
+  function isInbound(m) {
+    var dir = m.direction || m.type || "";
+    return (dir === "inbound" || dir === "incoming" || dir === 1 || String(dir) === "1");
+  }
+
   try {
     var allMessages = [];
     var contactsAnalysed = 0;
     var debugLog = [];
 
-    // Step 1 — get contacts directly, not via conversations
-    var contactsRes = await fetch(
-      "https://services.leadconnectorhq.com/contacts/?locationId=" + GHL_LOC + "&limit=100",
-      { headers: ghlHeaders }
+    // Step 1 — contacts
+    var contactsData = await fetchJson(
+      "https://services.leadconnectorhq.com/contacts/?locationId=" + GHL_LOC + "&limit=100", 4000
     );
-
-    if (!contactsRes.ok) {
-      var errText = await contactsRes.text();
+    if (contactsData.__notOk || contactsData.__err) {
       return { statusCode: 200, headers, body: JSON.stringify({
-        error: "Contacts fetch failed: " + contactsRes.status + " " + errText,
+        error: "Contacts fetch failed" + (contactsData.__notOk ? (": " + contactsData.__notOk) : ""),
         themes: [], commonQuestions: [], commonObjections: [], keyPhrases: [],
         contactsAnalysed: 0, messagesAnalysed: 0, lastUpdated: new Date().toISOString()
       })};
     }
 
-    var contactsData = await contactsRes.json();
     var contacts = contactsData.contacts || contactsData.data || [];
     debugLog.push("Total contacts found: " + contacts.length);
 
@@ -54,125 +93,117 @@ exports.handler = async function(event) {
     });
     debugLog.push("Leads without AI off tag: " + leads.length);
 
-    // Step 2 — for each lead get their conversations
-    for (var i = 0; i < Math.min(leads.length, 50); i++) {
-      var lead = leads[i];
-      contactsAnalysed++;
+    var pool = leads.slice(0, MAX_LEADS);
+    var idx = 0;
 
-      try {
-        // Get conversations for this specific contact
-        var convRes = await fetch(
-          "https://services.leadconnectorhq.com/conversations/search?locationId=" + GHL_LOC + "&contactId=" + lead.id + "&limit=10",
-          { headers: ghlHeaders }
+    // Worker: pulls leads off a shared index and fetches their conversations +
+    // messages. Runs CONCURRENCY of these at once instead of one lead at a
+    // time, so the whole sweep takes seconds, not minutes.
+    async function worker() {
+      while (idx < pool.length && allMessages.length < MAX_MSGS && budgetLeft()) {
+        var lead = pool[idx++];
+        contactsAnalysed++;
+
+        var convData = await fetchJson(
+          "https://services.leadconnectorhq.com/conversations/search?locationId=" + GHL_LOC +
+          "&contactId=" + lead.id + "&limit=5", 3000
         );
+        var conversations = (convData && (convData.conversations || convData.data)) || [];
 
-        if (!convRes.ok) continue;
-        var convData = await convRes.json();
-        var conversations = convData.conversations || convData.data || [];
-
-        for (var j = 0; j < conversations.length; j++) {
+        for (var j = 0; j < Math.min(conversations.length, CONVOS_PER_LEAD); j++) {
+          if (allMessages.length >= MAX_MSGS || !budgetLeft()) break;
           var conv = conversations[j];
+          if (!conv || !conv.id) continue;
 
-          try {
-            var msgRes = await fetch(
-              "https://services.leadconnectorhq.com/conversations/" + conv.id + "/messages?limit=50",
-              { headers: ghlHeaders }
-            );
-
-            if (!msgRes.ok) continue;
-            var msgData = await msgRes.json();
-
-            var messages = [];
-            if (Array.isArray(msgData)) messages = msgData;
-            else if (Array.isArray(msgData.messages)) messages = msgData.messages;
-            else if (msgData.messages && Array.isArray(msgData.messages.messages)) messages = msgData.messages.messages;
-            else if (Array.isArray(msgData.data)) messages = msgData.data;
-
-            messages.forEach(function(m) {
-              var body = m.body || m.message || m.text || m.content || "";
-              var dir = m.direction || m.type || "";
-              if (body && body.length > 5 && (dir === "inbound" || dir === "incoming" || dir === 1 || String(dir) === "1")) {
-                allMessages.push(body.substring(0, 400));
-              }
-            });
-
-          } catch(e) {}
-        }
-
-      } catch(e) {
-        debugLog.push("Lead " + lead.id + " error: " + e.message);
-      }
-    }
-
-    debugLog.push("Total inbound messages found: " + allMessages.length);
-
-    // If still 0 inbound, grab outbound too for context
-    if (allMessages.length === 0) {
-      debugLog.push("No inbound messages — trying all message types");
-      for (var i = 0; i < Math.min(leads.length, 20); i++) {
-        var lead = leads[i];
-        try {
-          var convRes = await fetch(
-            "https://services.leadconnectorhq.com/conversations/search?locationId=" + GHL_LOC + "&contactId=" + lead.id + "&limit=5",
-            { headers: ghlHeaders }
+          var msgData = await fetchJson(
+            "https://services.leadconnectorhq.com/conversations/" + conv.id + "/messages?limit=30", 3000
           );
-          if (!convRes.ok) continue;
-          var convData = await convRes.json();
-          var conversations = convData.conversations || [];
-
-          for (var j = 0; j < conversations.length; j++) {
-            var msgRes = await fetch(
-              "https://services.leadconnectorhq.com/conversations/" + conversations[j].id + "/messages?limit=20",
-              { headers: ghlHeaders }
-            );
-            if (!msgRes.ok) continue;
-            var msgData = await msgRes.json();
-            var messages = Array.isArray(msgData.messages) ? msgData.messages : [];
-            if (messages.messages) messages = messages.messages;
-
-            messages.forEach(function(m) {
-              var body = m.body || m.message || m.text || "";
-              if (body && body.length > 5) {
-                allMessages.push("[" + (m.direction||"?") + "] " + body.substring(0, 300));
-              }
-            });
-          }
-        } catch(e) {}
+          extractMessages(msgData).forEach(function(m) {
+            var body = m.body || m.message || m.text || m.content || "";
+            if (body && body.length > 5 && isInbound(m)) {
+              allMessages.push(body.substring(0, 400));
+            }
+          });
+        }
       }
-      debugLog.push("After trying all types: " + allMessages.length + " messages");
+    }
+
+    var workers = [];
+    for (var w = 0; w < CONCURRENCY; w++) workers.push(worker());
+    await Promise.all(workers);
+
+    debugLog.push("Inbound messages found: " + allMessages.length + " (budget used " + (Date.now() - START) + "ms)");
+
+    // Fallback — if no inbound messages at all and we still have budget, grab a
+    // few of any direction for context (parallel, capped hard).
+    if (allMessages.length === 0 && budgetLeft()) {
+      debugLog.push("No inbound — trying any direction");
+      var fbLeads = leads.slice(0, 12);
+      await Promise.all(fbLeads.map(async function(lead) {
+        if (allMessages.length >= 40 || !budgetLeft()) return;
+        var convData = await fetchJson(
+          "https://services.leadconnectorhq.com/conversations/search?locationId=" + GHL_LOC +
+          "&contactId=" + lead.id + "&limit=3", 2500
+        );
+        var conversations = (convData && (convData.conversations || convData.data)) || [];
+        for (var j = 0; j < Math.min(conversations.length, 2); j++) {
+          if (allMessages.length >= 40 || !budgetLeft()) break;
+          if (!conversations[j] || !conversations[j].id) continue;
+          var msgData = await fetchJson(
+            "https://services.leadconnectorhq.com/conversations/" + conversations[j].id + "/messages?limit=20", 2500
+          );
+          extractMessages(msgData).forEach(function(m) {
+            var body = m.body || m.message || m.text || "";
+            if (body && body.length > 5) allMessages.push("[" + (m.direction || "?") + "] " + body.substring(0, 300));
+          });
+        }
+      }));
+      debugLog.push("After fallback: " + allMessages.length + " messages");
     }
 
     if (allMessages.length === 0) {
-      return {
-        statusCode: 200, headers,
-        body: JSON.stringify({
-          themes: [], commonQuestions: [], commonObjections: [], keyPhrases: [],
-          contactsAnalysed, messagesAnalysed: 0,
-          message: "Found " + leads.length + " leads but no messages. " + debugLog.join(" | "),
-          debug: debugLog,
-          lastUpdated: new Date().toISOString()
-        })
-      };
+      return { statusCode: 200, headers, body: JSON.stringify({
+        themes: [], commonQuestions: [], commonObjections: [], keyPhrases: [],
+        contactsAnalysed: contactsAnalysed, messagesAnalysed: 0,
+        message: "Found " + leads.length + " leads but no messages. " + debugLog.join(" | "),
+        debug: debugLog, lastUpdated: new Date().toISOString()
+      })};
     }
 
-    // Claude analysis
+    // Claude analysis — bounded so it can't hang the function past the Netlify limit.
     var messagesText = allMessages.slice(0, 60).join("\n---\n");
-    var claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 1000,
-        system: "You analyse messages from fitness gym leads. Return ONLY valid JSON: { themes: string[], commonQuestions: string[], commonObjections: string[], keyPhrases: string[] }. Be specific to what actually appears in the messages.",
-        messages: [{ role: "user", content: "Analyse these gym lead messages:\n\n" + messagesText }]
-      })
-    });
+    var claudeCtrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+    var claudeTimer = claudeCtrl ? setTimeout(function() { claudeCtrl.abort(); }, 8000) : null;
 
-    var claudeData = await claudeRes.json();
-    var text = claudeData.content ? claudeData.content.map(function(b) { return b.text||""; }).join("") : "";
     var insights;
-    try { insights = JSON.parse(text.replace(/```json|```/g,"").trim()); }
-    catch(e) { insights = { themes:[], commonQuestions:[], commonObjections:[], keyPhrases:[] }; }
+    try {
+      var claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01" },
+        signal: claudeCtrl ? claudeCtrl.signal : undefined,
+        body: JSON.stringify({
+          model: "claude-sonnet-4-5",
+          max_tokens: 1000,
+          system: "You analyse messages from fitness gym leads. Return ONLY valid JSON: { themes: string[], commonQuestions: string[], commonObjections: string[], keyPhrases: string[] }. Be specific to what actually appears in the messages.",
+          messages: [{ role: "user", content: "Analyse these gym lead messages:\n\n" + messagesText }]
+        })
+      });
+      if (claudeTimer) clearTimeout(claudeTimer);
+      var claudeData = await claudeRes.json();
+      var text = claudeData.content ? claudeData.content.map(function(b) { return b.text || ""; }).join("") : "";
+      try { insights = JSON.parse(text.replace(/```json|```/g, "").trim()); }
+      catch (e) { insights = { themes: [], commonQuestions: [], commonObjections: [], keyPhrases: [] }; }
+    } catch (e) {
+      if (claudeTimer) clearTimeout(claudeTimer);
+      // Collected the messages but the analysis step failed/timed out — still
+      // return valid JSON so the app shows a clean message, not an HTML error.
+      return { statusCode: 200, headers, body: JSON.stringify({
+        error: "Collected " + allMessages.length + " messages but the analysis step timed out. Try again.",
+        themes: [], commonQuestions: [], commonObjections: [], keyPhrases: [],
+        contactsAnalysed: contactsAnalysed, messagesAnalysed: allMessages.length,
+        debug: debugLog, lastUpdated: new Date().toISOString()
+      })};
+    }
 
     insights.contactsAnalysed = contactsAnalysed;
     insights.messagesAnalysed = allMessages.length;
@@ -181,7 +212,12 @@ exports.handler = async function(event) {
 
     return { statusCode: 200, headers, body: JSON.stringify(insights) };
 
-  } catch(err) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
+  } catch (err) {
+    // Last-resort guard: always JSON, never an HTML crash page.
+    return { statusCode: 200, headers, body: JSON.stringify({
+      error: err && err.message ? err.message : "Unknown error",
+      themes: [], commonQuestions: [], commonObjections: [], keyPhrases: [],
+      contactsAnalysed: 0, messagesAnalysed: 0, lastUpdated: new Date().toISOString()
+    })};
   }
 };
