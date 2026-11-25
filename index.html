@@ -1340,6 +1340,40 @@ function publishDateContext(dateStr) {
     " Never reference a month as a deadline, a start date or a promotion.";
 }
 
+// Detect the time of year and return an on-brand brief for seasonal posts, so a
+// December post is actually about the Christmas period, not a generic "any week
+// is a good week" line. Keeps the SPS voice: no countdowns, no deadlines, no
+// "burn off the turkey", no weight or appearance, no new-year offers. `strong`
+// marks the windows (December, New Year) that get an extra seasonal post.
+function seasonalBrief(dateStr) {
+  var d = dateStr ? new Date(dateStr + "T12:00:00") : new Date();
+  if (isNaN(d.getTime())) d = new Date();
+  var m = d.getMonth();
+  var map = {
+    11: { period: "the Christmas period", strong: true, brief: "It is the Christmas period. Write about training and the gym in the reality of December: the diary filling up, late nights, family and social things, dark cold evenings, and the pull to let everything slide until January. The honest SPS take is that December is not the month to start a transformation and not the month to punish yourself over a mince pie. It is the month where holding on to one or two sessions a week keeps your head straight through the busiest, most draining stretch of the year, and means you walk into January already going rather than starting from nothing. You may mention Christmas, the festive season, the party season, the dark evenings, the chaos of December. Do NOT do a countdown or a deadline, do NOT frame training as burning off Christmas food or earning your dinner, do NOT mention weight, calories or how anyone looks, and do NOT pitch a new year offer. No guilt. Keep the tone steady and reassuring, not urgent." },
+    0:  { period: "the new year period", strong: true, brief: "It is the new year period, when every gym in the country is shouting new year, new you. The honest SPS take is the opposite of that noise: the January rush fades by February because it runs on motivation and a fresh-start feeling rather than on a routine. You do not need a new year, a Monday or a perfect week to begin, and starting now in the quiet, unglamorous way beats waiting for the calendar. You may acknowledge new year and resolutions. Do NOT sell a new year transformation, do NOT use new-year-new-you language except to push against it, do NOT mention weight loss or appearance, and do NOT set a January deadline or promotion." },
+    1:  { period: "deep winter", strong: false, brief: "It is the depth of winter: dark cold mornings and evenings, the unglamorous middle of the year when motivation is at its lowest and simply showing up matters most. The new year moment has passed, so do not reach for resolution talk. Write about consistency through the hardest-to-train stretch." },
+    2:  { period: "early spring", strong: false, brief: "It is early spring: the evenings slowly drawing lighter, a bit of lift in the air, routines that can re-form now the worst of winter is behind. Do not mention summer bodies or getting ready for holidays." },
+    3:  { period: "spring", strong: false, brief: "It is spring: lighter evenings, more energy about, a natural time to rebuild a routine. Do not mention summer bodies or holiday prep or appearance." },
+    4:  { period: "late spring", strong: false, brief: "It is late spring: long light evenings, good conditions for getting consistent before summer disrupts things. Do not do beach-body or summer-body framing." },
+    5:  { period: "summer", strong: false, brief: "It is summer: holidays, time off, broken routines, hot weather, kids off school. The honest take is training around a disrupted summer rather than abandoning it, and how a couple of sessions a week holds things together. Do NOT do summer-body or beach-body framing and do not mention weight or appearance." },
+    6:  { period: "summer", strong: false, brief: "It is high summer: heat, holidays and scattered routines. Write about keeping a thread of training through a disrupted stretch, not starting a big push. No summer-body or appearance framing." },
+    7:  { period: "late summer", strong: false, brief: "It is late summer: the tail of the holidays, routines about to reset as September comes. Write about easing back in rather than a hard restart. No appearance framing." },
+    8:  { period: "the September reset", strong: false, brief: "It is September, the back-to-routine month after summer, kids back at school, the natural reset that is more real and more useful than January. A genuinely good, honest time to restart without any fresh-start hype." },
+    9:  { period: "autumn", strong: false, brief: "It is autumn: darker evenings drawing in, the shift back indoors, settling into a routine before winter. Write about building something steady now while it is easier than in the depths of winter." },
+    10: { period: "late autumn", strong: false, brief: "It is November: dark evenings, the long stretch before Christmas, the value of being steady now before December gets busy and chaotic." }
+  };
+  return map[m] || null;
+}
+
+// Month index for the batch being planned (from the chosen start date, else today).
+function currentBatchMonth() {
+  var el = (typeof document !== "undefined") ? document.getElementById("planStartDate") : null;
+  var ds = el && el.value ? el.value : null;
+  var d = ds ? new Date(ds + "T12:00:00") : new Date();
+  return isNaN(d.getTime()) ? new Date().getMonth() : d.getMonth();
+}
+
 // Return one real lead question from synced GHL insights, or "" if none loaded.
 function realLeadQuestion() {
   if (typeof leadInsights === "undefined" || !leadInsights) return "";
@@ -1354,6 +1388,14 @@ function getPrompt(type, aud, ctx, short, publishDate, structureBrief) {
   var dateCtx = publishDateContext(publishDate);
   if (dateCtx) p = p + dateCtx;
   if (ctx) p = p + " Specific focus for this post: " + ctx + ".";
+  // Seasonal posts get a period-specific brief so they are genuinely about the
+  // current time of year (Christmas in December, the new year in January, etc.),
+  // overriding the general "most posts should not mention the time of year" rule
+  // for this one post type only.
+  if (type === "seasonal") {
+    var sInfo = seasonalBrief(publishDate);
+    if (sInfo) p = p + " SEASONAL FOCUS (this post SHOULD be about the time of year): " + sInfo.brief;
+  }
   // Structure is the engagement lever: it forces this post into a specific shape
   // so the batch does not collapse into the same worn-out arc every time.
   if (structureBrief) {
@@ -6075,6 +6117,12 @@ function buildBatchPlan(days) {
     {type:"evidence",     aud:"everyone"},
     {type:"myth",         aud:"everyone"}
   ];
+  // In the strong seasonal windows (December's Christmas period, January's new
+  // year), add a SECOND seasonal post so the time of year is actually present in
+  // the week, without flooding the feed. Replaces one of the several myth posts,
+  // kept clear of the existing seasonal slot (index 23) so the two are not adjacent.
+  var _bm = currentBatchMonth();
+  if (_bm === 11 || _bm === 0) fullPlan[11] = { type: "seasonal", aud: "women" };
   // BUG9: assign angles with theme-key diversity (max 2 posts per theme across
   // the batch), tracked in memory so it holds regardless of Blobs history.
   // BUG8: every fourth post is short form.
